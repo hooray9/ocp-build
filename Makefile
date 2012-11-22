@@ -29,8 +29,8 @@ ocp-build/ocp-build.boot: boot/ocp-build.boot
 	cp -f boot/ocp-build.boot ocp-build/ocp-build.boot
 
 WIN32_FILES= \
-  libs/stubs/win32/win32_waitpids_c.c \
-  libs/stubs/win32/win32_fileinfo_c.c
+  libs/ocplib/ocplib-win32/win32_waitpids_c.c \
+  libs/ocplib/ocplib-win32/win32_fileinfo_c.c
 
 ocp-build/win32_c.c: $(WIN32_FILES)
 	cat $(WIN32_FILES) > ocp-build/win32_c.c
