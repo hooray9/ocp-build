@@ -54,7 +54,7 @@ let generate_completion dir =
         if Filename.check_suffix basename ".cmi" then
           let filename = Filename.concat dirname basename in
           try
-            let cmi = Cmi_file.read filename in
+            let cmi = Cmi_format.read_cmi filename in
             let modname = cmi.Cmi_format.cmi_name in
             iter_signature modname cmi.Cmi_format.cmi_sign
           with e ->

@@ -39,7 +39,7 @@ begin library "ocaml-utils"
   subdir += [ "utils" ]
   files = [
     "misc.ml";
-    "tbl.ml" (no_mli = true)
+    "tbl.ml" (* (no_mli = true) *)
     "config.mli"
     "config.mlp" (ml = true
                   pp_requires = [ "ocp-subst-config:byte" ]
@@ -81,10 +81,10 @@ begin library "ocaml-typing"
   subdir += [ "typing" ]
   files = [
 (*    "unused_var.ml"; *)
-    "ident.ml" ( no_mli = true )
+    "ident.ml" (* ( no_mli = true ) *)
     "path.ml";
     "primitive.ml";
-    "types.ml" ( no_mli = true )
+    "types.ml" (* ( no_mli = true ) *)
     "annot.mli";
     "btype.ml";
     "outcometree.mli";
@@ -93,7 +93,7 @@ begin library "ocaml-typing"
     "predef.ml";
     "datarepr.ml";
     "cmi_format.ml";
-     "env.ml" ( no_mli = true )
+     "env.ml" (* ( no_mli = true ) *)
     "typedtree.ml";
     "cmt_format.ml";
     "ctype.ml";

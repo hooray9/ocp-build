@@ -10,6 +10,8 @@
 (*  contact@ocamlpro.com (http://www.ocamlpro.com/)                       *)
 (**************************************************************************)
 
+(*
+
 begin library "ocaml-bincompat"
   files = [
     "bincompat.ml";
@@ -49,3 +51,4 @@ begin library "ocaml-bincompat"
   ]
   requires =  [ "ocplib-lang" "ocaml-typing" ]
 end
+*)
