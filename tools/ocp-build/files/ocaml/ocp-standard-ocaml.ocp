@@ -47,4 +47,40 @@ begin
     has_asm  = true
   end
 
+
+  dirname = [ "%{OCAMLLIB}%/compiler-libs" ]
+  begin library "ocamlcommon"
+  end
+  begin library "ocamlbytecomp"
+    requires = [ "ocamlcommon" ]
+  end
+  begin library "ocamloptcomp"
+    requires = [ "ocamlcommon" ]
+  end
+
 end
+
+
+  begin library "ocaml-bytecomp"
+      requires = [ "ocamlbytecomp" ]
+  end
+
+  begin library "ocaml-typing"
+      requires = [ "ocamlcommon" ]
+  end
+
+  begin library "ocaml-parsing"
+      requires = [ "ocamlcommon" ]
+  end
+
+  begin library "ocaml-utils"
+      requires = [ "ocamlcommon" ]
+  end
+
+  begin library "ocaml-driver"
+      requires = [ "ocamlbytecomp" ]
+  end
+
+  begin library "ocaml-asmcomp-amd64"
+      requires = [ "ocamloptcomp" ]
+  end
