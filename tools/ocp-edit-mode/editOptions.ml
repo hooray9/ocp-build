@@ -62,13 +62,33 @@ let delete_trailing_whitespaces = create_option config
 
 let indent_use_tabs = create_option config
   [ "indent_use_tabs" ]
-  [ "Set only if you want to use tabulations instead of spaces" ]
-  bool_option false
+  [ "Set only if you want to use tabulations instead of spaces";
+    "(\"None\" to use the system setting)" ]
+  (option_option bool_option) (Some false)
 
 let show_paren_style = create_option config
   [ "show_paren_style" ]
-  [ "The style used to show parenthesis (\"parenthesis\" or \"expression\")" ]
-  string_option "parenthesis"
+  [ "The style used to show parenthesis";
+    "(\"parenthesis\" or \"expression\", or \"None\" to use the system setting)" ]
+  (option_option string_option) None
+
+let column_number_mode = create_option config
+  [ "column_number_mode" ]
+  [ "Show column numbers in the mode-line";
+    "(\"None\" to use the system setting)" ]
+  (option_option bool_option) None
+
+let require_final_newline = create_option config
+  [ "require_final_newline" ]
+  [ "Ensure the file always ends with a newline";
+    "(\"None\" to use the system setting)" ]
+  (option_option bool_option) (Some true)
+
+let auto_complete_key =  create_option config
+  [ "auto_complete_key" ]
+  [ "Key to use to trigger auto-completion";
+    "(\"None\" to use the system setting)" ]
+  (option_option string_option) (Some "TAB")
 
 let abbrevs = create_option config
   [ "abbreviations" ]

@@ -388,7 +388,9 @@ let safe_string s =
 
 let with_help = ref false
 
-let tabulate s = OcpString.replace_chars s  ['\n', "\n\t"]
+let comment s =
+  Printf.sprintf "(* %s *)"
+    (OcpString.replace_chars s  ['\n', " *)\n(* "])
 
 let compact_string oc f =
   let b = Buffer.create 100 in
@@ -429,8 +431,8 @@ let rec save_module indent oc list =
          [] -> assert false
        | [name] ->
            if !with_help && help <> "" then
-             Printf.bprintf oc "\n\t(* %s *)\n" (tabulate help);
-           Printf.bprintf oc "%s %s = " indent (safe_string name);
+             Printf.bprintf oc "\n%s\n" (comment help);
+           Printf.bprintf oc "%s%s = " indent (safe_string name);
            save_value indent oc value;
            Printf.bprintf oc "\n"
        | m :: tail ->
@@ -442,7 +444,7 @@ let rec save_module indent oc list =
     list;
   List.iter
     (fun (m, p) ->
-       Printf.bprintf oc "%s %s = {\n" indent (safe_string m);
+       Printf.bprintf oc "%s%s = {\n" indent (safe_string m);
        save_module (indent ^ "  ") oc !p;
        Printf.bprintf oc "%s}\n" indent)
     !subm
@@ -470,7 +472,7 @@ and save_value indent oc v =
       compact_string oc (fun oc ->
           Printf.bprintf oc "[";
           save_list_nl (indent ^ "  ") oc l;
-          Printf.bprintf oc "%s]" indent)
+          Printf.bprintf oc "\n%s]" indent)
   | DelayedValue f -> f oc indent
   | SmallList l ->
       Printf.bprintf oc "(";
@@ -495,7 +497,7 @@ and save_module_fields indent oc m =
   match m with
     [] -> ()
   | (name, v) :: tail ->
-      Printf.bprintf oc "%s %s = " indent (safe_string name);
+      Printf.bprintf oc "%s%s = " indent (safe_string name);
       save_value indent oc v;
       Printf.bprintf oc "\n";
       save_module_fields indent oc tail
@@ -727,7 +729,7 @@ let list_to_value c2v l =
     (fun oc indent ->
        Printf.bprintf oc "[";
        List.iter (save_delayed_list_value oc indent c2v) l;
-       Printf.bprintf oc "]")
+       Printf.bprintf oc "\n%s]" indent)
 
 let intmap_to_value name c2v map =
   DelayedValue
@@ -735,7 +737,7 @@ let intmap_to_value name c2v map =
        let save = save_delayed_list_value oc indent c2v in
        Printf.bprintf oc "[";
        IntMap.iter (fun _ v -> save v) map;
-       Printf.bprintf oc "]")
+       Printf.bprintf oc "\n%s]" indent)
 
 let hasharray_to_value x c2v l =
   DelayedValue
@@ -745,7 +747,7 @@ let hasharray_to_value x c2v l =
        for i = 0 to Array.length l - 1 do
          Hashtbl.iter (fun a b -> save (0, x, b)) l.(i)
        done;
-       Printf.bprintf oc "]")
+       Printf.bprintf oc "\n%s]" indent)
 
 let smalllist_to_value c2v l = SmallList (convert_list c2v l [])
 
@@ -893,16 +895,16 @@ let save opfile =
       if options <> [] then begin
         if s.section_name <> [] then begin
           Printf.bprintf oc "\n\n";
-          Printf.bprintf oc "    (************************************)\n";
+          Printf.bprintf oc "(*************************************)\n";
           if !title_opfile then begin
-            Printf.bprintf oc "    (*   Never edit options files while  *)\n";
-            Printf.bprintf oc "    (*       the program is running      *)\n";
-            Printf.bprintf oc "    (************************************)\n";
+            Printf.bprintf oc "(*   Never edit options files while  *)\n";
+            Printf.bprintf oc "(*       the program is running      *)\n";
+            Printf.bprintf oc "(*************************************)\n";
             title_opfile := false;
           end;
-          Printf.bprintf oc "    (* SECTION : %s *)\n" (string_of_string_list s.section_name);
-          Printf.bprintf oc "    (* %s *)\n" s.section_help;
-          Printf.bprintf oc "    (************************************)\n";
+          Printf.bprintf oc "(* SECTION : %-23s *)\n" (string_of_string_list s.section_name);
+          Printf.bprintf oc "(* %-33s *)\n" s.section_help;
+          Printf.bprintf oc "(*************************************)\n";
           Printf.bprintf oc "\n\n";
         end;
         save_module "" oc (List.map option_to_value options)
@@ -924,11 +926,11 @@ let save opfile =
           s.section_options in
         if options = [] then () else let _ = () in
                                      Printf.bprintf oc "\n\n";
-                                     Printf.bprintf oc "    (************************************)\n";
+                                     Printf.bprintf oc "(*************************************)\n";
 
-                                     Printf.bprintf oc "    (* SECTION : %s FOR EXPERTS *)\n" (string_of_string_list s.section_name);
-                                     Printf.bprintf oc "    (* %s *)\n" s.section_help;
-                                     Printf.bprintf oc "    (************************************)\n";
+                                     Printf.bprintf oc "(* SECTION : %-11s FOR EXPERTS *)\n" (string_of_string_list s.section_name);
+                                     Printf.bprintf oc "(* %-33s *)\n" s.section_help;
+                                     Printf.bprintf oc "(*************************************)\n";
                                      Printf.bprintf oc "\n\n";
                                      save_module "" oc (List.map option_to_value options)
       ) opfile.file_sections;

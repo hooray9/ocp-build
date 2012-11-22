@@ -127,6 +127,14 @@ let load_local_config filename =
        ]);
 ()
 
+let lisp_bool () = function
+  | true ->  "t"
+  | false -> "nil"
+
+let if_set opt f = match !!opt with
+  | Some o -> f o
+  | None -> ""
+
 let all_mode_hook mode filename =
   print_elist (
     [
@@ -152,12 +160,15 @@ let all_mode_hook mode filename =
       "(setq blink-matching-paren t)";
       "(setq blink-matching-paren-on-screen t)";
       "(make-variable-buffer-local 'show-paren-style)";
-      Printf.sprintf "(setq show-paren-style '%s)" !!show_paren_style;
+      if_set show_paren_style
+        (Printf.sprintf "(setq show-paren-style '%s)");
       "(setq blink-matching-paren-dont-ignore-comments t)";
       "(font-lock-mode t)";
       "(setq font-lock-maximum-decoration t)";
-      "(setq column-number-mode t)";
-      "(setq require-final-newline 'query)";
+      if_set column_number_mode
+        (Printf.sprintf "(setq column-number-mode %a)" lisp_bool);
+      if_set require_final_newline
+        (Printf.sprintf "(setq require-final-newline %a)" lisp_bool);
       "(require 'auto-complete-config)";
 
       "(defun ocp-candidates()";
@@ -203,13 +214,13 @@ let all_mode_hook mode filename =
       "(setq ac-sources '(ac-source-ocp-complete))";
 
       "(setq ac-auto-start nil)";
-      "(ac-set-trigger-key \"TAB\")";
+      if_set auto_complete_key
+        (Printf.sprintf "(ac-set-trigger-key \"%s\")");
 
       "(auto-complete-mode)";
 
-
-      Printf.sprintf "(setq indent-tabs-mode %s)"
-        (if !!indent_use_tabs then "t" else "nil");
+      if_set indent_use_tabs
+        (Printf.sprintf "(setq indent-tabs-mode %a)" lisp_bool);
       ] @
       List.map (fun (s1,s2) ->
         Printf.sprintf "  (define-abbrev %s-abbrev-table %S %S)" mode
