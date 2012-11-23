@@ -25,7 +25,7 @@ let config = SimpleConfig.create_config_file config_file
 
 (* the current version of this file. As soon as you add a new option,
   you should increase this value. *)
-let current_update = 5
+let current_update = 7
 
 let install_directory = create_option config
   [ "install_directory" ] [ "Where ocp-edit-mode files are stored";
