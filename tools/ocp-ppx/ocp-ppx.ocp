@@ -1,0 +1,10 @@
+
+begin library "ocplib-ppx"
+  files = [ "ppxPlugin.ml" ]
+  requires = [ "ocaml-parsing" ]
+end
+
+begin program "ocp-ppx"
+  files = [ "ppxMain.ml" ]
+  requires = [ "ocplib-ppx" "dynlink" ]
+end
