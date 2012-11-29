@@ -50,14 +50,11 @@ distclean: clean $(OCPBUILD)
 	$(OCPBUILD) -distclean
 
 
+TO_INSTALL = ocp-build ocp-fix-errors ocp-edit-mode ocp-spotter ocp-type-from-loc ocp-build-infer-env
 install:
 	mkdir -p $(TYPEREXDIR)
 	mkdir -p $(BINDIR)
-	cp _obuild/ocp-build/ocp-build.asm $(BINDIR)/ocp-build
-	cp _obuild/ocp-fix-errors/ocp-fix-errors.asm $(BINDIR)/ocp-fix-errors
-	cp _obuild/ocp-edit-mode/ocp-edit-mode.asm $(BINDIR)/ocp-edit-mode
-	cp _obuild/ocp-spotter/ocp-spotter.asm $(BINDIR)/ocp-spotter
-	cp _obuild/ocp-type-from-loc/ocp-type-from-loc.asm $(BINDIR)/ocp-type-from-loc
+	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)
 	rm -rf $(TYPEREXDIR)/ocp-edit-mode
 	cp -dpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
 
