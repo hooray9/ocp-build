@@ -8,7 +8,7 @@
 
 Configure:
 
-   ./configure -prefix /usr/local
+    ./configure -prefix /usr/local
 
 Build:
 
@@ -16,13 +16,13 @@ Build:
 
 Install:
 
-   make install
+    make install
 
 Build and read the documentation:
 
-   make doc
-   cd docs/user-manual
-   evince user-manual.pdf
+    make doc
+    cd docs/user-manual
+    evince user-manual.pdf
 
 
 ## To use it
@@ -32,4 +32,4 @@ Build and read the documentation:
 If you want to customize your typerex config:
 
     emacs ~/.ocp/ocp-edit-mode.conf
-   
+
