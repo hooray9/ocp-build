@@ -1,4 +1,3 @@
-
 To clone:
 ---------
 
@@ -11,18 +10,11 @@ To clone:
 To build:
 ---------
 
-1/ Install the sources of OCaml 4.00 as subdirectory ocaml/ocaml/
-
-    cd ocaml
-    svn checkout http://caml.inria.fr/svn/ocaml/version/4.00 ocaml
-    cd ..
-
-2/ configure
+1/ configure
 
    ./configure -prefix /usr/local
 
-3/ Build with ocp-build. You will need to create an ocp-build.conf file in 
-   the top directory.
+2/ Build
 
     make
 
@@ -36,4 +28,13 @@ To build:
    cd docs/user-manual
    evince user-manual.pdf
 
+
+To use it
+---------
+
+    ocp-edit-mode install -emacs
+
+If you want to customize your typerex config:
+
+    emacs ~/.ocp/ocp-edit-mode.conf
    
