@@ -1,36 +1,31 @@
-To clone:
----------
-
-0/ 
+## To clone
 
     git clone git@github.com:OCamlPro/typerex.git
     cd typerex
     git checkout typerex2
 
-To build:
----------
+## To build
 
-1/ configure
+Configure:
 
    ./configure -prefix /usr/local
 
-2/ Build
+Build:
 
     make
 
-4/ Install
+Install:
 
    make install
 
-5/ Build and read the documentation
+Build and read the documentation:
 
    make doc
    cd docs/user-manual
    evince user-manual.pdf
 
 
-To use it
----------
+## To use it
 
     ocp-edit-mode install -emacs
 
