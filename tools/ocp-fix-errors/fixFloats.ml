@@ -1,41 +1,36 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
 
 open ErrorLocation
 open Approx_lexer
-include Debug.Tag(struct let tag = "fixFloat" end)
 
-let rec to_float loc tokens indent =
+let rec to_float loc tokens b indent =
   match tokens with
-      [] -> []
+      [] -> ()
     | (token, (begin_pos, end_pos)) :: tokens ->
       begin
         match token with
             INT _
           | STAR | PLUS | MINUS | INFIXOP3 "/"
             ->
-              [loc.loc_file, end_pos, end_pos, "."]
-          | _ -> []
-      end@
-      to_float loc tokens indent
+              FixEmacs.(
+                insert_strings loc.loc_file (end_pos+1) [ fun b -> Buffer.add_char b '.' ] b indent
+              )
+          | _ -> ()
+      end;
+      to_float loc tokens b indent
 
 let to_float loc tokens =
   let tokens = List.rev tokens in
   List.iter (fun (token, _) ->
-    debug "FLOAT: %s\n%!" (Approx_lexer.string_of_token token)
+    Printf.fprintf stderr "FLOAT: %s\n%!" (Approx_lexer.string_of_token token)
   ) tokens;
 
-  to_float loc tokens ""
+  FixEmacs.(
+    with_elisp
+      [
+        find_file loc.loc_file;
+        to_float loc tokens;
+        save_current_buffer
+      ])
 
 let fix loc =
 

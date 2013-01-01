@@ -1,20 +1,4 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
 
-(* Tifn: we don't use this currently, because Edit takes care of
-   multiple replacement. This could be an alternative to alignment
-   with Diff, but only if we know that no other modifications happen
-   to the file. *)
 
 type edit_op =
     Insertion of (*pos: *) int * (*len: *) int
@@ -40,4 +24,3 @@ val find_file : string -> file
 val final_pos : file -> int -> int
 val add_edition : file -> edit_op -> unit
 
-val reset : unit -> unit

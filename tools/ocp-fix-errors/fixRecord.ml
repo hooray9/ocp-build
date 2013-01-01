@@ -1,34 +1,21 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
-
 (*
   - Add missing labels when creating an array (Error)
 *)
 
 open ErrorLocation
-include Debug.Tag(struct let tag = "fixRecord" end)
+open FixEmacs
 
 let fix loc error_line next_lines =
   let indented_lines = FixUtils.find_indented [] next_lines in
   let (_, error_line) = OcpString.cut_at error_line ':' in
   let (_, labels) = OcpString.cut_at error_line ':' in
   let labels = String.concat " " (labels :: indented_lines) in
-  debug "labels: [%s]\n%!" labels;
+  Printf.fprintf stderr "labels: [%s]\n%!" labels;
   let labels = OcpString.split_simplify labels ' ' in
 
   let abs_begin_pos = loc.loc_begin_pos in
   let abs_end_pos = loc.loc_end_pos in
-  debug "Filename: %s\n%!"
+  Printf.fprintf stderr "Filename: %s\n%!"
     (File.to_string loc.loc_file.file_file);
 
   let expr = String.sub loc.loc_file.file_content
@@ -54,19 +41,26 @@ let fix loc error_line next_lines =
   in
   let abs_end_pos = find_end expr false abs_end_pos (String.length expr - 1) in
 
-  debug "Expression: <%s>\n%!" expr;
+  Printf.fprintf stderr "Expression: <%s>\n%!" expr;
 
   let indent = String.make indent ' ' in
-  let first, labels =
-    match labels with
-      | first :: labels -> first, labels
-      | _ -> assert false
-  in
-  let b =Buffer.create 100 in
-  if !need_semicolon then Printf.bprintf b ";";
-  Printf.bprintf b "\n";
-  Printf.bprintf b "%s%s = assert false" indent first;
-  List.iter (Printf.bprintf b ";\n%s%s = assert false" indent) labels;
-  [loc.loc_file, abs_end_pos, abs_end_pos, Buffer.contents b
-  ],
-  "Inserted stubs for missing labels"
+
+  FixUtils.(
+    with_elisp
+      [
+        with_current_buffer loc.loc_file
+          [
+            insert_strings loc.loc_file (abs_end_pos+1)
+              [
+                (fun b ->
+                  if !need_semicolon then Printf.bprintf b ";";
+                  Printf.bprintf b "\n";
+                  List.iter (fun label ->
+                    Printf.bprintf b "%s%s = assert false;\n" indent label
+  (*    Printf.bprintf b "%s%s = %s (* added *);\n" indent label label *)
+                  ) labels;
+                  Printf.bprintf b "%s" indent)
+              ]
+          ];
+        print_message "Labels inserted, you need to complete it."
+  ])

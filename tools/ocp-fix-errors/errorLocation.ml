@@ -1,16 +1,3 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
-
 (*
 - Put a log file in ~/.ocp/ocp-fix-errors/edit.log
 - When reading a compilation buffer, compute the buffer identifier
@@ -21,7 +8,6 @@
 
 
 open Genlex
-include Debug.Tag(struct let tag = "errorLocation" end)
 
 type edit_op =
     Insertion of (*pos: *) int * (*len: *) int
@@ -43,7 +29,6 @@ type loc = {
 
 let files = ref StringMap.empty
 
-let reset () = files := StringMap.empty
 
 let lexer = Genlex.make_lexer [ "," ]
 
@@ -62,7 +47,7 @@ let find_file filename =
 
 let parse_location dirname line =
   let tokens = OcpGenlex.tokens_of_string lexer line in
-  List.iter (fun token -> debug "error?[%s]\n%!" (OcpGenlex.string_of_token token)) tokens;
+  List.iter (fun token -> Printf.fprintf stderr "error?[%s]\n%!" (OcpGenlex.string_of_token token)) tokens;
   match tokens with
     | [Ident "File"; String filename ;
        Kwd ","; Ident "line"; Int line_pos; Kwd ",";
@@ -71,7 +56,7 @@ let parse_location dirname line =
           Filename.concat dirname filename
         else filename
       in
-      debug "FOUND Error !\n%!";
+      Printf.fprintf stderr "FOUND Error !\n%!";
       let file = find_file filename in
       let bol = FixUtils.find_line file.file_content 0 line_pos in
       {
@@ -91,14 +76,14 @@ let final_pos file pos =
         let pos = iter_ops pos ops in
         match op with
             Insertion (pos', len) ->
-              debug "insert (%d,%d)\n%!" pos' len;
+              Printf.fprintf stderr "insert (%d,%d)\n%!" pos' len;
               if pos >= pos' then pos + len else pos
           | Deletion (pos', len) ->
-            debug "delete (%d,%d)\n%!" pos' len;
+            Printf.fprintf stderr "delete (%d,%d)\n%!" pos' len;
             if pos > pos' then pos - len else pos
   in
   let new_pos = iter_ops pos file.file_ops in
-  debug "moved from %d to %d\n%!" pos new_pos;
+  Printf.fprintf stderr "moved from %d to %d\n%!" pos new_pos;
   new_pos
 
 let add_edition file op =

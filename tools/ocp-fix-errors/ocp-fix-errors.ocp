@@ -17,22 +17,21 @@ licence = [ "GPLv3" ]
 begin library "ocp-fix-errors-lib"
   files = [
 
-    "fixUtils.ml"
-      "errorLocation.ml"
-    "fixTypes.ml"
+ "fixUtils.ml"
+  "errorLocation.ml"
+  "fixEmacs.ml"
 
   "oCamlPattern.ml" "oCamlPatternParser.mly" "fixPattern.ml"
-
   "fixRecord.ml"
   "fixInterface.ml"
-  "fixUnbound.ml"
+
   "fixFloats.ml"  "fixExpect.ml"
 
   "fixSemi.ml"
   "fixUnusedVariables.ml"
   "fixUnusedPatterns.ml"
 
-  "fixMain.ml" ]
+]
   requires = [ "ocaml-approx" "ocaml-parsing" "ocplib-lang" "ocplib-system" ]
 end
 

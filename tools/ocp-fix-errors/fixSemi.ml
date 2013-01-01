@@ -1,26 +1,23 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
-
 (*
   - Adds a ; at the end of the expression, when it seems applied to another argument. (Error)
 *)
 
 open ErrorLocation
+open FixEmacs
 
 let fix loc =
   let abs_end_pos = loc.loc_end_pos in
-  [loc.loc_file, abs_end_pos+1, abs_end_pos+1, ";"],
-  "Semi-colon inserted, file saved"
+  FixUtils.(
+    with_elisp
+      [
+        find_file loc.loc_file;
+        insert_strings loc.loc_file (abs_end_pos+1)
+              [
+                (fun b -> Printf.bprintf b ";")
+              ];
+        save_current_buffer;
+        print_message "Semi-colon inserted, file saved"
+      ])
 
 let fix_line loc =
   let pos = loc.loc_end_pos in
@@ -37,5 +34,15 @@ let fix_line loc =
       len
   in
   let abs_end_pos = iter pos pos in
-  [loc.loc_file, abs_end_pos, abs_end_pos, ";"],
-  "Semi-colon inserted, file saved"
+  FixUtils.(
+    with_elisp
+      [
+        find_file loc.loc_file;
+        insert_strings loc.loc_file (abs_end_pos+1)
+              [
+                (fun b -> Printf.bprintf b ";")
+              ];
+        save_current_buffer;
+        print_message "Semi-colon inserted, file saved"
+      ])
+

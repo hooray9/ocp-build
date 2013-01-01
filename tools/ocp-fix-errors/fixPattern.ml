@@ -1,16 +1,3 @@
-(******************************************************************************)
-(*                                                                            *)
-(*                          TypeRex OCaml Tools                               *)
-(*                                                                            *)
-(*                               OCamlPro                                     *)
-(*                                                                            *)
-(*    Copyright 2011-2012 OCamlPro                                            *)
-(*    All rights reserved.  See accompanying files for the terms under        *)
-(*    which this file is distributed. In doubt, contact us at                 *)
-(*    contact@ocamlpro.com (http://www.ocamlpro.com/)                         *)
-(*                                                                            *)
-(******************************************************************************)
-
 (*
   - Add some missing patterns to a non-exhaustive pattern (Warning)
 *)
@@ -18,7 +5,6 @@
 
 open OcpSystem
 open OcpLang
-include Debug.Tag(struct let tag = "fixPattern" end)
 
 module OCamlPatternParser : sig
 
@@ -31,11 +17,11 @@ end = struct
 
   let token lexbuf =
     let token = Lexer.token lexbuf in
-    debug "APPROX-TOKEN[%s]\n%!" (StringOfToken.string_of_token token);
+    Printf.fprintf stderr "APPROX-TOKEN[%s]\n%!" (StringOfToken.string_of_token token);
     token
 
   let parse_pattern s =
-    debug "Parsing token...\n%!";
+    Printf.fprintf stderr "Parsing token...\n%!";
     let lexbuf = Lexing.from_string s in
     OCamlPatternParser.pattern token lexbuf
 
@@ -101,13 +87,14 @@ let _ =
 end
 *)
 open ErrorLocation
+open FixEmacs
 
 let fix loc pattern_lines =
   let file = loc.loc_file in
   let (next_linefs, pattern_lines) = find_pattern 0 [] pattern_lines in
   let pattern = String.concat " " pattern_lines in
-  debug "pattern: [%s]\n%!" pattern;
-  debug "Filename: %s\n%!"
+  Printf.fprintf stderr "pattern: [%s]\n%!" pattern;
+  Printf.fprintf stderr "Filename: %s\n%!"
     (File.to_string loc.loc_file.file_file);
   let content_size = String.length loc.loc_file.file_content in
   let indent = FixUtils.find_indent
@@ -119,8 +106,15 @@ let fix loc pattern_lines =
   let pattern = OCamlPattern.implose_or_pattern patterns in
   let pattern = OCamlPattern.string_of_pattern indent pattern in
   let indent = String.make indent ' ' in
-  let pattern = "\n" ^ indent ^ "  |" ^ pattern ^ indent  ^  " -> assert false" in
-  debug "Insert in file %s at pos %d\n[%s]\n"
+  let pattern = "\n" ^ indent ^ "  |" ^ pattern ^ indent  ^  "   -> assert false\n" in
+  Printf.fprintf stderr "Insert in file %s at pos %d\n[%s]\n"
    (File.to_string file.file_file) loc.loc_end_pos pattern;
-  [loc.loc_file, loc.loc_end_pos, loc.loc_end_pos, pattern],
-  "Inserted stubs for missing match cases"
+
+  with_elisp
+    [
+      find_file loc.loc_file;
+      insert_strings loc.loc_file (loc.loc_end_pos+1) [ (fun b ->
+        Buffer.add_string b (String.escaped pattern)); ];
+      print_message "Pattern inserted, you need to complete it."
+    ]
+
