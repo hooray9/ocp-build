@@ -861,23 +861,14 @@ let print_file message filename =
   end;
   close_in ic
 
-(* Copy line-oriented file *)
+let s = String.create 32768
+
+(* TODO: Use File.copy Copy line-oriented file *)
 let copy_file b src dst =
   if verbose 4 then Printf.eprintf "copy_file from %s to %s\n%!" src dst;
   try
-  let ic = open_in src in
-  let oc = open_out dst in
-  begin
-    try
-      while true do
-	let line = input_line ic in
-	Printf.fprintf oc "%s\n%!" line
-      done
-    with _ -> ()
-  end;
-  close_in ic;
-  close_out oc;
-  0
+    File.RawIO.copy_file src dst;
+    0
   with e ->
     fatal_errors := [
       Printf.sprintf "Error while copying %s to %s:" src dst;
@@ -1077,7 +1068,7 @@ let parallel_loop b ncores =
 	    let ff2 = BuildEngineRules.file_of_argument r f2 in
 
 	    if verbose 1 then
-	      Printf.eprintf "[%d.%d] cp %s %s\n%!" 
+	      Printf.eprintf "[%d.%d] cp %s %s\n%!"
 		proc.proc_rule.rule_id proc.proc_step
 		fa1 fa2;
 	    Printf.fprintf b.build_log "cp %s %s\n" fa1 fa2;
@@ -1089,7 +1080,7 @@ let parallel_loop b ncores =
 		if not (File.X.exists ff1) then
 		  Printf.eprintf "\tSource file %s does not exist\n%!" fa1;
 		if not (File.X.exists (File.dirname ff2)) then
-		  Printf.eprintf 
+		  Printf.eprintf
 		    "\tDestination directory of %s does not exist\n%!"
                     fa2;
 		exit 2;
@@ -1103,7 +1094,7 @@ let parallel_loop b ncores =
 	    let ff2 = BuildEngineRules.file_of_argument r f2 in
 
 	    if verbose 1 then
-	      Printf.eprintf "[%d.%d] mv %s %s\n%!" 
+	      Printf.eprintf "[%d.%d] mv %s %s\n%!"
 		proc.proc_rule.rule_id proc.proc_step
 		fa1 fa2;
 
@@ -1133,7 +1124,7 @@ let parallel_loop b ncores =
             if File.X.exists ff1 then
 	      begin try
 	              if verbose 1 then
-	                Printf.eprintf "[%d.%d] mv? %s %s\n%!" 
+	                Printf.eprintf "[%d.%d] mv? %s %s\n%!"
 			  proc.proc_rule.rule_id proc.proc_step
 		          fa1 fa2;
 

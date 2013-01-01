@@ -300,7 +300,41 @@ Each filename is composed of:
 
 
 
+module RawIO : sig
 
+  val copy_file : string -> string -> unit
+  val iter_blocks : (string -> int -> int -> unit) -> string -> unit
+
+end = struct
+
+  let default_buffer_size = 32768
+
+  let copy_file f1 f2 =
+    let s = ReentrantBuffers.get default_buffer_size in
+    let ic = open_in_bin f1 in
+    let oc = open_out_bin f2 in
+    let rec copy s ic oc =
+      let n = input ic s 0 default_buffer_size in
+      if n = 0 then () else (output oc s 0 n; copy s ic oc)
+    in copy s ic oc;
+    close_in ic;
+    close_out oc;
+    ReentrantBuffers.free s
+
+  let iter_blocks f file =
+    let s = ReentrantBuffers.get 32768 in
+    let ic = open_in_bin file in
+    let rec iter f ic s =
+      let nread = input ic s 0 32768 in
+      if nread > 0 then begin
+          f s 0 nread;
+          iter f ic s
+        end
+    in
+    iter f ic s;
+    ReentrantBuffers.free s
+
+end
 
 
 
@@ -530,32 +564,14 @@ module X = struct
 
 
   let copy_file f1 f2 =
-  let ic = open_in_bin f1 in
-  let oc = open_out_bin f2 in
-  let buff = String.create 0x1000 in
-  let rec copy () =
-    let n = input ic buff 0 0x1000 in
-    if n = 0 then () else (output oc buff 0 n; copy())
-  in copy();
-  close_in ic;
-  close_out oc
+    RawIO.copy_file (to_string f1) (to_string f2)
 
   let open_fd file mode perm = Unix.openfile (to_string file) mode perm
 
   let remove file = Sys.remove (to_string file)
 
   let iter f file =
-    let s = ReentrantBuffers.get 32768 in
-    let ic = open_in_bin file in
-    let rec iter f ic s =
-      let nread = input ic s 0 32768 in
-      if nread > 0 then begin
-          f s 0 nread;
-          iter f ic s
-        end
-    in
-    iter f ic s;
-    ReentrantBuffers.free s
+    RawIO.iter_blocks f (to_string file)
 
 end
 

@@ -102,6 +102,13 @@ val find_in_path: string list -> string -> string
 (** [sub_lines filename off len] returns [len] lines of [filename], starting at [off] *)
 val sub_lines : string -> int -> int -> string list
 
+module RawIO : sig
+
+  val copy_file : string -> string -> unit
+  val iter_blocks : (string -> int -> int -> unit) -> string -> unit
+
+end
+
 module X : sig
 
   val copy_file : t -> t -> unit
