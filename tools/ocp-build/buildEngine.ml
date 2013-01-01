@@ -865,8 +865,8 @@ let print_file message filename =
 let copy_file b src dst =
   if verbose 4 then Printf.eprintf "copy_file from %s to %s\n%!" src dst;
   try
-  let ic = open_in src in
-  let oc = open_out dst in
+  let ic = open_in_bin src in
+  let oc = open_out_bin dst in
   begin
     try
       while true do
