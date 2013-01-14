@@ -11,7 +11,7 @@
 (*                                                                            *)
 (******************************************************************************)
 
-open BuildMETA.TYPES
+open MetaTypes
 open BuildTypes
 open BuildEngineTypes
 open BuildEngineGlobals
@@ -58,18 +58,10 @@ let install install_info install_what lib =
         Printf.fprintf stderr "Installing %S in %S:%!" lib.lib_name installdir;
         BuildMisc.safe_mkdir installdir;
 
-        let meta = {
-          meta_version = None;
-          meta_description = None;
-          meta_requires = [];
-          meta_archive = [];
-          meta_exists_if = None;
-          meta_package = [];
-        } in
-
+        let meta = MetaFile.empty () in
         List.iter (fun dep ->
           if dep.dep_link then
-            BuildMETA.add_requires meta [] [dep.dep_project.lib_name]
+            MetaFile.add_requires meta [] [dep.dep_project.lib_name]
         ) lib.lib_requires;
 
         let install_file file kind =
@@ -91,12 +83,12 @@ let install install_info install_what lib =
               Some (Filename.concat installdir file.file_basename)
             | CMA when
                 install_what.install_byte_lib ->
-              BuildMETA.add_archive meta [ "byte" ] [ file.file_basename ];
+              MetaFile.add_archive meta [ "byte", true ] [ file.file_basename ];
               meta.meta_exists_if <- Some file.file_basename;
               Some (Filename.concat installdir file.file_basename)
             | CMXA when
                 install_what.install_asm_lib ->
-              BuildMETA.add_archive meta [ "native" ] [ file.file_basename ];
+              MetaFile.add_archive meta [ "native", true ] [ file.file_basename ];
               Some (Filename.concat installdir file.file_basename)
             | CMXS when
                 install_what.install_asm_lib ->
@@ -137,12 +129,12 @@ let install install_info install_what lib =
         ) lib.lib_asm_targets;
         Printf.fprintf stderr "\n%!";
 
-        if meta.meta_archive <> [] then begin
+        if meta.meta_archive <> StringMap.empty then begin
           Printf.fprintf stderr "Generating META file %s\n%!" meta_file;
           if not !fake_install then
-            BuildMETA.create_meta_file meta_file meta
+            MetaFile.create_meta_file meta_file meta
           else
-            BuildMETA.create_meta_file (Printf.sprintf "/tmp/META.%s" lib.lib_name) meta
+            MetaFile.create_meta_file (Printf.sprintf "/tmp/META.%s" lib.lib_name) meta
         end
       end
   end

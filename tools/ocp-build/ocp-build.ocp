@@ -90,8 +90,13 @@ end
 
 
 begin library "ocplib-ocamlfind"
-  files = [ "buildMETA.ml" ]
+  files = [ "metaTypes.ml" "metaLexer.mll"  "metaFile.ml" "metaParser.ml" ]
   requires = [ "ocplib-lang" ]
+end
+
+    begin program "test-meta"
+        files = [ "metaMain.ml" ]
+requires = [ "ocplib-ocamlfind"]
 end
 
 
