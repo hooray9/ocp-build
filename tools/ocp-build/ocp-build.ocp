@@ -89,6 +89,11 @@ begin library "ocp-build-lib"
 end
 
 
+begin library "ocplib-ocamlfind"
+  files = [ "buildMETA.ml" ]
+  requires = [ "ocplib-lang" ]
+end
+
 
 (*
 This plugin defines the rules to build OCaml packages.
@@ -104,8 +109,9 @@ begin library "ocp-build-ocaml-plugin"
                                      by ocamldep *)
     "buildOCamlSyntaxes.ml";    (* For preprocessing of OCaml files *)
     "buildOCamlRules.ml";       (* Initialisation of the build Engine *)
+    "buildOCamlInstall.ml"
   ]
-  requires = [ "ocp-build-lib" ]
+  requires = [ "ocp-build-lib" "ocplib-ocamlfind" ]
 end
 
 begin program "ocp-build-infer-env"
@@ -126,7 +132,7 @@ begin program "ocp-build"
   files = [
     "buildMain.ml" (* Driver of program *)
   ]
-  requires = [ "ocp-build-lib" "ocp-build-ocaml-plugin" ]
+  requires = [ "ocp-build-lib" "ocp-build-ocaml-plugin"  "ocplib-ocamlfind"]
 
 end
 

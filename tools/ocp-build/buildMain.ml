@@ -74,6 +74,7 @@ let no_stdlib_arg = ref None
 let other_dirs_arg = ref []
 type arch_arg = ArchAuto | ArchNone | Arch of string
 let arch_arg = ref ArchNone
+let install_lib_arg = ref None
 
 let init_arg = ref false
 
@@ -84,6 +85,9 @@ let arg_list = [
     init_arg := true;
     save_arguments_arg := true;
     save_project := true), " : create the ocp-build.root file";
+
+  "-install-lib", Arg.String (fun s -> install_lib_arg := Some s),
+  "Install libraries in specified directory";
 
 (*
   "-byte", Arg.Set byte_arg, " : build only bytecode version";
@@ -294,34 +298,83 @@ let build root_file =
     Printf.eprintf "Bytecode targets:\n";
     StringMap.iter (fun _ lib ->
       if lib.lib_byte_targets <> [] then begin
-	List.iter (fun target -> Printf.eprintf "\t%s\t->\t%s\n" lib.lib_name target.file_basename) lib.lib_byte_targets;
+	List.iter (fun (target, kind) ->
+          Printf.eprintf "\t%s\t->\t%s\n" lib.lib_name target.file_basename)
+          lib.lib_byte_targets;
       end) !packages_by_name;
 	Printf.eprintf "%!"
   end;
 
-  let targets = ref [] in
+  if !list_asm_targets_arg then begin
+    Printf.eprintf "Native targets:\n";
+    StringMap.iter (fun _ lib ->
+      if lib.lib_asm_targets <> [] then begin
+	List.iter (fun (target, kind) ->
+          Printf.eprintf "\t%s\t->\t%s\n" lib.lib_name target.file_basename)
+          lib.lib_asm_targets;
+      end) !packages_by_name;
+	Printf.eprintf "%!"
+  end;
 
-  let add_project_targets lib =
-    if pjo.option_bytecode then
-      targets := lib.lib_byte_targets @ !targets;
-    if pjo.option_native then
-      targets := lib.lib_asm_targets @ !targets;
-  in
+(* build the list of projects considered by the current command *)
+  let projects = ref [] in
   begin
     match !targets_arg with
 	[] ->
-	  StringMap.iter (fun _ pj -> add_project_targets pj) !packages_by_name
+	  StringMap.iter (fun _ pj ->
+            projects := pj :: !projects) !packages_by_name
       | list ->
 	List.iter (fun name ->
 	  try
 	    let pj = StringMap.find name !packages_by_name in
-	    add_project_targets pj
+	    projects := pj :: !projects
 	  with Not_found ->
 	    Printf.eprintf "Error: Could not find target project %s\n%!" name;
 	    exit 2
 	) list
   end;
-  if !targets <> [] then begin
+
+  let do_build_targets = ref true in
+  let do_install = ref false in
+  let install_libdir = ref cfg.ocaml_ocamllib in
+  begin match !install_lib_arg with
+    None -> ()
+  | Some libdir ->
+    do_build_targets := false;
+    do_install := true;
+    if libdir <> "" && libdir <> "-" then
+      install_libdir := libdir;
+  end;
+
+  if !do_install then begin
+    List.iter (fun pj ->
+      let open BuildOCamlInstall in
+      BuildOCamlInstall.install {
+        install_libdir = !install_libdir;
+        install_bindir = "/usr/local/bin";
+      }
+        {
+          install_asm_bin = false;
+          install_byte_bin = false;
+          install_asm_lib = true;
+          install_byte_lib = true;
+        }
+        pj)
+      !projects
+  end;
+
+
+(* build the list of targets *)
+  let targets = ref [] in
+  let add_project_targets lib =
+    if pjo.option_bytecode then
+      targets := List.map fst lib.lib_byte_targets @ !targets;
+    if pjo.option_native then
+      targets := List.map fst lib.lib_asm_targets @ !targets;
+  in
+  List.iter add_project_targets !projects;
+
+  if !do_build_targets && !targets <> [] then begin
     begin
       try
 	time2 "Build init time: %.2f\n%!" BuildEngine.init b !targets

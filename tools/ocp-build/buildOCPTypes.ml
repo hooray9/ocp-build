@@ -14,7 +14,7 @@
 open OcpLang
 open BuildOCPTree
 
-
+(*
 type dependency_flag =
 | PREPROCESS
 | COMPILE
@@ -24,6 +24,7 @@ module DepFlagsSet = Set.Make(struct
     type t = dependency_flag
     let compare = compare
 end)
+*)
 
 type package = {
   package_name : string; (* basename of project *)

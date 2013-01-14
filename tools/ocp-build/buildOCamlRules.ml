@@ -44,8 +44,6 @@ open BuildEngineTypes
 open BuildEngineGlobals
 open BuildEngineContext
 open BuildEngineRules
-open BuildEngineRules
-
 
 open BuildOCPVariable
 open BuildOCPTree
@@ -815,7 +813,8 @@ let add_mli_source b lib pj mli_file options =
       lib_modules := StringMap.add modname (MLI, basename) !lib_modules
   end;
 
-  cmi_files := cmi_file :: !cmi_files
+  if pack_for = [] then
+    cmi_files := cmi_file :: !cmi_files
 
 
 let get_packed_objects r src_dir pack_of cmx_ext =
@@ -1365,9 +1364,9 @@ let add_library b lib =
       let a_file = add_dst_file b dst_dir (Printf.sprintf "libml%s%s" lib.lib_name ext_lib) in
       add_os2a_rule b lib lib !o_files a_file;
       if bool_option_true lib.lib_options byte_option then
-	lib.lib_byte_targets <- a_file :: lib.lib_byte_targets;
+	lib.lib_byte_targets <- (a_file, C_A) :: lib.lib_byte_targets;
       if bool_option_true lib.lib_options asm_option then
-	lib.lib_asm_targets <- a_file :: lib.lib_asm_targets;
+	lib.lib_asm_targets <- (a_file, C_A) :: lib.lib_asm_targets;
       lib.lib_clink_deps <- a_file :: lib.lib_clink_deps;
       lib.lib_bytelink_deps <- lib.lib_bytelink_deps;
       lib.lib_asmlink_deps <- lib.lib_asmlink_deps;
@@ -1382,7 +1381,8 @@ let add_library b lib =
   if bool_option_true lib.lib_options byte_option then begin
     let cma_file = add_dst_file b dst_dir (lib.lib_name ^ ".cma") in
     add_cmos2cma_rule b lib lib cclib !cmo_files cma_file;
-    lib.lib_byte_targets <- cma_file :: !cmi_files @ lib.lib_byte_targets;
+    lib.lib_byte_targets <- (cma_file, CMA) ::
+      (List.map (fun s -> (s, CMI)) !cmi_files) @ lib.lib_byte_targets;
     lib.lib_bytelink_deps <- cma_file :: lib.lib_bytelink_deps;
     lib.lib_cmo_objects <- !cmo_files @ lib.lib_cmo_objects;
   end;
@@ -1390,7 +1390,11 @@ let add_library b lib =
   if bool_option_true lib.lib_options asm_option then begin
 
     let (cmxa_file, a_file) = add_cmxs2cmxa_rule b lib lib cclib !cmi_files !cmx_files !cmxo_files in
-    lib.lib_asm_targets <- cmxa_file :: a_file :: !cmi_files @ lib.lib_asm_targets;
+    lib.lib_asm_targets <-
+      (cmxa_file, CMXA) :: (a_file, CMXA_A) ::
+      (List.map (fun s -> (s, CMI)) !cmi_files) @
+      (List.map (fun s -> (s, CMX)) !cmx_files) @
+      lib.lib_asm_targets;
     lib.lib_asmlink_deps <- cmxa_file :: a_file :: lib.lib_asmlink_deps;
     lib.lib_asm_cmx_objects <- !cmx_files @ lib.lib_asm_cmx_objects;
     lib.lib_asm_cmxo_objects <- !cmxo_files @ lib.lib_asm_cmxo_objects;
@@ -1405,13 +1409,18 @@ let add_objects b lib =
 
 
   if bool_option_true lib.lib_options byte_option then begin
-    lib.lib_byte_targets <- !cmo_files @ !cmi_files @ lib.lib_byte_targets;
+    lib.lib_byte_targets <-
+            (List.map (fun s -> (s, CMO)) !cmo_files) @
+            (List.map (fun s -> (s, CMI)) !cmi_files)
+    @ lib.lib_byte_targets;
     lib.lib_bytelink_deps <- !cmo_files @ lib.lib_bytelink_deps;
 (*    lib.lib_bytecomp_deps <- !cmo_files @ !cmi_files @ lib.lib_bytecomp_deps; *)
     lib.lib_cmo_objects <- !cmo_files @ lib.lib_cmo_objects;
   end;
   if bool_option_true lib.lib_options asm_option then begin
-    lib.lib_asm_targets <- !cmx_files @ !cmi_files @ lib.lib_asm_targets;
+    lib.lib_asm_targets <-
+      (List.map (fun s -> (s, CMX)) !cmx_files) @
+         (List.map (fun s -> (s, CMI)) !cmi_files) @ lib.lib_asm_targets;
     lib.lib_asmlink_deps <- !cmx_files @ !cmxo_files @ lib.lib_asmlink_deps;
 (*    lib.lib_asmcomp_deps <- !cmx_files @ !cmi_files @ lib.lib_asmcomp_deps; *)
     lib.lib_asm_cmx_objects <- !cmx_files @ lib.lib_asm_cmx_objects;
@@ -1458,7 +1467,7 @@ let add_program b lib =
     let byte_file = add_dst_file b dst_dir (lib.lib_name ^ byte_exe) in
     add_cmos2byte_rule b lib linkflags cclib !cmo_files !o_files byte_file;
     if bool_option_true lib.lib_options byte_option then begin
-      lib.lib_byte_targets <- byte_file :: lib.lib_byte_targets;
+      lib.lib_byte_targets <- (byte_file, RUN_BYTE) :: lib.lib_byte_targets;
       lib.lib_bytelink_deps <- byte_file :: lib.lib_bytelink_deps;
 (*      lib.lib_bytecomp_deps <- byte_file :: lib.lib_bytecomp_deps; *)
       lib.lib_cmo_objects <- !cmo_files @ lib.lib_cmo_objects;
@@ -1472,7 +1481,7 @@ let add_program b lib =
     let asm_file = add_dst_file b dst_dir (lib.lib_name ^ asm_exe) in
     add_cmxs2asm_rule b lib linkflags cclib !cmx_files !cmxo_files !o_files asm_file;
     if bool_option_true lib.lib_options asm_option then begin
-      lib.lib_asm_targets <- asm_file :: lib.lib_asm_targets;
+      lib.lib_asm_targets <- (asm_file, RUN_ASM) :: lib.lib_asm_targets;
       lib.lib_asmlink_deps <- asm_file :: lib.lib_asmlink_deps;
 (*      lib.lib_asmcomp_deps <- asm_file :: lib.lib_asmcomp_deps; *)
       lib.lib_asm_cmx_objects <- !cmx_files @ lib.lib_asm_cmx_objects;
@@ -1498,7 +1507,8 @@ let add_package b pk =
   let src_dir = add_directory b (absolute_filename package_dirname) in
   if verbose 4 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
 
-  let already_installed = bool_option_true pk.package_options generated_option
+  let already_installed =
+    bool_option_true pk.package_options generated_option
   in
 
   let dst_dir =
@@ -1524,12 +1534,13 @@ let add_package b pk =
       Filename.concat
         (Filename.concat b.build_dir_filename "_mutable_tree") src_dirname
     in
-    if not (Sys.file_exists mut_dirname) then 
+    if not (Sys.file_exists mut_dirname) then
       safe_mkdir mut_dirname;
     add_directory b mut_dirname
   in
 
-  let lib = BuildGlobals.new_library b pk package_dirname src_dir dst_dir mut_dir in
+  let lib = BuildGlobals.new_library b pk
+    package_dirname src_dir dst_dir mut_dir in
   BuildSubst.putenv (Printf.sprintf "%s_SRC_DIR" pk.package_name) src_dir.dir_fullname;
   BuildSubst.putenv (Printf.sprintf "%s_DST_DIR" pk.package_name) dst_dir.dir_fullname;
 

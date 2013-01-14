@@ -25,6 +25,18 @@ type mklib_kind =
     MKLIB_Unix
   | MKLIB_Msvc
 
+type target_kind =
+| CMI
+| CMO
+| CMX
+| CMXS
+| CMA
+| CMXA
+| CMXA_A
+| C_A
+| RUN_BYTE
+| RUN_ASM
+
 type module_origin =
     ML | MLI | MLandMLI
 
@@ -56,11 +68,11 @@ and package_info = {
   mutable lib_internal_modules :
     (build_directory *
     ((module_origin * string) StringMap.t ref)) StringsMap.t;
-  mutable lib_byte_targets : build_file list;
+  mutable lib_byte_targets : (build_file * target_kind) list;
   mutable lib_cmo_objects : build_file list;
   mutable lib_bytecomp_deps : build_file list;
   mutable lib_bytelink_deps : build_file list;
-  mutable lib_asm_targets : build_file list;
+  mutable lib_asm_targets : (build_file * target_kind) list;
   mutable lib_asm_cmx_objects : build_file list; (* .cmx *)
   mutable lib_asm_cmxo_objects : build_file list; (* .o *)
   mutable lib_asmcomp_deps : build_file list;
