@@ -98,7 +98,7 @@ let load_global_config () =
 
 
         prepend_to_list "auto-mode-alist"
-        "'(\"\\.ml[iylp]?$\" . typerex-mode)" @
+        "'(\"\\\\.ml[iylp]?$\" . typerex-mode)" @
         prepend_to_list "auto-mode-alist"
         "'(\"\\.ocp$\" . typerex-mode)" @
 
