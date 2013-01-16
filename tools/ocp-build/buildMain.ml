@@ -19,6 +19,12 @@
    work with wrappers).
 *)
 
+(* TODO
+  We could force packages with missing dependencies to still be compiled,
+  since it is still possible that these missing dependencies are not used
+  in a particular compilation scheme.
+*)
+
 open OcpLang
 open SimpleConfig
 
@@ -75,6 +81,7 @@ let other_dirs_arg = ref []
 type arch_arg = ArchAuto | ArchNone | Arch of string
 let arch_arg = ref ArchNone
 let install_lib_arg = ref None
+let meta_dirnames_arg = ref []
 
 let init_arg = ref false
 
@@ -85,6 +92,9 @@ let arg_list = [
     init_arg := true;
     save_arguments_arg := true;
     save_project := true), " : create the ocp-build.root file";
+
+  "-meta", Arg.String (fun s -> meta_dirnames_arg := s :: !meta_dirnames_arg),
+  "Load META files from this directory";
 
   "-install-lib", Arg.String (fun s -> install_lib_arg := Some s),
   "Install libraries in specified directory";
@@ -216,6 +226,14 @@ let build root_file =
   set_verbosity pjo.option_verbosity;
 
   let ncores = pjo.option_njobs in
+
+  let ncores =
+    if ncores < 1 then
+      BuildConfig.number_of_cores () + 1
+    else
+      ncores
+  in
+
   let _usestdlib = pjo.option_usestdlib in
 
   let root_files = create_option root_config [ "files" ]
@@ -240,19 +258,37 @@ let build root_file =
 
   (* Don't modify default values from now on, since they have been included
    in the default configuration ! *)
-  let pj, nerrors =
-    time "Loading time: %.2fs\n%!" BuildOCP.load_project !!root_files
-  in
-  if nerrors > 0 then exit 2;
+
+    let state = BuildOCP.init_packages () in
+    let nerrors =
+      time "Loading time: %.2fs\n%!"
+        (BuildOCP.load_ocp_files state) !!root_files
+    in
+    List.iter (fun dirname ->
+      let dirname =
+        if dirname = "" || dirname = "-" then
+          match MetaConfig.load_config () with
+            None -> cfg.ocaml_ocamllib
+          | Some path -> path
+        else
+          dirname
+      in
+      BuildOCamlMeta.load_META_files state cfg dirname
+    ) !meta_dirnames_arg;
+    if nerrors > 0 then exit 2;
+    let pj =
+      time "Verification time: %.2fs\n%!"
+      BuildOCP.verify_packages state in
  BuildOCP.save_project_state pj
    (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
 
-  let print_package pj = Printf.eprintf "\t%s in %s (%s)\n" pj.package_name pj.package_dirname
+  let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n" pj.package_name pj.package_dirname
 	(match pj.package_type with
 	    ProgramPackage -> "program"
 	  | LibraryPackage -> "library"
 (*	  | ProjectToplevel -> "toplevel" *)
 	  | ObjectsPackage -> "objects")
+        pj.package_source_kind
       in
 
     if verbose 3 || !list_projects_arg then begin
@@ -268,17 +304,31 @@ let build root_file =
     let incomplete_projects = Hashtbl.create  13 in
     if pj.project_incomplete <> [||] then begin
       Printf.eprintf "Warning: %d incomplete projects:\n" (Array.length pj.project_incomplete);
+      let meta_need = ref 0 in
       Array.iter (fun pk ->
         Hashtbl.add incomplete_projects pk.package_name pk;
-        print_package pk) pj.project_incomplete;
+        if pk.package_source_kind <> "meta" then (* TODO ? *)
+          print_package pk
+        else
+          incr meta_need
+      )
+        pj.project_incomplete;
+      if !meta_need > 0 then
+        Printf.eprintf "Also %d incomplete packages in META files not printed.\n%!" !meta_need
     end;
 
   List.iter (fun (name, list) ->
-    Printf.eprintf "   %s \"%s\" missed by %d projects\n"
-      (if Hashtbl.mem incomplete_projects name then "INCOMPLETE" else "ABSENT")
-      name
-      (List.length list);
-    List.iter print_package list;
+    let non_meta_need = ref false in
+    List.iter (fun pk ->
+      if pk.package_source_kind <> "meta" then non_meta_need := true
+    ) list;
+    if !non_meta_need then begin
+      Printf.eprintf "   %s \"%s\" missed by %d projects\n"
+        (if Hashtbl.mem incomplete_projects name then "INCOMPLETE" else "ABSENT")
+        name
+        (List.length list);
+      List.iter print_package list;
+    end;
   ) pj.project_missing;
   end;
 

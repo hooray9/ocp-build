@@ -334,3 +334,13 @@ let check_config pjo =
   cfg
 
 
+let number_of_cores () =
+  let ncores = ref 0 in
+(* Compute number of cores, including hyper-threading, on a linux machine *)
+  begin try
+  File.iter_lines (fun line ->
+    if OcpString.starts_with line "processor" then incr ncores
+  ) "/proc/cpuinfo"
+    with _ -> ()
+  end;
+  !ncores

@@ -78,6 +78,9 @@ let new_library b pj package_dirname src_dir dst_dir mut_dir =
   let lib =
     {
       lib_context = b;
+      lib_source_kind = pj.package_source_kind;
+      lib_archive = string_option_with_default pj.package_options "archive" pj.package_name;
+      lib_meta = bool_option_with_default pj.package_options "meta" false;
       lib_id = pj.package_id;
       lib_name = pj.package_name;
       lib_dirname = File.of_string package_dirname;

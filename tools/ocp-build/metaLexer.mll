@@ -49,7 +49,7 @@ let float_literal =
 rule token = parse
   blank + { token lexbuf }
   | ',' { token lexbuf }
-  | '#' [^ '\n' ]* '\n' { token lexbuf }
+  | '#' [^ '\n' ]* ('\n' | eof) { token lexbuf }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | "+=" { PLUSEQUAL }
@@ -59,11 +59,13 @@ rule token = parse
   }
   | '"' { Buffer.clear str_buf; string lexbuf }
   | '-' { MINUS }
-  | eof
-      { EOF }
-  | _ { raise Error }
+  | eof   { EOF }
+  | _ {
+    Printf.fprintf stderr "Unexpected lexeme %S\n%!" (Lexing.lexeme lexbuf);
+    raise Error }
 
 and string = parse
     |  '"' { STRING (Buffer.contents str_buf) }
-    | '\\' '"' { Buffer.add_char str_buf '"'; string lexbuf }
-    | _ { Buffer.add_string str_buf (Lexing.lexeme lexbuf); string lexbuf }
+    | '\\' [ '\\' '"' ] { Buffer.add_char str_buf '"'; string lexbuf }
+    | [^ '"' '\\']+
+        { Buffer.add_string str_buf (Lexing.lexeme lexbuf); string lexbuf }

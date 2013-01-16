@@ -41,6 +41,7 @@ let new_package pj name dirname filename =
   let package_id = pj.npackages in
   pj.npackages <- pj.npackages + 1;
   let pk = {
+    package_source_kind = "ocp";
     package_id = package_id;
     package_tag = "";
     package_auto = None;
@@ -265,8 +266,7 @@ and translate_option options op =
 *)
 
 
-let add_project_dep pk s options =
-  let dep =
+let new_package_dep pk s =
     try
       StringMap.find s pk.package_deps_map
     with Not_found ->
@@ -279,12 +279,14 @@ let add_project_dep pk s options =
       in
       pk.package_deps_map <- StringMap.add s dep pk.package_deps_map;
       dep
-  in
 
+let add_project_dep pk s options =
+  let dep = new_package_dep pk s in
   begin
     try
       match StringMap.find "link" options with
-        OptionBool bool -> dep.dep_link <- bool
+        OptionBool bool ->
+          dep.dep_link <- bool
       | _ ->
         Printf.fprintf stderr "Warning: option \"link\" is not bool !\n%!";
     with Not_found -> ()
@@ -306,8 +308,10 @@ let add_project_dep pk s options =
       | _ ->
         Printf.fprintf stderr "Warning: option \"optional\" is not bool !\n%!";
     with Not_found -> ()
-  end
-
+  end;
+(*  Printf.eprintf "add_project_dep for %S = %S with link=%b\n%!"
+    pk.package_name s dep.dep_link; *)
+()
 
 let define_package pj name config kind =
   let pk = new_package pj name

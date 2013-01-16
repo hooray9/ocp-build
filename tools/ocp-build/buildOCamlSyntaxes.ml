@@ -155,7 +155,10 @@ let get_pp lib options =
       List.map (fun s ->
         try
           StringMap.find s !packages_by_name
-        with Not_found -> assert false) syntax
+        with Not_found ->
+          failwith (Printf.sprintf
+                      "Syntax %S could not be found among packages\n%!" s )
+      ) syntax
   in
 
   if syntax = [] then
@@ -254,7 +257,7 @@ let get_pp lib options =
 
       | _ ->
         (* either no preprocessor was provided, or too many of them ! *)
-        assert false
+        failwith "When specifying a syntax, one of them must be a preprocessor"
     end;
     {
       pp_flags = !pp_flags;

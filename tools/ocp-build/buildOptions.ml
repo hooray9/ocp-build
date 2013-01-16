@@ -66,7 +66,7 @@ let arg_list = ref [
 let njobs_descr =
   [ "njobs" ],
   ["Number of jobs to use in parallel on this computer"],
-  int_option, 1
+  int_option, 0
 
 let verbosity_descr =
   [ "verbosity" ],
@@ -272,12 +272,14 @@ module GlobalOptions = struct
     end
 
   let save () =
-      must_save_global := false;
+    must_save_global := false;
     SimpleConfig.save_with_help config_file
   let maybe_save () =
     if !must_save_global then save ()
 
   let (_, verbosity_option, _) = verbosity_setter
+  let must_save_global bool = must_save_global := bool
+
 
 end
 
@@ -380,6 +382,7 @@ let load_local = LocalOptions.load
 let save_local = LocalOptions.save
 let maybe_save_local = LocalOptions.maybe_save
 
+let must_save_global = GlobalOptions.must_save_global
 let load_global = GlobalOptions.load_or_create
 let save_global = GlobalOptions.save
 let maybe_save_global = GlobalOptions.maybe_save

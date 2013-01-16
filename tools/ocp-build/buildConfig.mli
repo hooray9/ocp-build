@@ -64,3 +64,5 @@ end
 open TYPES
 
 val check_config : BuildOptions.project_options -> ocaml_config
+
+val number_of_cores : unit -> int

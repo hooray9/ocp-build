@@ -97,7 +97,19 @@ let get_strings_option strings_option =
   String.concat " " strings_option.option_default
 
 
+let string_option_with_default options name default =
+  try
+    match StringMap.find name options with
+      OptionList list -> String.concat " " list
+    | OptionBool _ -> raise Not_found
+  with Not_found -> default
 
+let bool_option_with_default options name default =
+  try
+    match StringMap.find name options with
+      OptionBool bool -> bool
+    | OptionList _ -> raise Not_found
+  with Not_found -> default
 
 let enabled_option = new_bool_option "enabled" true
 let generated_option = new_bool_option "generated" false

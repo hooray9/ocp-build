@@ -13,7 +13,11 @@
 
 open BuildOCPTypes
 
-val load_project : File.t list -> project * int
+val init_packages : unit -> BuildOCPInterp.state
+val load_ocp_files : BuildOCPInterp.state -> File.t list -> int
+val verify_packages : BuildOCPInterp.state -> BuildOCPTypes.project
+
+(* val load_project : File.t list -> project * int *)
 
 (* returns the number of errors while reading the files *)
 

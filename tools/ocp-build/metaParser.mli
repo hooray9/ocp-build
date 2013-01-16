@@ -12,3 +12,4 @@
 (******************************************************************************)
 
 val parse_file : string -> MetaTypes.meta
+val name_of_META : string (* full filename *) -> string

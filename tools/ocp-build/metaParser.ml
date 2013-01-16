@@ -24,6 +24,15 @@ STRING s -> Printf.sprintf "STRING %S" s
 | MINUS -> "MINUS"
 | EOF -> "EOF"
 
+let split_simplify s =
+  for i = 0 to String.length s - 1 do
+    match s.[i] with
+      ',' -> s.[i] <- ' '
+(*    | 'A'..'Z' as c -> s.[i] <- Char.lowercase c *)
+    | _ -> ()
+  done;
+  OcpString.split_simplify s ' '
+
 let rec tokens_of_file verbose filename =
   try
   let ic = open_in filename in
@@ -78,6 +87,7 @@ let parse_file filename =
               Printf.sprintf "missing right parenthesis for package %s" name)
         end
     | IDENT name :: EQUAL :: STRING str :: tokens ->
+(*      Printf.fprintf stderr "IDENT[%s]\n%!" name; *)
       begin
         match name with
           "version" -> meta.meta_version <- Some str
@@ -89,9 +99,9 @@ let parse_file filename =
         | "linkopts" -> meta.meta_linkopts <- Some str
 
         | "requires" ->
-          MetaFile.add_requires meta [] (OcpString.split_simplify str ' ')
+          MetaFile.add_requires meta [] (split_simplify str)
         | "archive" ->
-          MetaFile.add_archive meta [] (OcpString.split_simplify str ' ')
+          MetaFile.add_archive meta [] (split_simplify str)
         | _ ->
           Printf.fprintf stderr "MetaParser.parse_file: discarding %S\n%!"
             name
@@ -99,18 +109,18 @@ let parse_file filename =
       iter meta path tokens
 
     | IDENT name :: LPAREN :: tokens ->
-      Printf.fprintf stderr "IDENT[%s]\n%!" name;
+(*      Printf.fprintf stderr "IDENT()[%s]\n%!" name; *)
       iter_precond meta path name [] tokens
 
     | IDENT "package" :: STRING package_name :: LPAREN :: tokens ->
       let new_meta = MetaFile.empty () in
+      meta.meta_package <- (package_name, new_meta) :: meta.meta_package;
       iter new_meta ( (package_name,meta) :: path) tokens
 
     | RPAREN :: tokens ->
       begin
         match path with
         | (name, old_meta) :: path ->
-          meta.meta_package <- (name, meta) :: meta.meta_package;
           iter old_meta path tokens
         | [] -> failwith "Right parenthesis without matching left"
       end
@@ -128,6 +138,19 @@ let parse_file filename =
   and iter_precond meta path name preconds tokens =
     match tokens with
     | RPAREN ::EQUAL :: STRING str :: tokens ->
+      begin
+        match name with
+        | "requires" ->
+          MetaFile.add_requires meta (List.rev preconds)
+            (OcpString.split_simplify str ' ')
+        | "archive" ->
+          MetaFile.add_archive meta (List.rev preconds)
+            (OcpString.split_simplify str ' ')
+       | _ ->
+          Printf.fprintf stderr "MetaParser.parse_file: discarding %S\n%!"
+            name
+
+      end;
       iter meta path tokens
     | RPAREN ::PLUSEQUAL :: STRING str :: tokens ->
       iter meta path tokens
@@ -141,3 +164,19 @@ let parse_file filename =
   in
   let meta = MetaFile.empty () in
   iter meta [] tokens
+
+let name_of_META filename =
+  let basename = Filename.basename filename in
+  let long_name =
+    if basename = "META" then
+      Filename.basename (Filename.dirname filename)
+    else
+      if OcpString.starts_with basename "META." then
+        String.sub basename 5 (String.length basename - 5)
+      else
+        failwith (Printf.sprintf
+                    "MetaParser.name_of_META: incorrect filename %S"
+                    filename)
+  in
+  let (name, version) = OcpString.cut_at long_name '.' in
+  name

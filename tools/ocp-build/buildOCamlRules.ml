@@ -469,9 +469,9 @@ let add_cmxs2cmxa_rule b lib pj cclib cmi_files cmx_files cmxo_files =
   let src_dir = lib.lib_src_dir in
   let dst_dir = lib.lib_dst_dir in
 
-  let basename_cmxa = pj.lib_name ^ ".cmxa" in
+  let basename_cmxa = pj.lib_archive ^ ".cmxa" in
   let ext_lib = string_option options BuildConfig.ocaml_config_ext_lib in
-  let basename_a = pj.lib_name ^ ext_lib in
+  let basename_a = pj.lib_archive ^ ext_lib in
 
   let cmxa_file = add_dst_file b dst_dir basename_cmxa in
   let a_file = add_dst_file b dst_dir basename_a in
@@ -529,7 +529,9 @@ let add_cmos2byte_rule b lib linkflags cclib cmo_files o_files byte_file =
 		add_command_args cmd [file_filename a_file]
 	        ) lib.lib_clink_deps; *)
               add_command_args cmd (bytelinkflags pj);
-	      add_command_args cmd [S (pj.lib_name ^ ".cma")]
+              if not pj.lib_meta &&
+                (pj.lib_installed || pj.lib_byte_targets <> []) then
+	        add_command_args cmd [S (pj.lib_archive ^ ".cma")]
           | ObjectsPackage ->
 (*            Printf.eprintf "Depends on %s\n%!" pj.lib_name; *)
             add_command_args cmd (bytelinkflags pj);
@@ -583,7 +585,9 @@ let add_cmxs2asm_rule b lib linkflags cclib cmx_files cmxo_files o_files opt_fil
 	    List.iter (fun a_file ->
 	      add_command_arg cmd (BF a_file)
 	    ) pj.lib_clink_deps;
-	    add_command_string cmd (pj.lib_name ^ ".cmxa")
+            if not pj.lib_meta &&
+              (pj.lib_installed || pj.lib_asm_targets <> []) then
+	      add_command_string cmd (pj.lib_archive ^ ".cmxa")
           | ObjectsPackage ->
             add_command_args cmd (asmlinkflags pj);
 	    List.iter (fun a_file ->
@@ -1378,18 +1382,20 @@ let add_library b lib =
     else cclib
   in
 
-  if bool_option_true lib.lib_options byte_option then begin
+  if bool_option_true lib.lib_options byte_option &&
+  !cmo_files <> [] then begin
     let cma_file = add_dst_file b dst_dir (lib.lib_name ^ ".cma") in
+    lib.lib_bytelink_deps <- cma_file :: lib.lib_bytelink_deps;
     add_cmos2cma_rule b lib lib cclib !cmo_files cma_file;
     lib.lib_byte_targets <- (cma_file, CMA) ::
       (List.map (fun s -> (s, CMI)) !cmi_files) @ lib.lib_byte_targets;
-    lib.lib_bytelink_deps <- cma_file :: lib.lib_bytelink_deps;
     lib.lib_cmo_objects <- !cmo_files @ lib.lib_cmo_objects;
   end;
 
-  if bool_option_true lib.lib_options asm_option then begin
-
-    let (cmxa_file, a_file) = add_cmxs2cmxa_rule b lib lib cclib !cmi_files !cmx_files !cmxo_files in
+  if bool_option_true lib.lib_options asm_option &&
+    !cmx_files <> [] then begin
+    let (cmxa_file, a_file) =
+      add_cmxs2cmxa_rule b lib lib cclib !cmi_files !cmx_files !cmxo_files in
     lib.lib_asm_targets <-
       (cmxa_file, CMXA) :: (a_file, CMXA_A) ::
       (List.map (fun s -> (s, CMI)) !cmi_files) @
@@ -1491,68 +1497,73 @@ let add_program b lib =
   ()
 
 let add_package b pk =
-  if verbose 4 then Printf.eprintf "Adding %s\n" pk.package_name;
+  try
+    if verbose 4 then Printf.eprintf "Adding %s\n" pk.package_name;
 
-  let package_dirname =
-    try
-	  match StringMap.find dirname_option.option_name pk.package_options with
-	      OptionList list ->
-                BuildSubst.subst (String.concat Filename.dir_sep list)
-	    | _ -> raise Not_found
-    with Not_found ->
-      pk.package_dirname
-  in
+    let package_dirname =
+      try
+	match StringMap.find dirname_option.option_name pk.package_options with
+	  OptionList list ->
+            BuildSubst.subst (String.concat Filename.dir_sep list)
+	| _ -> raise Not_found
+      with Not_found ->
+        pk.package_dirname
+    in
 
 
-  let src_dir = add_directory b (absolute_filename package_dirname) in
-  if verbose 4 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
+    let src_dir = add_directory b (absolute_filename package_dirname) in
+    if verbose 4 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
 
-  let already_installed =
-    bool_option_true pk.package_options generated_option
-  in
+    let already_installed =
+      bool_option_true pk.package_options generated_option
+    in
 
-  let dst_dir =
-    if already_installed then src_dir else
-      match !cross_arg with
+    let dst_dir =
+      if already_installed then src_dir else
+        match !cross_arg with
 	  None -> src_dir
         | Some arch ->
 	  let dirname =
 	    Filename.concat b.build_dir_filename pk.package_name
-        (*	  Filename.concat src_dir.dir_fullname build_dir_basename *)
+          (*	  Filename.concat src_dir.dir_fullname build_dir_basename *)
 	  in
 	  if not (Sys.file_exists dirname) then
 	    safe_mkdir dirname;
 	  add_directory b dirname
-  in
-  if verbose 4 then Printf.eprintf "\tto %s\n" dst_dir.dir_fullname;
-
-
-  let mut_dir =
-    if already_installed then src_dir else
-    let src_dirname = File.to_string src_dir.dir_file in
-    let mut_dirname =
-      Filename.concat
-        (Filename.concat b.build_dir_filename "_mutable_tree") src_dirname
     in
-    if not (Sys.file_exists mut_dirname) then
-      safe_mkdir mut_dirname;
-    add_directory b mut_dirname
-  in
+    if verbose 4 then Printf.eprintf "\tto %s\n" dst_dir.dir_fullname;
 
-  let lib = BuildGlobals.new_library b pk
-    package_dirname src_dir dst_dir mut_dir in
-  BuildSubst.putenv (Printf.sprintf "%s_SRC_DIR" pk.package_name) src_dir.dir_fullname;
-  BuildSubst.putenv (Printf.sprintf "%s_DST_DIR" pk.package_name) dst_dir.dir_fullname;
 
-  (match !cross_arg with
+    let mut_dir =
+      if already_installed then src_dir else
+        let src_dirname = File.to_string src_dir.dir_file in
+        let mut_dirname =
+          Filename.concat
+            (Filename.concat b.build_dir_filename "_mutable_tree") src_dirname
+        in
+        if not (Sys.file_exists mut_dirname) then
+          safe_mkdir mut_dirname;
+        add_directory b mut_dirname
+    in
+
+    let lib = BuildGlobals.new_library b pk
+      package_dirname src_dir dst_dir mut_dir in
+    BuildSubst.putenv (Printf.sprintf "%s_SRC_DIR" pk.package_name) src_dir.dir_fullname;
+    BuildSubst.putenv (Printf.sprintf "%s_DST_DIR" pk.package_name) dst_dir.dir_fullname;
+
+    (match !cross_arg with
       None -> ()
-      | Some _ ->
-	safe_mkdir dst_dir.dir_fullname);
-  match lib.lib_type with
-    LibraryPackage -> add_library b  lib
-  | ProgramPackage -> add_program b  lib
-  | ObjectsPackage -> add_objects b  lib
+    | Some _ ->
+      safe_mkdir dst_dir.dir_fullname);
+    match lib.lib_type with
+      LibraryPackage -> add_library b  lib
+    | ProgramPackage -> add_program b  lib
+    | ObjectsPackage -> add_objects b  lib
 (*      | _ -> Printf.eprintf "\tWarning: Don't know what to do with 'add_project %s'\n" lib.lib_name *)
+  with Failure s ->
+    Printf.eprintf "While preparing package %S:\n%!" pk.package_name;
+    Printf.eprintf "Error: %s\n%!" s;
+    exit 2
 
 let create pj b =
   Array.iter (add_package b) pj.project_sorted

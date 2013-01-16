@@ -51,5 +51,14 @@ end
 
 *)
 
+val new_package :
+  state ->
+  string (* name *) ->
+  string (* dirname *) ->
+  string (* filename *) -> BuildOCPTypes.package
+
+val new_package_dep : BuildOCPTypes.package -> string ->
+  string BuildOCPTypes.package_dependency
+
 val read_ocamlconf :  state -> config -> string -> config
 

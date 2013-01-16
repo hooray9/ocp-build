@@ -45,6 +45,7 @@ end
 val load_global : unit -> unit
 val maybe_save_global : unit -> unit
 val save_global : unit -> unit
+val must_save_global : bool -> unit
 
 val load_local : File.t -> SimpleConfig.config_file * project_options
 val save_local : SimpleConfig.config_file -> unit

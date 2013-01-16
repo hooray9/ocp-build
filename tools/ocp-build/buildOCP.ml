@@ -159,33 +159,98 @@ let update_deps pj =
 
   if verbose 2 then print_deps "BEFORE update_deps" pj;
 
-(*
-  For now, we have three kinds of dependencies:
- 1) 'link' dependencies: we must copy all 'link' transitive dependencies
-     as new 'link' dependencies.
- 2) 'syntax' dependencies: we must copy all 'link' transitive dependencies
-     as new 'syntax' dependencies.
- 3) neither 'link' nor 'syntax': we should not copy transitive dependencies.
+  (*
+    For now, we have three kinds of dependencies:
+    1) 'link' dependencies: we must copy all 'link' transitive dependencies
+    as new 'link' dependencies.
+    2) 'syntax' dependencies: we must copy all 'link' transitive dependencies
+    as new 'syntax' dependencies.
+    3) neither 'link' nor 'syntax': we should not copy transitive dependencies.
 
-We cannot do it in one pass: we should first compute strong dependencies, and
-remove packages not meeting strong dependencies. Then, we can redo the
-computation, this time knowing which optional packages are available.
+    We cannot do it in one pass: we should first compute strong dependencies, and
+    remove packages not meeting strong dependencies. Then, we can redo the
+    computation, this time knowing which optional packages are available.
 
-*)
+  *)
 
   let deps = Hashtbl.create 111 in
   let list = ref [] in
-  List.iter (fun dep ->
-    let pd = dep.dep_project in
-    try
-      let dep2 = Hashtbl.find deps pd.package_id in
-      dep2.dep_link <- dep2.dep_link || dep.dep_link;
-      dep2.dep_syntax <- dep2.dep_syntax || dep.dep_syntax;
-    with Not_found ->
-      Hashtbl.add deps dep.dep_project.package_id dep;
-      list := dep :: !list
-  ) pj.package_requires;
 
+(* Keep only one copy of a package, with all the flags merged
+  pj.package_requires <-
+    List.filter (fun dep ->
+      let pd = dep.dep_project in
+      try
+        let dep2 = Hashtbl.find deps pd.package_id in
+        dep2.dep_link <- dep2.dep_link || dep.dep_link;
+        dep2.dep_syntax <- dep2.dep_syntax || dep.dep_syntax;
+        dep2.dep_optional <- dep2.dep_optional && dep.dep_optional;
+        false
+      with Not_found ->
+        Hashtbl.add deps dep.dep_project.package_id dep;
+        list := dep :: !list;
+        true
+    ) pj.package_requires;
+*)
+
+  let new_dep pj2 =
+    try
+      Hashtbl.find deps pj2.package_id
+    with Not_found ->
+      let dep = {
+        dep_project = pj2;
+        dep_link = false;
+        dep_syntax = false;
+        dep_optional = false;
+      } in
+      Hashtbl.add deps pj2.package_id dep;
+      list := dep :: !list;
+      dep
+  in
+
+(* add all link dependencies, transitively *)
+  let rec add_link_deps pj =
+    List.iter (fun dep ->
+      if dep.dep_link then
+        let pj2 = dep.dep_project in
+        let dep2 = new_dep pj2 in
+        if not dep2.dep_link then begin
+          dep2.dep_link <- true;
+          add_link_deps pj2
+        end
+    ) pj.package_requires
+  in
+  add_link_deps pj;
+
+
+(* add syntax dependencies, and their link dependencies
+transformed into syntax dependencies *)
+  let rec add_link_as_syntax_deps pj =
+    List.iter (fun dep ->
+      if dep.dep_link then
+        let pj2 = dep.dep_project in
+        let dep2 = new_dep pj2 in
+        if not dep2.dep_syntax then begin
+          dep2.dep_syntax <- true;
+          add_link_as_syntax_deps pj2
+        end
+    ) pj.package_requires
+  in
+
+  let add_syntax_deps pj =
+    List.iter (fun dep ->
+      if dep.dep_syntax then
+        let pj2 = dep.dep_project in
+        let dep2 = new_dep pj2 in
+        if not dep2.dep_syntax then begin
+          dep2.dep_syntax <- true;
+          add_link_as_syntax_deps pj2;
+        end
+    ) pj.package_requires
+  in
+  add_syntax_deps pj;
+
+(*
   let rec add_link_deps to_set dep =
     if dep.dep_link then
       let pj2 = dep.dep_project in
@@ -219,6 +284,14 @@ computation, this time knowing which optional packages are available.
         List.iter
           (add_link_deps (fun dep -> dep.dep_link <- true))
           pj2.package_requires;
+      (* TODO: why dep.dep_syntax <- false HERE ? If we want to
+         generalize to "tags", we would probably need to tell how to
+         build the closure of these tags. For example, the "link" tag
+         means that we should keep in the closure all the next deps
+         with also the "link" tag, but unset their "syntax" tag. But,
+         for the "syntax" tag, we only want to keep in the closure the
+         deps with the "link" tag, after changing it to "syntax" !  *)
+
       if dep.dep_syntax then
         List.iter
           (add_link_deps (fun dep -> dep.dep_syntax <- false))
@@ -226,20 +299,22 @@ computation, this time knowing which optional packages are available.
     | ProgramPackage -> ()
   in
   List.iter add_dep pj.package_requires;
+*)
   pj.package_requires <- !list;
 
-(*  TODO: do better
-List.iter (fun pd ->
-    List.iter add_dep pj.package_requires
-  ) pj.package_requires; *)
-
-  if verbose 2 then print_deps "BEFORE update_deps SORT" pj;
-
-(* TODO: verify this is useless ? since sorted later again *)
-  pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
+  (*  TODO: do better
+      List.iter (fun pd ->
+      List.iter add_dep pj.package_requires
+      ) pj.package_requires; *)
 
   if verbose 2 then print_deps "AFTER update_deps SORT" pj;
 
+(*
+  (* TODO: verify this is useless ? since sorted later again *)
+  pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
+
+  if verbose 2 then print_deps "AFTER update_deps SORT" pj;
+*)
   ()
 
 
@@ -254,13 +329,12 @@ val load_packages : (project -> int)
 (* Note that files should be sorted from the most internal one to
 the deepest ones. *)
 
-let load_project files =
+let init_packages () =
 
-  let state = {
-    missing = Hashtbl.create 111;
-    validated = Hashtbl.create 111;
-  }
-  in
+  let packages = BuildOCPInterp.initial_state () in
+  packages
+
+let load_ocp_files packages files =
 
 (*
   let pj =
@@ -286,8 +360,6 @@ let load_project files =
 
   let nerrors = ref 0 in
 
-  let packages = BuildOCPInterp.initial_state () in
-
   let rec iter parents files =
     match files with
 	[] -> ()
@@ -312,8 +384,17 @@ let load_project files =
 	      iter next_parents files
   in
   let _config = iter [ "", config ] files in
+  !nerrors
 
+
+let verify_packages packages =
   let packages = BuildOCPInterp.final_state packages in
+
+  let state = {
+    missing = Hashtbl.create 111;
+    validated = Hashtbl.create 111;
+  }
+  in
 
   Array.iter (fun pk -> check_project state pk) packages;
 
@@ -363,7 +444,7 @@ let load_project files =
   let npackages = Array.length packages in
 
   let pj = {
-    project_files = files;
+(*    project_files = files; *)
     project_sorted = Array.of_list project_sorted;
     project_missing = !project_missing;
     project_disabled = Array.of_list !project_disabled;
@@ -401,7 +482,7 @@ let load_project files =
   reset_package_ids pj.project_incomplete;
   reset_package_ids pj.project_disabled;
 
-  pj, !nerrors
+  pj
 
 (*
   val save_project : (File.t -> (project -> unit))

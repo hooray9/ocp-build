@@ -25,35 +25,33 @@ let scan_directory f directory =
       let dirname = Stack.pop queue in
       let files = Sys.readdir dirname in
       Array.sort compare files;
-      Array.iter (fun file ->
-	let filename = Filename.concat dirname file in
-	try
-	  f file filename
-	with LocalNotFound ->
-	  Stack.push filename queue
+      Array.iter (fun basename ->
+	let filename = Filename.concat dirname basename in
+	Stack.push filename queue;
+        try
+          f dirname basename filename
+        with _ -> ()
       ) files;
     with _ -> ()
   done;
   ()
 
 let scan_directory_for_suffix directory extension f =
-  scan_directory (fun file filename ->
-    if Filename.check_suffix filename extension then
-	f filename
-    else raise LocalNotFound) directory
+  scan_directory (fun dirname basename filename ->
+    if Filename.check_suffix basename extension then
+	f filename) directory
 
 let scan_directory_for_files directory extensions =
-  scan_directory (fun file filename ->
-    let f = try StringMap.find file extensions
-      with Not_found -> raise not_found in
-    f filename) directory
+  scan_directory (fun dirname basename filename ->
+    let f = StringMap.find basename extensions in
+    f filename
+  ) directory
 
 let scan_directory_for_extensions directory extensions =
-  scan_directory (fun file filename ->
-    let (_, last_ext) = File.cut_last_extension file in
+  scan_directory (fun dirname basename filename ->
+    let (_, last_ext) = File.cut_last_extension basename in
     let last_ext = String.lowercase last_ext in
-    let f = try StringMap.find last_ext extensions
-      with Not_found -> raise not_found in
+    let f = StringMap.find last_ext extensions in
     f filename
   ) directory
 

@@ -29,7 +29,7 @@ end)
 type package = {
   package_name : string; (* basename of project *)
   mutable package_dirname : string; (* where the project files are *)
-
+  mutable package_source_kind : string;
   mutable package_provides : string; (* TODO: what the project provides,
 					default "" => same as name.
 					if provides is specified, then
@@ -113,7 +113,7 @@ and 'a package_dependency =
     }
 
 and project = {
-  project_files : File.t list;
+(*  project_files : File.t list; *)
   mutable project_disabled : package array;
   mutable project_incomplete : package array;
   mutable project_sorted : package array;

@@ -48,8 +48,10 @@ and package_info = {
   mutable lib_provides : string;
   mutable lib_type : package_type;
   mutable lib_tag : string;
-
+  mutable lib_meta : bool;
+  (* true means that it should be ignored about objects *)
   lib_filename : string;
+  lib_source_kind : string;
 
   lib_node : LinearToposort.node;
   mutable lib_missing_deps : int;
@@ -81,4 +83,5 @@ and package_info = {
   mutable lib_dep_deps : build_file IntMap.t;
   mutable lib_includes : string list option;
   mutable lib_sources : (string * BuildOCPVariable.options) list;
+  mutable lib_archive : string;
 }

@@ -21,6 +21,7 @@ let empty () = {
   meta_preprocessor = None;
   meta_name = None;
   meta_linkopts = None;
+  meta_license = None;
 (*  meta_browse_interfaces = []; *)
 
   meta_error = StringMap.empty;
@@ -73,7 +74,7 @@ let fprintf_entries oc indent name entries =
       indent name
       (if var.metavar_key = "" then "" else
           Printf.sprintf "(%s)" var.metavar_key)
-      (String.concat "," var.metavar_value)
+      (String.concat " " var.metavar_value)
   ) entries
 
 let create_meta_file filename meta =
@@ -83,6 +84,7 @@ let create_meta_file filename meta =
     fprintf_option_field oc indent "description" meta.meta_description;
     fprintf_option_field oc indent "name" meta.meta_name;
     fprintf_option_field oc indent "directory" meta.meta_directory;
+    fprintf_option_field oc indent "license" meta.meta_license;
     fprintf_option_field oc indent "preprocessor" meta.meta_preprocessor;
     fprintf_option_field oc indent "linkopts" meta.meta_linkopts;
     fprintf_entries oc indent "requires" meta.meta_requires;
