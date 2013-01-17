@@ -68,7 +68,7 @@ install:
 #	mkdir -p $(BINDIR)
 #	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)
 #	rm -rf $(TYPEREXDIR)/ocp-edit-mode
-#	cp -dpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
+#	cp -PpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
 
 #install-emacs:
 #	cp tools/ocp-fix-errors/emacs/ocp-fix-errors.el $(HOME)/.emacs.d/
