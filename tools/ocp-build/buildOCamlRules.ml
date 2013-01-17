@@ -886,6 +886,13 @@ let create_ml_file_if_needed b lib mut_dir options ml_file =
         (bool_option_with_default options variable false)
     ) (list_option_with_default options "env_bools" []);
 
+    Printf.bprintf b "let requires = [\n";
+    List.iter (fun dep ->
+      let lib = dep.dep_project in
+      Printf.bprintf b "   %S, %S;\n" lib.lib_name lib.lib_version;
+    ) lib.lib_requires;
+    Printf.bprintf b "  ]\n";
+
     let ml_content = Buffer.contents b in
 
     if File.X.exists tmp_ml_file then begin

@@ -20,7 +20,7 @@
 *)
 
 (* TODO
-  We could force packages with missing dependencies to still be compiled,
+  We could force packages with missing dependencies to still be compiaboutled,
   since it is still possible that these missing dependencies are not used
   in a particular compilation scheme.
 *)

@@ -129,9 +129,9 @@ let load_META_files pj cfg top_dirname =
 
           pk.package_source_kind <- "meta";
           List.iter (fun s ->
-            let ( _ :  'a package_dependency) =
+            let ( dep :  'a package_dependency) =
               BuildOCPInterp.new_package_dep pk s in
-            ()
+            dep.dep_link <- true
           ) !requires;
 
               (* this package has already been generated *)

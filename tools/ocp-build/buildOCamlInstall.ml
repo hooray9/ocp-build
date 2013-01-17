@@ -110,11 +110,6 @@ type kind = DIR | FILE
 let add_log log kind name =
   log := (kind, name) :: !log
 
-let copy_file log src_file dst_file =
-  add_log log FILE dst_file;
-  File.RawIO.copy_file src_file dst_file
-
-
 let rec safe_mkdir log filename =
   try
     let st = Unix.stat filename in
@@ -137,14 +132,18 @@ let rec safe_mkdir log filename =
 (* [dst] must be the target file name, not the name of its directory *)
 let rec copy_rec log src dst =
     (*    Printf.eprintf "copy_rec: %S -> %S\n%!" src dst; *)
-  match (Unix.stat src).Unix.st_kind with
+  let st = Unix.stat src in
+  match st.Unix.st_kind with
   | Unix.S_DIR ->
     safe_mkdir log dst;
     File.RawIO.iter_dir (fun basename ->
       copy_rec log (Filename.concat src basename)
         (Filename.concat dst basename)) src
   | Unix.S_REG ->
-    copy_file log src dst
+    add_log log FILE dst;
+    File.RawIO.copy_file src dst;
+    Unix.chmod dst st.Unix.st_perm
+
   | _ ->
     failwith (Printf.sprintf
                 "File.copy_rec: cannot copy unknown kind file %S"
@@ -183,6 +182,10 @@ let really_install do_install install_where install_what lib installdir =
 
   (* Do the installation *)
   let meta = MetaFile.empty () in
+
+  meta.meta_version <- Some lib.lib_version;
+  meta.meta_description <- Some
+    (string_option_with_default lib.lib_options "description" lib.lib_name);
   List.iter (fun dep ->
     if dep.dep_link then
       MetaFile.add_requires meta [] [dep.dep_project.lib_name]
