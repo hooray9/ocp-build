@@ -35,6 +35,8 @@ begin library "ocplib-lang"
   requires = [ "ocplib-debug" ]
 end
 
+install = false
+
 begin library "ocplib-test"
   files = [ "test.ml" ]
   requires = [ "ocplib-lang" ]

@@ -83,6 +83,7 @@ let new_library b pj package_dirname src_dir dst_dir mut_dir =
       lib_meta = bool_option_with_default pj.package_options "meta" false;
       lib_id = pj.package_id;
       lib_name = pj.package_name;
+      lib_version = pj.package_version;
       lib_dirname = File.of_string package_dirname;
       lib_provides = pj.package_provides ;
       lib_type = pj.package_type ;

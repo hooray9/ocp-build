@@ -80,8 +80,15 @@ let no_stdlib_arg = ref None
 let other_dirs_arg = ref []
 type arch_arg = ArchAuto | ArchNone | Arch of string
 let arch_arg = ref ArchNone
+
+let install_arg = ref false
+let uninstall_arg = ref false
+let reverse_install_arg = ref false
 let install_lib_arg = ref None
+let install_data_arg = ref None
+let install_bin_arg = ref None
 let meta_dirnames_arg = ref []
+let meta_verbose_arg = ref 0
 
 let init_arg = ref false
 
@@ -93,11 +100,60 @@ let arg_list = [
     save_arguments_arg := true;
     save_project := true), " : create the ocp-build.root file";
 
+  "-version", Arg.Unit (fun () ->
+    Printf.printf "%s\n%!" BuildVersion.version;
+    exit 0
+  ), "Print version information";
+
+  "-about", Arg.Unit (fun () ->
+    Printf.printf "ocp-build : OCaml Project Builder\n";
+    Printf.printf "\tversion: %s\n" BuildVersion.version;
+    Printf.printf "\tdescription: %s\n" BuildVersion.description;
+    List.iter (fun author ->
+      Printf.printf "\tauthor: %s\n" author) BuildVersion.authors;
+    Printf.printf "\tlicense: %s\n" BuildVersion.license;
+    Printf.printf "%!";
+    exit 0
+  ), "Print version information";
+
+  "-meta-verbose", Arg.Int (fun n -> meta_verbose_arg := n),
+  "Set verbosity of loading META files";
+
   "-meta", Arg.String (fun s -> meta_dirnames_arg := s :: !meta_dirnames_arg),
   "Load META files from this directory";
 
-  "-install-lib", Arg.String (fun s -> install_lib_arg := Some s),
-  "Install libraries in specified directory";
+  "-install", Arg.Set install_arg,
+  "Install binaries and libraries";
+
+  "-reverse-install", Arg.Set reverse_install_arg,
+  "Reverse the installation";
+
+  "-uninstall", Arg.Set uninstall_arg,
+  "Uninstall given packages (installed by ocp-build)";
+
+  "-install-lib", Arg.String (fun s ->
+    if Filename.is_relative s then begin
+      Printf.eprintf "Error: argument to -install-lib must be absolute\n%!";
+      exit 2
+    end;
+    install_lib_arg := Some s),
+  "Specify directory where libraries should be installed";
+
+  "-install-bin", Arg.String (fun s ->
+    if Filename.is_relative s then begin
+      Printf.eprintf "Error: argument to -install-bin must be absolute\n%!";
+      exit 2
+    end;
+    install_bin_arg := Some s),
+  "Specify directory where binaries should be installed";
+
+  "-install-data", Arg.String (fun s ->
+    if Filename.is_relative s then begin
+      Printf.eprintf "Error: argument to -install-data must be absolute\n%!";
+      exit 2
+    end;
+    install_data_arg := Some s),
+  "Specify directory where data should be installed (if any)";
 
 (*
   "-byte", Arg.Set byte_arg, " : build only bytecode version";
@@ -256,6 +312,33 @@ let build root_file =
 
     b.cross_arg <- !cross_arg;
 
+    let ocamlfind_path = MetaConfig.load_config () in
+
+    let install_where =
+    let open BuildOCamlInstall in
+
+      {
+        install_libdirs = (match !install_lib_arg with
+          None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
+        | Some dir -> [dir]);
+        install_bindir = (match !install_bin_arg with
+          None -> cfg.ocaml_bin
+        | Some dir -> dir);
+        install_datadir = !install_data_arg;
+
+        install_ocamllib = cfg.ocaml_ocamllib;
+        install_ocamlfind = ocamlfind_path;
+      }
+    in
+
+  if !uninstall_arg && !targets_arg <> [] then
+    List.iter (BuildOCamlInstall.uninstall_by_name install_where)
+      !targets_arg
+
+  else
+
+
+
   (* Don't modify default values from now on, since they have been included
    in the default configuration ! *)
 
@@ -265,15 +348,15 @@ let build root_file =
         (BuildOCP.load_ocp_files state) !!root_files
     in
     List.iter (fun dirname ->
-      let dirname =
+      let dirs =
         if dirname = "" || dirname = "-" then
-          match MetaConfig.load_config () with
-            None -> cfg.ocaml_ocamllib
-          | Some path -> path
+        match ocamlfind_path with
+          [] -> [cfg.ocaml_ocamllib]
+        | list -> list
         else
-          dirname
+          [dirname]
       in
-      BuildOCamlMeta.load_META_files state cfg dirname
+      List.iter (BuildOCamlMeta.load_META_files state cfg) dirs
     ) !meta_dirnames_arg;
     if nerrors > 0 then exit 2;
     let pj =
@@ -307,7 +390,8 @@ let build root_file =
       let meta_need = ref 0 in
       Array.iter (fun pk ->
         Hashtbl.add incomplete_projects pk.package_name pk;
-        if pk.package_source_kind <> "meta" then (* TODO ? *)
+        if !meta_verbose_arg > 0 ||
+          pk.package_source_kind <> "meta" then (* TODO ? *)
           print_package pk
         else
           incr meta_need
@@ -319,9 +403,12 @@ let build root_file =
 
   List.iter (fun (name, list) ->
     let non_meta_need = ref false in
-    List.iter (fun pk ->
-      if pk.package_source_kind <> "meta" then non_meta_need := true
-    ) list;
+    if !meta_verbose_arg > 0 then
+      non_meta_need := true
+    else
+      List.iter (fun pk ->
+        if pk.package_source_kind <> "meta" then non_meta_need := true
+      ) list;
     if !non_meta_need then begin
       Printf.eprintf "   %s \"%s\" missed by %d projects\n"
         (if Hashtbl.mem incomplete_projects name then "INCOMPLETE" else "ABSENT")
@@ -384,35 +471,31 @@ let build root_file =
 	) list
   end;
 
-  let do_build_targets = ref true in
-  let do_install = ref false in
-  let install_libdir = ref cfg.ocaml_ocamllib in
-  begin match !install_lib_arg with
-    None -> ()
-  | Some libdir ->
-    do_build_targets := false;
-    do_install := true;
-    if libdir <> "" && libdir <> "-" then
-      install_libdir := libdir;
-  end;
+  if !uninstall_arg then
+    List.iter (fun lib ->
+      BuildOCamlInstall.uninstall install_where lib)
+      !projects
+  else
+    let install_what =
 
-  if !do_install then begin
-    List.iter (fun pj ->
-      let open BuildOCamlInstall in
-      BuildOCamlInstall.install {
-        install_libdir = !install_libdir;
-        install_bindir = "/usr/local/bin";
-      }
+    let open BuildOCamlInstall in
         {
-          install_asm_bin = false;
-          install_byte_bin = false;
+          install_asm_bin = true;
+          install_byte_bin = true;
           install_asm_lib = true;
           install_byte_lib = true;
         }
+    in
+
+  if !install_arg || !reverse_install_arg then
+    List.iter (fun pj ->
+      if not pj.lib_installed then
+      BuildOCamlInstall.install !install_arg
+        install_where install_what
         pj)
       !projects
-  end;
 
+  else
 
 (* build the list of targets *)
   let targets = ref [] in
@@ -424,7 +507,7 @@ let build root_file =
   in
   List.iter add_project_targets !projects;
 
-  if !do_build_targets && !targets <> [] then begin
+  if !targets <> [] then begin
     begin
       try
 	time2 "Build init time: %.2f\n%!" BuildEngine.init b !targets
@@ -473,6 +556,7 @@ let build root_file =
   let t1 = Unix.gettimeofday () in
   if !time_arg then
     Printf.printf "Total time: %.2fs\n%!" (t1 -. t0)
+
 
 let _ =
   Printexc.record_backtrace true;

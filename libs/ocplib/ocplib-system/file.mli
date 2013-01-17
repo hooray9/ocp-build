@@ -106,6 +106,10 @@ module RawIO : sig
 
   val copy_file : string -> string -> unit
   val iter_blocks : (string -> int -> int -> unit) -> string -> unit
+  val safe_mkdir : string -> unit
+  val copy_rec : string -> string -> unit
+  val uncopy_rec : string -> string -> unit
+  val iter_dir : (string -> unit) -> string -> unit
 
 end
 

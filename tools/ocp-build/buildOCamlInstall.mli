@@ -11,9 +11,13 @@
 (*                                                                            *)
 (******************************************************************************)
 
-type install_info = {
-  install_libdir : string;
+type install_where = {
+  install_libdirs : string list;
   install_bindir : string;
+  install_datadir : string option;
+
+  install_ocamlfind : string list;
+  install_ocamllib : string;
 }
 
 type install_what = {
@@ -23,4 +27,9 @@ type install_what = {
   install_asm_lib : bool;
 }
 
-val install : install_info -> install_what -> BuildTypes.package_info -> unit
+val install : bool (* true = install, false = uninstall *) ->
+  install_where -> install_what ->
+  BuildTypes.package_info -> unit
+
+val uninstall_by_name : install_where ->  string -> unit
+val uninstall : install_where -> BuildTypes.package_info -> unit

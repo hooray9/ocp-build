@@ -58,6 +58,7 @@ module TYPES : sig
     ocaml_ext_lib : string;
     ocaml_ext_dll : string;
     ocaml_os_type : string;
+    ocaml_bin : string;
   }
 end
 

@@ -304,6 +304,10 @@ module RawIO : sig
 
   val copy_file : string -> string -> unit
   val iter_blocks : (string -> int -> int -> unit) -> string -> unit
+  val safe_mkdir : string -> unit
+  val copy_rec : string -> string -> unit
+  val uncopy_rec : string -> string -> unit
+  val iter_dir : (string -> unit) -> string -> unit
 
 end = struct
 
@@ -333,6 +337,76 @@ end = struct
     in
     iter f ic s;
     ReentrantBuffers.free s
+
+  let iter_dir f dirname =
+    let dir = Unix.opendir dirname in
+    try
+      while true do
+        let file = Unix.readdir dir in
+        if file <> "." && file <> ".." then begin
+          f file
+        end;
+      done;
+      assert false
+    with End_of_file ->
+      Unix.closedir dir
+    | e ->
+      Unix.closedir dir;
+      raise e
+
+
+  let rec safe_mkdir filename =
+    try
+      let st = Unix.stat filename in
+      match st.Unix.st_kind with
+	Unix.S_DIR -> ()
+      | _ ->
+        failwith (Printf.sprintf
+                    "File.safe_mkdir: %S exists, but is not a directory"
+                    filename)
+    with Unix.Unix_error (Unix.ENOENT, _, _) ->
+      let dirname = Filename.dirname filename in
+      safe_mkdir dirname;
+      let basename = Filename.basename filename in
+      match basename with
+      | "." | ".." -> ()
+      | _ ->
+        Unix.mkdir filename 0o755
+
+(* [dst] must be the target file name, not the name of its directory *)
+  let rec copy_rec src dst =
+(*    Printf.eprintf "copy_rec: %S -> %S\n%!" src dst; *)
+    match (Unix.stat src).Unix.st_kind with
+    | Unix.S_DIR ->
+      safe_mkdir dst;
+      iter_dir (fun basename ->
+        copy_rec (Filename.concat src basename)
+          (Filename.concat dst basename)) src
+    | Unix.S_REG ->
+      copy_file src dst
+    | _ ->
+      failwith (Printf.sprintf
+                  "File.copy_rec: cannot copy unknown kind file %S"
+                  src)
+
+(* [dst] must be the target file name, not the name of its directory *)
+  let rec uncopy_rec src dst =
+    match
+      (try Some (Unix.stat src).Unix.st_kind with _ -> None),
+      (try Some (Unix.stat dst).Unix.st_kind with _ -> None)
+    with
+    | _, None -> ()
+    | Some Unix.S_DIR, Some Unix.S_DIR ->
+      iter_dir (fun basename ->
+        uncopy_rec (Filename.concat src basename)
+          (Filename.concat dst basename)) src;
+      (try Unix.rmdir dst with _ -> ())
+    | Some Unix.S_REG, Some Unix.S_REG ->
+      Sys.remove dst
+    | _ ->
+          failwith (Printf.sprintf
+                      "File.uncopy_rec: inconsistent kinds between %S and %S"
+                  src dst)
 
 end
 

@@ -51,12 +51,24 @@ distclean: clean $(OCPBUILD)
 
 
 TO_INSTALL = ocp-build ocp-fix-errors ocp-edit-mode ocp-spotter ocp-type-from-loc ocp-build-infer-env
+
+uninstall:
+	$(OCPBUILD) -reverse-install \
+          -install-lib $(LIBDIR) \
+          -install-bin $(BINDIR) \
+          -install-data $(TYPEREXDIR)
+
 install:
-	mkdir -p $(TYPEREXDIR)
-	mkdir -p $(BINDIR)
-	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)
-	rm -rf $(TYPEREXDIR)/ocp-edit-mode
-	cp -dpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
+	$(OCPBUILD) -install \
+          -install-lib $(LIBDIR) \
+          -install-bin $(BINDIR) \
+          -install-data $(TYPEREXDIR)
+
+#	mkdir -p $(TYPEREXDIR)
+#	mkdir -p $(BINDIR)
+#	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)
+#	rm -rf $(TYPEREXDIR)/ocp-edit-mode
+#	cp -dpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
 
 #install-emacs:
 #	cp tools/ocp-fix-errors/emacs/ocp-fix-errors.el $(HOME)/.emacs.d/

@@ -11,4 +11,4 @@
 (*                                                                            *)
 (******************************************************************************)
 
-val load_config : unit -> string option
+val load_config : unit -> string list

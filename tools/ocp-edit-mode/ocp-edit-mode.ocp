@@ -30,7 +30,11 @@ end
 
 begin library "ocplib-edit-mode"
 
+(* TODO: change with:
+*)
+
   files = [
+       "editVersion.ml" (ocp2ml = true env_strings = [ "datadir" ])
        "editConfiguration.mlp" (ml = true
              pp = [ "_obuild/ocp-subst-config/ocp-subst-config.byte" "-config-file" "typerex.config" ]
     )
@@ -40,6 +44,10 @@ begin library "ocplib-edit-mode"
 end
 
 begin program "ocp-edit-mode"
+
+    data_files = [ "files/emacs" ]
+    doc_files = []
+
     files = [
         "editInstall.ml" (* installation *)
         "editEmacs.ml" (* called from Emacs *)

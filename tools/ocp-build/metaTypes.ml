@@ -40,7 +40,7 @@
 type meta = {
   mutable meta_version : string option;
   mutable meta_description : string option;
-  mutable meta_exists_if : string option;
+  mutable meta_exists_if : string list;
   mutable meta_directory : string option;
   mutable meta_preprocessor : string option;
   mutable meta_name : string option;

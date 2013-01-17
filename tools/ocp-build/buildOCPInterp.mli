@@ -55,7 +55,8 @@ val new_package :
   state ->
   string (* name *) ->
   string (* dirname *) ->
-  string (* filename *) -> BuildOCPTypes.package
+  string (* filename *) ->
+  BuildOCPTree.package_type -> BuildOCPTypes.package
 
 val new_package_dep : BuildOCPTypes.package -> string ->
   string BuildOCPTypes.package_dependency

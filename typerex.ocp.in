@@ -10,22 +10,16 @@
 (*  contact@ocamlpro.com (http://www.ocamlpro.com/)                       *)
 (**************************************************************************)
 
+version = "@PACKAGE_VERSION@"
+copyright = [ "OCamlPro/INRIA 2011-2013" ]
 authors = [
-(* original author: *)
-  "Jun Furuse <jun.furuse@gmail.com>"
-(* modified by: *)
-  "Fabrice Le Fessant <fabrice.le_fessant@inria.fr>"
-]
-license = [ "LGPL-OCaml-exc6" ]
-
-begin program "ocp-spotter"
-
-      files = [ "utils.ml" "checksum.ml" "dotfile.ml" "xset.ml" "treeset.ml" "command.ml" "typeexpand.ml" "xlongident.ml" "name.ml" "xident.ml" "xpath.ml" "locident.ml" "typeFix.ml" "xprinttyp.ml" "ext.ml" "ttfold.ml" "cmt.ml" "spot.ml" "spoteval.ml" "spotconfig_intf.ml" "spotconfig.ml" "spotfile.ml" "pathreparse.ml" "ocamlspot.ml" ]
-
-  requires = [ "ocaml-driver"
-                 "ocp-build-misc" (* for BuildFind.find_cmt_in_obuild *)
-
+    "Fabrice LE FESSANT <fabrice.le_fessant@ocamlpro.com>"
+    "Thomas Gazagnaire <thomas.gazagnaire@ocamlpro.com>"
+    "Çagdas Bozman <cagdas.bozman@ocamlpro.com>"
+    "Pierre Chambart <pierre.chambart@ocamlpro.com>"
+    "Louis Gesbert <louis.gesbert@ocamlpro.com>"
 ]
 
-end
-
+(* If it is not specified otherwise: *)
+license = [ "GPLv3" ]
+datadir = [ "@datadir@" ]

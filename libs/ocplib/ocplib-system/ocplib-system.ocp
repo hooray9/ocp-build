@@ -38,6 +38,8 @@ begin library "ocplib-system"
 
 end
 
+install = false
+
 begin library "ocplib-system.test"
   files = [
     "file_test.ml";

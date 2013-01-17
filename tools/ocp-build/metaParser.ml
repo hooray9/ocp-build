@@ -92,7 +92,7 @@ let parse_file filename =
         match name with
           "version" -> meta.meta_version <- Some str
         | "description" -> meta.meta_description <- Some str
-        | "exists_if" -> meta.meta_exists_if <- Some str
+        | "exists_if" -> meta.meta_exists_if <- split_simplify str
         | "directory" -> meta.meta_directory <- Some str
         | "preprocessor" -> meta.meta_preprocessor <- Some str
         | "name" -> meta.meta_name <- Some str

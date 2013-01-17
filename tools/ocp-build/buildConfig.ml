@@ -124,6 +124,7 @@ module TYPES = struct
     ocaml_ext_lib : string;
     ocaml_ext_dll : string;
     ocaml_os_type : string;
+    ocaml_bin : string;
   }
 
 end
@@ -163,6 +164,7 @@ let get_config cmd =
     ocaml_ext_dll = !ocaml_ext_dll;
     ocaml_os_type = !ocaml_os_type;
     ocaml_ocamllib = !ocaml_ocamllib;
+    ocaml_bin = Filename.dirname cmd;
   }
 
 let rec find_first_in_path path filter list =

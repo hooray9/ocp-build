@@ -16,7 +16,7 @@ open MetaTypes
 let empty () = {
   meta_version = None;
   meta_description = None;
-  meta_exists_if = None;
+  meta_exists_if = [];
   meta_directory = None;
   meta_preprocessor = None;
   meta_name = None;
@@ -68,6 +68,12 @@ let fprintf_option_field oc indent name field =
     | Some s ->
       Printf.fprintf oc "%s%s = %S\n" indent name s
 
+let fprintf_list_field oc indent name field =
+    match field with
+      [] -> ()
+    |  s ->
+      Printf.fprintf oc "%s%s = %S\n" indent name (String.concat ", " s)
+
 let fprintf_entries oc indent name entries =
   StringMap.iter (fun _ var ->
     Printf.fprintf oc "%s%s%s = %S\n"
@@ -89,7 +95,7 @@ let create_meta_file filename meta =
     fprintf_option_field oc indent "linkopts" meta.meta_linkopts;
     fprintf_entries oc indent "requires" meta.meta_requires;
     fprintf_entries oc indent "archive" meta.meta_archive;
-    fprintf_option_field oc indent "exists_if" meta.meta_exists_if;
+    fprintf_list_field oc indent "exists_if" meta.meta_exists_if;
     List.iter (fun (name, meta) ->
       Printf.fprintf oc "%spackage %S (\n" indent name;
       fprintf_meta oc (indent ^ "  ") meta;

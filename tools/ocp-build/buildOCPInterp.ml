@@ -37,7 +37,7 @@ let final_state state =
       IntMap.find i state.packages
     )
 
-let new_package pj name dirname filename =
+let new_package pj name dirname filename kind =
   let package_id = pj.npackages in
   pj.npackages <- pj.npackages + 1;
   let pk = {
@@ -54,7 +54,7 @@ let new_package pj name dirname filename =
     package_name = name;
     package_missing_deps = 0;
     package_provides = name;
-    package_type = LibraryPackage;
+    package_type = kind;
 (*    package_native = true; *)
     package_validated = false;
     package_sources = [];
@@ -315,11 +315,9 @@ let add_project_dep pk s options =
 
 let define_package pj name config kind =
   let pk = new_package pj name
-    config.config_dirname config.config_filename
+    config.config_dirname config.config_filename kind
   in
   let project_options = config.config_options in
-  pk.package_type <- kind;
-  pk.package_provides <- name;
   pk.package_sources <-  config.config_files;
  (*
    TODO: verify :pp and :nolink
@@ -335,7 +333,8 @@ let define_package pj name config kind =
     in
     add_project_dep pk link dep_name) config.config_requires; *)
   pk.package_options <- project_options;
-
+  pk.package_version <- string_option_with_default project_options "version"
+    "0.1-alpha";
   List.iter (fun (s, options) ->
     let options = translate_options default_options options in
     add_project_dep pk s options

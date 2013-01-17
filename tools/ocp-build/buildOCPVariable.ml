@@ -91,7 +91,8 @@ let direct_strings_option options strings_option =
 	strings_option.option_default
   with Not_found -> strings_option.option_default
 
-let string_option options string_option =  String.concat " " (strings_option options string_option)
+let string_option options string_option =
+  String.concat " " (strings_option options string_option)
 
 let get_strings_option strings_option =
   String.concat " " strings_option.option_default
@@ -101,6 +102,13 @@ let string_option_with_default options name default =
   try
     match StringMap.find name options with
       OptionList list -> String.concat " " list
+    | OptionBool _ -> raise Not_found
+  with Not_found -> default
+
+let list_option_with_default options name default =
+  try
+    match StringMap.find name options with
+      OptionList list -> list
     | OptionBool _ -> raise Not_found
   with Not_found -> default
 

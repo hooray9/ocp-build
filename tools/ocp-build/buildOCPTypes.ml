@@ -70,7 +70,7 @@ type package = {
 				   project+"+profile", using the
 				   interfaces from project. (how to do that ?)
 				*)
-  mutable package_version : string; (* unused: TODO *)
+  mutable package_version : string;
   mutable package_auto : string option; (* unused: TODO *)
 
   package_loc : int;

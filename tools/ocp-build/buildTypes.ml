@@ -44,6 +44,8 @@ and package_info = {
   lib_context : BuildEngineTypes.build_context;
   lib_id : int;
   lib_name : string;
+
+  mutable lib_version : string;
   mutable lib_dirname : File.t;
   mutable lib_provides : string;
   mutable lib_type : package_type;
