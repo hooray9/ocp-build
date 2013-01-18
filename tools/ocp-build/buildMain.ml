@@ -227,30 +227,158 @@ let arg_usage =
      "The following options are available:"
     ]
 
-
-let build root_file =
-  let root_dir = File.dirname root_file in
-
-  let build_dir_basename = !build_dir_basename_arg in
-
-
-  let build_dir_filename = (* absolute_filename *) build_dir_basename in
-
+let build () =
   targets_arg := List.rev !targets_arg;
 
-  if verbose 2 then Printf.eprintf "Arguments parsed\n%!";
+
+  let project_basenames = [  "ocp-build.root" ] in
+  let project_dir =
+    try
+      BuildOCP.find_root (File.X.getcwd ()) project_basenames
+    with Not_found ->
+
+            (* time "Config time: %.2fs\n%!" BuildConfig.load_config
+               local_config_file; *)
+
+      let pjo = {
+        option_njobs = 0;
+        option_autoscan = false;
+        option_verbosity = 0;
+        option_usestdlib = false;
+        option_digest = false;
+        option_native = true;
+        option_bytecode = true;
+        option_ocamlbin = "";
+        option_ocamllib = "";
+        option_ocamlc = [];
+        option_ocamlopt = [];
+        option_ocamldep = [];
+        option_ocamllex = [];
+        option_ocamlyacc = [];
+        option_installbin = ""; (* TODO not used ??? *)
+        option_installlib = None; (* TODO not used ??? *)
+      } in
+
+      let cfg =
+        time "Check config: %.2fs\n%!" BuildConfig.check_config pjo in
+      let ocamlfind_path = MetaConfig.load_config () in
+
+      let install_where =
+              let open BuildOCamlInstall in
+
+              {
+                install_libdirs = (match !install_lib_arg with
+                  None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
+                | Some dir -> [dir]);
+                install_bindir = (match !install_bin_arg with
+                  None -> cfg.ocaml_bin
+                | Some dir -> dir);
+                install_datadir = !install_data_arg;
+
+                install_ocamllib = cfg.ocaml_ocamllib;
+                install_ocamlfind = ocamlfind_path;
+              }
+            in
+
+            if !list_installed_arg then begin
+
+              let open BuildOCamlInstall in
+              Printf.printf "Installed packages:\n";
+              List.iter (fun un ->
+                Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
+              ) (BuildOCamlInstall.list_installed install_where);
+              exit 0
+
+            end else
+
+              if !uninstall_arg && !targets_arg <> [] then begin
+
+                List.iter (BuildOCamlInstall.uninstall_by_name install_where)
+                  !targets_arg;
+                exit 0
+              end
+              else
+                begin
+
+                  Printf.fprintf stderr "Fatal error: no ocp-build.root file found.\n%!";
+                  Printf.fprintf stderr "\tYou can use the -init option at the root of the project\n";
+                  Printf.fprintf stderr "\tto create the initial file.\n%!";
+                  exit 2
+                end
+        in
+
+        Unix.chdir (File.to_string project_dir);
+        Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"  (File.to_string project_dir);
+        try
+
+          let root_file = File.add_basenames project_dir project_basenames in
+          let root_dir = File.dirname root_file in
+
+          let build_dir_basename = !build_dir_basename_arg in
 
 
-  let root_config, pjo = BuildOptions.load_local root_file in
+          let build_dir_filename = (* absolute_filename *) build_dir_basename in
 
-  if pjo.option_ocamllib <> "" then begin
-(* do this before check_config *)
-    Unix.putenv "OCAMLLIB" pjo.option_ocamllib
-  end;
+          if verbose 2 then Printf.eprintf "Arguments parsed\n%!";
 
-(*  time "Config time: %.2fs\n%!" BuildConfig.load_config local_config_file; *)
-  let cfg =
-    time "Check config: %.2fs\n%!" BuildConfig.check_config pjo in
+
+          let root_config, pjo = BuildOptions.load_local root_file in
+
+          if pjo.option_ocamllib <> "" then begin
+    (* do this before check_config *)
+            Unix.putenv "OCAMLLIB" pjo.option_ocamllib
+          end;
+
+  (*  time "Config time: %.2fs\n%!" BuildConfig.load_config local_config_file; *)
+          let cfg =
+            time "Check config: %.2fs\n%!" BuildConfig.check_config pjo in
+
+
+
+
+
+
+
+
+          let ocamlfind_path = MetaConfig.load_config () in
+
+          let install_where =
+      let open BuildOCamlInstall in
+
+      {
+        install_libdirs = (match !install_lib_arg with
+          None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
+        | Some dir -> [dir]);
+        install_bindir = (match !install_bin_arg with
+          None -> cfg.ocaml_bin
+        | Some dir -> dir);
+        install_datadir = !install_data_arg;
+
+        install_ocamllib = cfg.ocaml_ocamllib;
+        install_ocamlfind = ocamlfind_path;
+      }
+    in
+
+    if !list_installed_arg then begin
+
+      let open BuildOCamlInstall in
+      Printf.printf "Installed packages:\n";
+      List.iter (fun un ->
+        Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
+      ) (BuildOCamlInstall.list_installed install_where);
+      exit 0
+
+    end else
+
+      if !uninstall_arg && !targets_arg <> [] then
+
+        List.iter (BuildOCamlInstall.uninstall_by_name install_where)
+          !targets_arg
+
+      else
+
+
+
 
   let host = Printf.sprintf "%s-%s-%s"
     cfg.ocaml_system cfg.ocaml_architecture cfg.ocaml_version in
@@ -315,42 +443,6 @@ let build root_file =
   BuildOptions.maybe_save_local root_config;
 
     b.cross_arg <- !cross_arg;
-
-    let ocamlfind_path = MetaConfig.load_config () in
-
-    let install_where =
-    let open BuildOCamlInstall in
-
-      {
-        install_libdirs = (match !install_lib_arg with
-          None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
-        | Some dir -> [dir]);
-        install_bindir = (match !install_bin_arg with
-          None -> cfg.ocaml_bin
-        | Some dir -> dir);
-        install_datadir = !install_data_arg;
-
-        install_ocamllib = cfg.ocaml_ocamllib;
-        install_ocamlfind = ocamlfind_path;
-      }
-    in
-
-    if !list_installed_arg then begin
-      let open BuildOCamlInstall in
-      Printf.printf "Installed packages:\n";
-      List.iter (fun un ->
-        Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
-      ) (BuildOCamlInstall.list_installed install_where);
-      exit 0
-
-    end else
-
-  if !uninstall_arg && !targets_arg <> [] then
-    List.iter (BuildOCamlInstall.uninstall_by_name install_where)
-      !targets_arg
-
-  else
-
 
 
   (* Don't modify default values from now on, since they have been included
@@ -488,141 +580,149 @@ let build root_file =
   else
     let install_what =
 
-    let open BuildOCamlInstall in
-        {
-          install_asm_bin = true;
-          install_byte_bin = true;
-          install_asm_lib = true;
-          install_byte_lib = true;
-        }
+      let open BuildOCamlInstall in
+      {
+        install_asm_bin = true;
+        install_byte_bin = true;
+        install_asm_lib = true;
+        install_byte_lib = true;
+      }
     in
 
-  if !install_arg then
+    if !install_arg then
 
-    let already_installed = ref 0 in
+      let already_installed = ref 0 in
 
-    let bundle = match !install_bundle_arg with
-      None -> None
-    | Some name ->
-      if BuildOCamlInstall.is_installed
-        install_where
-        name then begin
-          Printf.eprintf "Error: bundle %S is already installed\n%!" name;
+      let bundle = match !install_bundle_arg with
+          None -> None
+        | Some name ->
+          if BuildOCamlInstall.is_installed
+            install_where
+            name then begin
+              Printf.eprintf "Error: bundle %S is already installed\n%!" name;
+              exit 2
+            end;
+          match BuildOCamlInstall.find_installdir
+            install_where install_what
+            name with
+              None -> exit 2
+            | Some installdir ->
+              Some (name, installdir)
+      in
+
+      List.iter (fun pj ->
+        if not pj.lib_installed &&
+          BuildOCPVariable.bool_option_with_default pj.lib_options
+          "install" true &&
+          BuildOCamlInstall.is_installed
+          install_where
+          pj.lib_name then begin
+            Printf.eprintf "Error: %S is already installed\n%!" pj.lib_name;
+            incr already_installed
+          end
+      ) !projects;
+      if !already_installed > 0 then begin
+        Printf.eprintf "Error: %d packages are already installed. Uninstall them first !\n%!" !already_installed;
+        exit 2
+      end;
+
+
+      let uninstallers = ref [] in
+      List.iter (fun pj ->
+        if not pj.lib_installed &&
+          BuildOCPVariable.bool_option_with_default pj.lib_options
+          "install" true
+        then
+          match       BuildOCamlInstall.find_installdir
+            install_where install_what
+            pj.lib_name with
+              None -> ()
+            | Some installdir ->
+              BuildOCamlInstall.install
+                install_where install_what
+                pj installdir;
+              uninstallers := (Filename.concat installdir
+                                 (pj.lib_name ^ ".uninstall")) :: !uninstallers
+      )
+        !projects;
+
+      begin match bundle with
+        None -> ()
+      | Some (name, installdir) ->
+        BuildOCamlInstall.install_bundle
+          install_where name !uninstallers installdir
+      end
+
+
+    else
+
+  (* build the list of targets *)
+      let targets = ref [] in
+      let add_project_targets lib =
+        if pjo.option_bytecode then
+          targets := List.map fst lib.lib_byte_targets @ !targets;
+        if pjo.option_native then
+          targets := List.map fst lib.lib_asm_targets @ !targets;
+      in
+      List.iter add_project_targets !projects;
+
+      if !targets <> [] then begin
+        begin
+          try
+	    time2 "Build init time: %.2f\n%!" BuildEngine.init b !targets
+          with BuildEngine.MissingSourceWithNoBuildingRule (r, filename) ->
+	    let (rule_filename, rule_loc, rule_name) = r.rule_loc in
+	    BuildMisc.print_loc rule_filename rule_loc;
+	    Printf.eprintf "Error: in project \"%s\", the source filename\n"
+	      rule_name;
+	    Printf.eprintf "\t\"%s\" does not exist\n" filename;
+	    BuildEngineRules.print_rule r;
+	    exit 2
+        end;
+        let orphans = time2 "Sanitizing time: %.2fs\n%!" BuildEngine.sanitize b !delete_orphans_arg in
+        if orphans > 0 then begin
+          Printf.fprintf stderr "Error: found %d orphan files in _obuild. You must remove them.\n" orphans;
+          Printf.fprintf stderr "\n";
+          Printf.fprintf stderr "   You can add the -sanitize argument to automatically remove\n";
+          Printf.fprintf stderr "   orphan files\n";
+          Printf.fprintf stderr "\n";
+          exit 2;
+        end else
+          if orphans < 0 then
+            Printf.fprintf stderr "Warning: deleted %d orphan files in _obuild\n" (-orphans);
+        Printf.fprintf stderr "Building using %d cores\n%!" ncores;
+        time2  "Building time: %.2fs\n%!" BuildEngine.parallel_loop b ncores;
+        let errors = BuildEngine.fatal_errors() @ BuildEngine.errors() in
+        if verbose 1 || errors <> [] then begin
+          Printf.eprintf "%s. %d commands executed, %d files generated.\n%!"
+	    (if errors = [] then "No error" else
+	        Printf.sprintf "%d errors" (List.length errors))
+	    !BuildEngine.stats_command_executed
+	    !BuildEngine.stats_files_generated;
+        end;
+        if errors <> [] then begin
+          List.iter (fun lines ->
+	    Printf.eprintf "Error:\n";
+	    List.iter (fun line ->
+	      Printf.eprintf "%s\n" line
+	    ) lines
+
+          ) errors;
           exit 2
         end;
-      match BuildOCamlInstall.find_installdir
-        install_where install_what
-        name with
-          None -> exit 2
-        | Some installdir ->
-          Some (name, installdir)
-    in
+      end;
+      Printf.eprintf "%!";
+      let t1 = Unix.gettimeofday () in
+      if !time_arg then
+        Printf.printf "Total time: %.2fs\n%!" (t1 -. t0);
 
-    List.iter (fun pj ->
-      if not pj.lib_installed &&
-        BuildOCPVariable.bool_option_with_default pj.lib_options
-        "install" true &&
-        BuildOCamlInstall.is_installed
-        install_where
-        pj.lib_name then begin
-          Printf.eprintf "Error: %S is already installed\n%!" pj.lib_name;
-          incr already_installed
-        end
-    ) !projects;
-    if !already_installed > 0 then begin
-      Printf.eprintf "Error: %d packages are already installed. Uninstall them first !\n%!" !already_installed;
-      exit 2
-    end;
+      Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir)
 
-
-    let uninstallers = ref [] in
-    List.iter (fun pj ->
-      if not pj.lib_installed &&
-        BuildOCPVariable.bool_option_with_default pj.lib_options
-        "install" true
-      then
-        match       BuildOCamlInstall.find_installdir
-        install_where install_what
-        pj.lib_name with
-          None -> ()
-        | Some installdir ->
-          BuildOCamlInstall.install
-            install_where install_what
-            pj installdir;
-          uninstallers := (Filename.concat installdir
-                             (pj.lib_name ^ ".uninstall")) :: !uninstallers
-    )
-      !projects;
-
-    begin match bundle with
-      None -> ()
-    | Some (name, installdir) ->
-      BuildOCamlInstall.install_bundle
-        install_where name !uninstallers installdir
-    end
-
-
-  else
-
-(* build the list of targets *)
-  let targets = ref [] in
-  let add_project_targets lib =
-    if pjo.option_bytecode then
-      targets := List.map fst lib.lib_byte_targets @ !targets;
-    if pjo.option_native then
-      targets := List.map fst lib.lib_asm_targets @ !targets;
-  in
-  List.iter add_project_targets !projects;
-
-  if !targets <> [] then begin
-    begin
-      try
-	time2 "Build init time: %.2f\n%!" BuildEngine.init b !targets
-      with BuildEngine.MissingSourceWithNoBuildingRule (r, filename) ->
-	let (rule_filename, rule_loc, rule_name) = r.rule_loc in
-	BuildMisc.print_loc rule_filename rule_loc;
-	Printf.eprintf "Error: in project \"%s\", the source filename\n"
-	  rule_name;
-	Printf.eprintf "\t\"%s\" does not exist\n" filename;
-	BuildEngineRules.print_rule r;
-	exit 2
-    end;
-    let orphans = time2 "Sanitizing time: %.2fs\n%!" BuildEngine.sanitize b !delete_orphans_arg in
-    if orphans > 0 then begin
-      Printf.fprintf stderr "Error: found %d orphan files in _obuild. You must remove them.\n" orphans;
-      Printf.fprintf stderr "\n";
-      Printf.fprintf stderr "   You can add the -sanitize argument to automatically remove\n";
-      Printf.fprintf stderr "   orphan files\n";
-      Printf.fprintf stderr "\n";
-      exit 2;
-    end else
-      if orphans < 0 then
-        Printf.fprintf stderr "Warning: deleted %d orphan files in _obuild\n" (-orphans);
-    Printf.fprintf stderr "Building using %d cores\n%!" ncores;
-    time2  "Building time: %.2fs\n%!" BuildEngine.parallel_loop b ncores;
-    let errors = BuildEngine.fatal_errors() @ BuildEngine.errors() in
-    if verbose 1 || errors <> [] then begin
-      Printf.eprintf "%s. %d commands executed, %d files generated.\n%!"
-	(if errors = [] then "No error" else
-	    Printf.sprintf "%d errors" (List.length errors))
-	!BuildEngine.stats_command_executed
-	!BuildEngine.stats_files_generated;
-    end;
-    if errors <> [] then begin
-      List.iter (fun lines ->
-	Printf.eprintf "Error:\n";
-	List.iter (fun line ->
-	  Printf.eprintf "%s\n" line
-	) lines
-
-      ) errors;
-      exit 2
-    end;
-  end;
-  Printf.eprintf "%!";
-  let t1 = Unix.gettimeofday () in
-  if !time_arg then
-    Printf.printf "Total time: %.2fs\n%!" (t1 -. t0)
+with e ->
+  let backtrace = Printexc.get_backtrace () in
+  Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir);
+  Printf.fprintf stderr "ocp-build: Fatal Exception %s\n%s\n%!" (Printexc.to_string e) backtrace;
+  raise e
 
 
 let _ =
@@ -637,29 +737,4 @@ let _ =
     let oc = open_out "ocp-build.root" in
     close_out oc
   end;
-
-  let project_basenames = [  "ocp-build.root" ] in
-  let project_dir =
-    try
-      BuildOCP.find_root (File.X.getcwd ()) project_basenames
-    with Not_found ->
-      Printf.fprintf stderr "Fatal error: no ocp-build.root file found.\n%!";
-      Printf.fprintf stderr "\tYou can use the -init option at the root of the project\n";
-      Printf.fprintf stderr "\tto create the initial file.\n%!";
-      exit 2
-  in
-
-  let project_filename = File.add_basenames project_dir project_basenames in
-  Unix.chdir (File.to_string project_dir);
-  Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"  (File.to_string project_dir);
-  try
-    build project_filename;
-    Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir)
-
-  with e ->
-    let backtrace = Printexc.get_backtrace () in
-    Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir);
-    Printf.fprintf stderr "ocp-build: Fatal Exception %s\n%s\n%!" (Printexc.to_string e) backtrace;
-    raise e
-
-
+  build ()

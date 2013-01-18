@@ -226,6 +226,14 @@ let check_config pjo =
 
   if pjo.option_ocamlc = [] then
     pjo.option_ocamlc <- [ "ocamlc.opt" ; "ocamlc"];
+  if pjo.option_ocamlopt = [] then
+    pjo.option_ocamlopt <- [ "ocamlopt.opt" ; "ocamlopt"];
+  if pjo.option_ocamldep = [] then
+    pjo.option_ocamldep <- [ "ocamldep.opt" ; "ocamldep"];
+  if pjo.option_ocamllex = [] then
+    pjo.option_ocamllex <- [ "ocamllex.opt" ; "ocamllex"];
+  if pjo.option_ocamlyacc = [] then
+    pjo.option_ocamlyacc <- [ "ocamlyacc"];
 
   let path =
     if pjo.option_ocamlbin = "" then
@@ -306,6 +314,7 @@ let check_config pjo =
     check_is_ocamllex pjo.option_ocamllex in
   begin match ocamllex with
       None ->
+(* TODO: this should only be an error if a .mll file has to be compiled *)
         Printf.eprintf "Error: Could not find OCaml ocamllex tool.\n";
         exit 2
     | Some ocamllex ->
