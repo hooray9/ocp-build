@@ -35,9 +35,11 @@ begin library "ocplib-edit-mode"
 
   files = [
        "editVersion.ml" (ocp2ml = true env_strings = [ "datadir" ])
+(*
        "editConfiguration.mlp" (ml = true
              pp = [ "_obuild/ocp-subst-config/ocp-subst-config.byte" "-config-file" "typerex.config" ]
     )
+*)
          "editOptions.ml" ]
   requires = [ "ocplib-system"  "ocp-subst-config" (syntax) ]
   pp_requires = [ "ocp-subst-config:byte" ]

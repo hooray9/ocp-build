@@ -66,6 +66,11 @@ let setq name body =
     [ ")" ]
 
 let load_global_config () =
+  let install_directory =
+    if !!install_directory = "" then
+      Filename.concat EditVersion.datadir "ocp-edit-mode"
+    else !!install_directory
+  in
   print_elist
     (
       [
@@ -74,7 +79,7 @@ let load_global_config () =
       ] @
       (message_quoted "ocp-edit-mode global config loaded") @
         prepend_to_list "load-path"
-        (Printf.sprintf  "\"%s/emacs\"" !!install_directory) @
+        (Printf.sprintf  "\"%s/emacs\"" install_directory) @
         defun "typerex-mode" ""
         (
           message "(concat \"typerex-mode called for \" (buffer-name))" @

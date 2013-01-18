@@ -33,7 +33,7 @@ let install_directory = create_option config
                             "where TYPEREX is the directory with the";
                             "sources of TypeRex.";
                           ]
-  string_option EditConfiguration.install_dir
+  string_option ""
 
 let mli_directories = create_option config
   [ "mli_directories" ]
