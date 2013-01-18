@@ -59,3 +59,10 @@ let modname_of_fullname fullname =
   let modname = Filename.chop_extension (Filename.basename fullname) in
   modname.[0] <- Char.uppercase modname.[0];
   modname
+
+let string_of_package_type kind =
+  match kind with
+    ProgramPackage -> "program"
+  | LibraryPackage -> "library"
+          (*	  | ProjectToplevel -> "toplevel" *)
+  | ObjectsPackage -> "objects"

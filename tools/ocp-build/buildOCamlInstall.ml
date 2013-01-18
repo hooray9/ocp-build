@@ -54,6 +54,11 @@ type install_what = {
   install_asm_lib : bool;
 }
 
+type kind = DIR | FILE | VERSION | WARNING | DESCR | TYPE | PACK
+
+type log = (kind * string) list
+
+
 module List = struct
   include List
 
@@ -105,7 +110,6 @@ let string_of_kind = function
 
 let fake_install = ref false
 
-type kind = DIR | FILE
 
 let add_log log kind name =
   log := (kind, name) :: !log
@@ -149,167 +153,203 @@ let rec copy_rec log src dst =
                 "File.copy_rec: cannot copy unknown kind file %S"
                 src)
 
-let install_or_uninstall do_install log src_file dst_file =
+let install_or_uninstall log src_file dst_file =
   if not !fake_install then begin
-    if do_install then begin
-      Printf.fprintf stderr " %s%!" (Filename.basename dst_file);
-      copy_rec log src_file dst_file
-    end else
-      if Sys.file_exists dst_file then begin
-        Printf.fprintf stderr " %s%!" (Filename.basename dst_file);
-        File.RawIO.uncopy_rec src_file dst_file
-      end else begin
-        Printf.fprintf stderr " (%s)%!" (Filename.basename dst_file);
-      end
+    Printf.fprintf stderr " %s%!" (Filename.basename dst_file);
+    copy_rec log src_file dst_file
   end
 
 (* TODO: we should do an analysis on the packages that are going to be
   installed, to check that all libraries have also their dependencies
   loaded. *)
 
+let save_uninstall_log uninstall_file log =
+  let oc = open_out uninstall_file in
+  Printf.fprintf oc "OCP 1\n";
+  List.iter (fun (kind, file) ->
+    Printf.fprintf oc "%s %s\n" (match kind with
+      FILE -> "REG"
+    | DIR -> "DIR"
+    | VERSION -> "VER"
+    | WARNING -> "WAR"
+    | DESCR -> "LOG"
+    | TYPE -> "TYP"
+    | PACK -> "PCK"
+    ) (String.escaped file);
+  ) log;
+  close_out oc
 
-let really_install do_install install_where install_what lib installdir =
+(* TODO: in another version, we could actually link bundle packages to
+other packages, and use uninstall instructions from these packages *)
+
+let install_bundle install_where name logs installdir =
   let log = ref [] in
   let uninstall_file = Filename.concat installdir
-    (Printf.sprintf "%s.uninstall" lib.lib_name) in
-
-  let installbin = install_where.install_bindir in
-  if do_install && not !fake_install then begin
+    (Printf.sprintf "%s.uninstall" name) in
+  if not !fake_install then begin
     if not (Sys.file_exists installdir) then
       safe_mkdir log installdir;
     add_log log FILE uninstall_file;
   end;
+  let log = !log in
+  let log = List.map (fun name -> (PACK,name)) logs @ log in
+  let log = (TYPE, "bundle") :: log in
+  save_uninstall_log uninstall_file log
+
+let install install_where install_what lib installdir =
+  let log = ref [] in
+  let uninstall_file = Filename.concat installdir
+    (Printf.sprintf "%s.uninstall" lib.lib_name) in
+  let save_uninstall warning =
+    if not !fake_install then
+      let log = !log in
+      let log =
+        (VERSION, lib.lib_version) ::
+          (TYPE, BuildOCPTree.string_of_package_type lib.lib_type) ::
+          log in
+      let log = match warning with
+          None -> log
+        | Some warning -> (WARNING, warning) :: log
+      in
+      save_uninstall_log uninstall_file log
+  in
+  try
+    let installbin = install_where.install_bindir in
+    if not !fake_install then begin
+      if not (Sys.file_exists installdir) then
+        safe_mkdir log installdir;
+      add_log log FILE uninstall_file;
+    end;
 
   (* Do the installation *)
-  let meta = MetaFile.empty () in
+    let meta = MetaFile.empty () in
 
-  meta.meta_version <- Some lib.lib_version;
-  meta.meta_description <- Some
-    (string_option_with_default lib.lib_options "description" lib.lib_name);
-  List.iter (fun dep ->
-    if dep.dep_link then
-      MetaFile.add_requires meta [] [dep.dep_project.lib_name]
-  ) lib.lib_requires;
+    meta.meta_version <- Some lib.lib_version;
+    meta.meta_description <- Some
+      (string_option_with_default lib.lib_options "description" lib.lib_name);
+    List.iter (fun dep ->
+      if dep.dep_link then
+        MetaFile.add_requires meta [] [dep.dep_project.lib_name]
+    ) lib.lib_requires;
 
-  let install_file file kind =
-    let dst_file =
-      match kind with
+    let install_file file kind =
+      let dst_file =
+        match kind with
 
-      | CMI when
-          install_what.install_asm_lib || install_what.install_byte_lib ->
-        Some (Filename.concat installdir file.file_basename)
-      | C_A when
-          install_what.install_asm_lib || install_what.install_byte_lib ->
-        Some (Filename.concat installdir file.file_basename)
-      | CMO when
-          install_what.install_byte_lib ->
-        Some (Filename.concat installdir file.file_basename)
-      | CMX
-      | CMXA_A when
-          install_what.install_asm_lib ->
-        Some (Filename.concat installdir file.file_basename)
-      | CMA when
-          install_what.install_byte_lib ->
-        MetaFile.add_archive meta [ "byte", true ] [ file.file_basename ];
-            meta.meta_exists_if <- file.file_basename::
-              meta.meta_exists_if;
-            Some (Filename.concat installdir file.file_basename)
-      | CMXA when
-          install_what.install_asm_lib ->
-        MetaFile.add_archive meta [ "native", true ] [ file.file_basename ];
-            Some (Filename.concat installdir file.file_basename)
-      | CMXS when
-          install_what.install_asm_lib ->
-        Some (Filename.concat installdir file.file_basename)
-      | RUN_ASM when
-          install_what.install_asm_bin ->
-        Some (Filename.concat installbin
-                (Filename.chop_suffix file.file_basename ".asm"))
-      | RUN_BYTE when
-          install_what.install_byte_bin ->
-        Some (Filename.concat installbin file.file_basename)
+        | CMI when
+            install_what.install_asm_lib || install_what.install_byte_lib ->
+          Some (Filename.concat installdir file.file_basename)
+        | C_A when
+            install_what.install_asm_lib || install_what.install_byte_lib ->
+          Some (Filename.concat installdir file.file_basename)
+        | CMO when
+            install_what.install_byte_lib ->
+          Some (Filename.concat installdir file.file_basename)
+        | CMX
+        | CMXA_A when
+            install_what.install_asm_lib ->
+          Some (Filename.concat installdir file.file_basename)
+        | CMA when
+            install_what.install_byte_lib ->
+          MetaFile.add_archive meta [ "byte", true ] [ file.file_basename ];
+              meta.meta_exists_if <- file.file_basename::
+                meta.meta_exists_if;
+              Some (Filename.concat installdir file.file_basename)
+        | CMXA when
+            install_what.install_asm_lib ->
+          MetaFile.add_archive meta [ "native", true ] [ file.file_basename ];
+              Some (Filename.concat installdir file.file_basename)
+        | CMXS when
+            install_what.install_asm_lib ->
+          Some (Filename.concat installdir file.file_basename)
+        | RUN_ASM when
+            install_what.install_asm_bin ->
+          Some (Filename.concat installbin
+                  (Filename.chop_suffix file.file_basename ".asm"))
+        | RUN_BYTE when
+            install_what.install_byte_bin ->
+          Some (Filename.concat installbin file.file_basename)
 
-      | RUN_BYTE
-      | RUN_ASM
-      | CMI
-      | CMO
-      | CMX
-      | CMXS
-      | CMA
-      | CMXA
-      | CMXA_A
-      | C_A
-        -> None
+        | RUN_BYTE
+        | RUN_ASM
+        | CMI
+        | CMO
+        | CMX
+        | CMXS
+        | CMA
+        | CMXA
+        | CMXA_A
+        | C_A
+          -> None
 
-    in
-    match dst_file with
-      None -> ()
-    | Some dst_file ->
+      in
+      match dst_file with
+        None -> ()
+      | Some dst_file ->
 
-      if do_install && not !fake_install then begin
-        let dirname = Filename.dirname dst_file in
-        if not (Sys.file_exists dirname) then
-          safe_mkdir log dirname
-      end;
+        if not !fake_install then begin
+          let dirname = Filename.dirname dst_file in
+          if not (Sys.file_exists dirname) then
+            safe_mkdir log dirname
+        end;
 
       (*            Printf.fprintf stderr "\tto %S : %!" dst_file; *)
-      let src_file = file_filename file in
-      install_or_uninstall do_install log src_file dst_file
-  in
-  Printf.eprintf "\tfiles: %!";
-  List.iter (fun (file, kind) ->
-    install_file file kind
-  ) lib.lib_byte_targets;
-  List.iter (fun (file, kind) ->
-    install_file file kind
-  ) lib.lib_asm_targets;
-  Printf.fprintf stderr "\n%!";
+        let src_file = file_filename file in
+        install_or_uninstall log src_file dst_file
+    in
+    Printf.eprintf "\tfiles: %!";
+    List.iter (fun (file, kind) ->
+      install_file file kind
+    ) lib.lib_byte_targets;
+    List.iter (fun (file, kind) ->
+      install_file file kind
+    ) lib.lib_asm_targets;
+    Printf.fprintf stderr "\n%!";
 
-  begin match  install_where.install_datadir with
-    None -> ()
-  | Some datadir ->
-    let datadir = Filename.concat datadir lib.lib_name in
+    begin match  install_where.install_datadir with
+      None -> ()
+    | Some datadir ->
+      let datadir = Filename.concat datadir lib.lib_name in
 
-    List.iter (fun file ->
-      safe_mkdir log datadir;
-      let basename = Filename.basename file in
-      let dst_file = Filename.concat datadir basename in
-      let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
-      install_or_uninstall do_install log src_file dst_file
-    )
-      (list_option_with_default lib.lib_options "data_files" []);
+      List.iter (fun file ->
+        safe_mkdir log datadir;
+        let basename = Filename.basename file in
+        let dst_file = Filename.concat datadir basename in
+        let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
+        install_or_uninstall log src_file dst_file
+      )
+        (list_option_with_default lib.lib_options "data_files" []);
 
-  end;
+    end;
 
 
   (* What kind of META file do we create ? *)
-  let topdir_list = split_dir (Filename.dirname installdir) in
-  let ocamlfind_path = List.map split_dir install_where.install_ocamlfind in
+    let topdir_list = split_dir (Filename.dirname installdir) in
+    let ocamlfind_path = List.map split_dir install_where.install_ocamlfind in
 
-  let meta_files =
-    if List.mem topdir_list ocamlfind_path then
-      [Filename.concat installdir "META"]
-    else
-      let ocamllib = split_dir install_where.install_ocamllib in
-      let installdir_list = split_dir installdir in
-      match List.split_after installdir_list ocamllib with
-      | None ->
-        meta.meta_directory <- Some installdir;
-        []
-      | Some subdir ->
-        meta.meta_directory <- Some ("^" ^ String.concat "/" subdir);
-        []
-  in
-  let rec iter meta_files =
-    match meta_files with
-      [] ->
-        if do_install then begin
-          Printf.eprintf "Warning: could not find a correct location to write\n";
+    let meta_files =
+      if List.mem topdir_list ocamlfind_path then
+        [Filename.concat installdir "META"]
+      else
+        let ocamllib = split_dir install_where.install_ocamllib in
+        let installdir_list = split_dir installdir in
+        match List.split_after installdir_list ocamllib with
+        | None ->
+          meta.meta_directory <- Some installdir;
+          []
+        | Some subdir ->
+          meta.meta_directory <- Some ("^" ^ String.concat "/" subdir);
+          []
+    in
+    let rec iter meta_files =
+      match meta_files with
+        [] ->
+          Printf.eprintf
+            "Warning: could not find a correct location to write\n";
           Printf.eprintf "\tthe META file\n%!"
-        end
-    | meta_file :: meta_files ->
-      try
-        if do_install then begin
+
+      | meta_file :: meta_files ->
+        try
           if !fake_install then
             Printf.fprintf stderr "Generating META file %s\n%!" meta_file
           else begin
@@ -317,95 +357,68 @@ let really_install do_install install_where install_what lib installdir =
             add_log log FILE meta_file;
             Printf.fprintf stderr "Generated META file %s\n%!" meta_file;
           end
-        end else
-          if Sys.file_exists meta_file then begin
-            Printf.fprintf stderr "Removing generated META file %s\n%!"
-              meta_file;
-            if not !fake_install then
-              Sys.remove meta_file
-          end;
-      with _ -> iter meta_files
-  in
-  iter (if meta_files = [] then
-      let meta_basename = Printf.sprintf "META.%s" lib.lib_name in
-      List.map (fun dirname ->
-        Filename.concat dirname meta_basename
-      ) (install_where.install_ocamlfind @ [ install_where.install_ocamllib ])
-    else meta_files);
+        with _ -> iter meta_files
+    in
+    iter (if meta_files = [] then
+        let meta_basename = Printf.sprintf "META.%s" lib.lib_name in
+        List.map (fun dirname ->
+          Filename.concat dirname meta_basename
+        ) (install_where.install_ocamlfind @ [ install_where.install_ocamllib ])
+      else meta_files);
 
-  if do_install then begin
-    let oc = open_out uninstall_file in
-    List.iter (fun (kind, file) ->
-      Printf.fprintf oc "%s %s\n" (match kind with
-        FILE -> "REG"    | DIR -> "DIR") file;
-    ) !log;
-    close_out oc;
-  end else
-    if Sys.file_exists uninstall_file then
-      Sys.remove uninstall_file;
+    save_uninstall None;
 
-  if not do_install && not !fake_install then begin
-    try
-      Unix.rmdir installdir
-    with e ->
-      Printf.eprintf "Error: could not uninstall %S from directory\n" lib.lib_name;
-      Printf.eprintf "\t%S\n" installdir;
-      Printf.eprintf "\texception %S raised\n%!" (Printexc.to_string e);
-      exit 2
-  end
+  with e ->
+    save_uninstall (Some "Install partially failed");
+    raise e
 
 (* TODO: we might install the same package several times in different
    directories, no ? *)
 
-let install do_install install_where install_what lib =
-  assert (lib.lib_name <> "");
+let find_installdir install_where install_what lib_name =
 
-  (* Check whether it is already installed : *)
-  if not lib.lib_installed
-    && bool_option_with_default lib.lib_options
-      "install" true
-  then
-    let rec iter possible libdirs =
-      match libdirs with
-        [] ->
-          if do_install then
-            match possible with
-              None ->
-                Printf.eprintf "Error: no directory where to install files\n%!";
-                exit 2
-            | Some installdir ->
-              really_install do_install install_where install_what lib installdir
-          else
-            Printf.eprintf "Warning: package %S not found, not uninstalled\n%!" lib.lib_name
+    (* Check whether it is already installed : *)
+  let rec iter possible libdirs =
+    match libdirs with
+      [] ->
+        begin
+          match possible with
+            None ->
+              Printf.eprintf "Error: no directory where to install files\n%!";
+              None
+          | Some installdir ->
+            Some installdir
+        end
 
-      | libdir :: libdirs ->
-        let installdir = Filename.concat libdir lib.lib_name in
-        if Sys.file_exists installdir then (* Found ! *)
-          if do_install then begin
-            Printf.eprintf "Error: package %S is already installed in\n" lib.lib_name;
-            Printf.eprintf "\t%S\n%!" installdir;
-          end else
-            really_install do_install install_where install_what lib installdir
-        else
-          if do_install then
-            match possible with
-            | None ->
-              if
-                (try
-                   File.RawIO.safe_mkdir installdir;
-                   true
-                 with _ -> false)
-              then begin
-                Unix.rmdir installdir;
-                iter (Some installdir) libdirs
-              end else
-                iter None libdirs
-            | Some _ ->
-              iter possible libdirs
-          else
+    | libdir :: libdirs ->
+      let installdir = Filename.concat libdir lib_name in
+      if Sys.file_exists installdir then (* Found ! *)
+        begin
+            (* TODO: shouldn't we check for an .uninstall file ? *)
+          Printf.eprintf "Error: package %S seems already installed in\n"
+            lib_name;
+          Printf.eprintf "\t%S\n%!" installdir;
+          None
+        end
+      else
+        begin
+          match possible with
+          | None ->
+            if
+              (try
+                 File.RawIO.safe_mkdir installdir;
+                 true
+               with _ -> false)
+            then begin
+              Unix.rmdir installdir;
+              iter (Some installdir) libdirs
+            end else
+              iter None libdirs
+          | Some _ ->
             iter possible libdirs
-    in
-    iter None install_where.install_libdirs
+        end
+  in
+  iter None install_where.install_libdirs
 
 let uninstallers = Hashtbl.create 13
 
@@ -417,44 +430,74 @@ let rec scan_for_uninstallers files libdirs =
     BuildScanner.scan_directory_for_suffix libdir ".uninstall"
       (fun filename ->
 (*        Printf.eprintf "UINSTALLER %S\n%!" filename; *)
-        files := filename :: !files);
+        let name = Filename.chop_suffix (Filename.basename filename)
+          ".uninstall" in
+        files := StringMap.add name filename !files);
     scan_for_uninstallers !files libdirs
 
 let load_uninstallers install_where =
   try
     Hashtbl.find uninstallers install_where.install_libdirs
   with Not_found ->
-    let files = scan_for_uninstallers [] install_where.install_libdirs in
+    let files = scan_for_uninstallers StringMap.empty
+      install_where.install_libdirs in
     Hashtbl.add uninstallers install_where.install_libdirs files;
     files
 
-let uninstall_by_name install_where lib_name =
+let find_uninstaller install_where lib_name =
   let uninstallers = load_uninstallers install_where in
-  let uninstaller = Printf.sprintf "%s.uninstall" lib_name in
   try
-    List.iter (fun uninstall_file ->
-(*      Printf.eprintf "CHECK %S\n%!" uninstall_file; *)
-      if Filename.basename uninstall_file = uninstaller then begin
-(*        Printf.eprintf "FOUND!\n%!"; *)
+    Some (StringMap.find lib_name uninstallers)
+  with Not_found -> None
 
-        let list = File.lines_of_file uninstall_file in
-        List.iter (fun line ->
-          match OcpString.cut_at line ' ' with
-          | "REG", file ->
-            if Sys.file_exists file then
-              Sys.remove file
-          | "DIR", file ->
-            if Sys.file_exists file then
-              Unix.rmdir file
-          | _ ->
-            Printf.eprintf "Bad line [%S] in file %S\n%!" line uninstall_file;
-        ) list;
-        Printf.printf "Package %s uninstalled\n%!" lib_name;
-        raise Exit
-      end
-    ) uninstallers;
-    Printf.eprintf "Warning, uninstall of %s failed: could not find uninstaller file %S\n%!" lib_name uninstaller;
-  with Exit -> ()
+(*
+  let uninstaller = Printf.sprintf "%s.uninstall" lib_name in
+  let rec iter files =
+    match files with
+      [] -> None
+    | uninstall_file :: files ->
+      (*      Printf.eprintf "CHECK %S\n%!" uninstall_file; *)
+      if Filename.basename uninstall_file = uninstaller then
+        Some uninstall_file
+      else iter files
+  in
+  StringMap.iter uninstallers
+*)
+
+let rec uninstall_by_uninstaller uninstall_file =
+  let lib_name = Filename.chop_suffix (Filename.basename uninstall_file)
+    ".uninstall"
+  in
+    let list = File.lines_of_file uninstall_file in
+    List.iter (fun line ->
+      match OcpString.cut_at line ' ' with
+      | "OCP", _ -> ()
+      | "REG", file ->
+        if Sys.file_exists file then
+          Sys.remove file
+      | "DIR", file ->
+        if Sys.file_exists file then
+          Unix.rmdir file
+      | "VER", version -> ()
+      | "WAR", warning -> ()
+      | "LOG", log -> ()
+      | "TYP", kind -> ()
+      | "PCK", filename ->
+        if Sys.file_exists filename then
+          uninstall_by_uninstaller filename
+      | _ ->
+        Printf.eprintf "Bad line [%S] in file %S\n%!" line uninstall_file;
+    ) list;
+    Printf.printf "Package %s uninstalled\n%!" lib_name
+
+let rec uninstall_by_name install_where lib_name =
+  match find_uninstaller install_where lib_name with
+    None ->
+      Printf.eprintf
+        "Warning, uninstall of %s failed: could not find uninstaller file %S\n%!"
+        lib_name (lib_name ^ ".uninstall");
+  | Some uninstall_file ->
+    uninstall_by_uninstaller uninstall_file
 
 let uninstall install_where lib =
   if not lib.lib_installed
@@ -463,3 +506,53 @@ let uninstall install_where lib =
   then
     uninstall_by_name install_where lib.lib_name
 
+type package_uninstaller = {
+  mutable un_nfiles : int;
+  mutable un_ndirs : int;
+  mutable un_version : string;
+  mutable un_name : string;
+  mutable un_descr : string;
+  mutable un_warning : string option;
+  mutable un_directory : string;
+  mutable un_type : string;
+  mutable un_packages : string list;
+}
+
+let load_uninstaller filename =
+    let list = File.lines_of_file filename in
+    let name = Filename.chop_suffix (Filename.basename filename) ".uninstall" in
+    let un = {
+      un_nfiles = 0;
+      un_ndirs = 0;
+      un_version = "n/a";
+      un_name = name;
+      un_descr = name;
+      un_warning = None;
+      un_directory = Filename.dirname filename;
+      un_type = "n/a";
+      un_packages = [];
+    } in
+    List.iter (fun line ->
+      match OcpString.cut_at line ' ' with
+      | "OCP", _ -> ()
+      | "REG", file -> un.un_nfiles <- 1 + un.un_nfiles
+      | "DIR", file -> un.un_ndirs <- 1 + un.un_ndirs
+      | "VER", v -> un.un_version <- v
+      | "WAR", w -> un.un_warning <- Some w
+      | "LOG", d -> un.un_descr <- d
+      | "TYP", t -> un.un_type <- t
+      | "PCK", pck -> un.un_packages <- pck :: un.un_packages
+      | _ ->
+        Printf.eprintf "Bad line [%S] in file %S\n%!" line filename;
+    ) list;
+    un
+
+let list_installed install_where =
+  let uninstallers = load_uninstallers install_where in
+  let list = ref [] in
+  StringMap.iter (fun _ filename ->
+    list := load_uninstaller filename :: !list) uninstallers;
+  !list
+
+let is_installed install_where lib_name =
+  (find_uninstaller install_where lib_name) <> None

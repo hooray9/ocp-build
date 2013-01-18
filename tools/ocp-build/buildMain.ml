@@ -83,12 +83,13 @@ let arch_arg = ref ArchNone
 
 let install_arg = ref false
 let uninstall_arg = ref false
-let reverse_install_arg = ref false
 let install_lib_arg = ref None
 let install_data_arg = ref None
 let install_bin_arg = ref None
 let meta_dirnames_arg = ref []
 let meta_verbose_arg = ref 0
+let list_installed_arg = ref false
+let install_bundle_arg = ref None
 
 let init_arg = ref false
 
@@ -116,6 +117,9 @@ let arg_list = [
     exit 0
   ), "Print version information";
 
+  "-installed", Arg.Set list_installed_arg,
+  "List installed packages";
+
   "-meta-verbose", Arg.Int (fun n -> meta_verbose_arg := n),
   "Set verbosity of loading META files";
 
@@ -125,11 +129,11 @@ let arg_list = [
   "-install", Arg.Set install_arg,
   "Install binaries and libraries";
 
-  "-reverse-install", Arg.Set reverse_install_arg,
-  "Reverse the installation";
-
   "-uninstall", Arg.Set uninstall_arg,
   "Uninstall given packages (installed by ocp-build)";
+
+  "-install-bundle", Arg.String (fun s -> install_bundle_arg := Some s),
+  "Install a bundle packages to uninstall all packages at once";
 
   "-install-lib", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -331,6 +335,16 @@ let build root_file =
       }
     in
 
+    if !list_installed_arg then begin
+      let open BuildOCamlInstall in
+      Printf.printf "Installed packages:\n";
+      List.iter (fun un ->
+        Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
+      ) (BuildOCamlInstall.list_installed install_where);
+      exit 0
+
+    end else
+
   if !uninstall_arg && !targets_arg <> [] then
     List.iter (BuildOCamlInstall.uninstall_by_name install_where)
       !targets_arg
@@ -366,11 +380,7 @@ let build root_file =
    (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
 
   let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n" pj.package_name pj.package_dirname
-	(match pj.package_type with
-	    ProgramPackage -> "program"
-	  | LibraryPackage -> "library"
-(*	  | ProjectToplevel -> "toplevel" *)
-	  | ObjectsPackage -> "objects")
+	(BuildOCPTree.string_of_package_type pj.package_type)
         pj.package_source_kind
       in
 
@@ -487,13 +497,70 @@ let build root_file =
         }
     in
 
-  if !install_arg || !reverse_install_arg then
-    List.iter (fun pj ->
-      if not pj.lib_installed then
-      BuildOCamlInstall.install !install_arg
+  if !install_arg then
+
+    let already_installed = ref 0 in
+
+    let bundle = match !install_bundle_arg with
+      None -> None
+    | Some name ->
+      if BuildOCamlInstall.is_installed
+        install_where
+        name then begin
+          Printf.eprintf "Error: bundle %S is already installed\n%!" name;
+          exit 2
+        end;
+      match BuildOCamlInstall.find_installdir
         install_where install_what
-        pj)
-      !projects
+        name with
+          None -> exit 2
+        | Some installdir ->
+          Some (name, installdir)
+    in
+
+    List.iter (fun pj ->
+      if not pj.lib_installed &&
+        BuildOCPVariable.bool_option_with_default pj.lib_options
+        "install" true &&
+        BuildOCamlInstall.is_installed
+        install_where
+        pj.lib_name then begin
+          Printf.eprintf "Error: %S is already installed\n%!" pj.lib_name;
+          incr already_installed
+        end
+    ) !projects;
+    if !already_installed > 0 then begin
+      Printf.eprintf "Error: %d packages are already installed. Uninstall them first !\n%!" !already_installed;
+      exit 2
+    end;
+
+
+    let uninstallers = ref [] in
+    List.iter (fun pj ->
+      if not pj.lib_installed &&
+        BuildOCPVariable.bool_option_with_default pj.lib_options
+        "install" true
+      then
+        match       BuildOCamlInstall.find_installdir
+        install_where install_what
+        pj.lib_name with
+          None -> ()
+        | Some installdir ->
+          BuildOCamlInstall.install
+            install_where install_what
+            pj installdir;
+          uninstallers := (Filename.concat installdir
+                             (pj.lib_name ^ ".uninstall")) :: !uninstallers
+    )
+      !projects;
+
+    begin match bundle with
+      None -> ()
+    | Some (name, installdir) ->
+      BuildOCamlInstall.install_bundle
+        install_where name !uninstallers installdir
+    end
+
 
   else
 

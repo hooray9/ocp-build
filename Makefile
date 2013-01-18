@@ -53,13 +53,14 @@ distclean: clean $(OCPBUILD)
 TO_INSTALL = ocp-build ocp-fix-errors ocp-edit-mode ocp-spotter ocp-type-from-loc ocp-build-infer-env
 
 uninstall:
-	$(OCPBUILD) -reverse-install \
-          -install-lib $(LIBDIR) \
-          -install-bin $(BINDIR) \
-          -install-data $(TYPEREXDIR)
+	$(OCPBUILD) -uninstall typerex
+
+installed:
+	$(OCPBUILD) -installed
 
 install:
 	$(OCPBUILD) -install \
+	  -install-bundle typerex \
           -install-lib $(LIBDIR) \
           -install-bin $(BINDIR) \
           -install-data $(TYPEREXDIR)
