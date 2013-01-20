@@ -4,3 +4,4 @@ BINDIR=@bindir@
 LIBDIR=@libdir@
 MANDIR=@mandir@
 TYPEREXDIR=@datadir@
+VERSION=@PACKAGE_VERSION@

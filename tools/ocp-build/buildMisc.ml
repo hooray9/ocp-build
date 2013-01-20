@@ -266,6 +266,8 @@ let _ =
       | _ -> None)
 ;;
 
+let safe_mkdir = File.RawIO.safe_mkdir
+(*
 let rec safe_mkdir filename =
   try
     let st = Unix.stat filename in
@@ -285,6 +287,7 @@ let rec safe_mkdir filename =
     | "." | ".." -> ()
     | _ ->
       Unix.mkdir filename 0o755
+*)
 
 let rename fa1 fa2 =
 (*  let target_of_rename = fa2 in *)

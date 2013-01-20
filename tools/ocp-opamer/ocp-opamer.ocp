@@ -10,16 +10,14 @@
 (*  contact@ocamlpro.com (http://www.ocamlpro.com/)                       *)
 (**************************************************************************)
 
-version = "@PACKAGE_VERSION@"
 copyright = [ "OCamlPro/INRIA 2011-2013" ]
-authors = [
-    "Fabrice Le Fessant <fabrice.le_fessant@ocamlpro.com>"
-    "Thomas Gazagnaire <thomas.gazagnaire@ocamlpro.com>"
-    "Çagdas Bozman <cagdas.bozman@ocamlpro.com>"
-    "Pierre Chambart <pierre.chambart@ocamlpro.com>"
-    "Louis Gesbert <louis.gesbert@ocamlpro.com>"
-]
-
-(* If it is not specified otherwise: *)
+authors = [ "Fabrice LE FESSANT <fabrice.le_fessant@ocamlpro.com>" ]
 license = [ "GPLv3" ]
-datadir = [ "@datadir@" ]
+version = "0.1"
+
+    begin program "ocp-opamer"
+       files = [
+         "opamerVersion.ml" (ocp2ml=true)
+         "opamerMain.ml" ]
+       requires = [ "ocplib-system" "ocplib-lang" ]
+    end
