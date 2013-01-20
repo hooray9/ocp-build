@@ -187,7 +187,7 @@ let _ =
   File.file_of_string package_opam_file opam;
   File.file_of_string package_descr_file descr;
   File.file_of_string package_url_file
-    (Printf.sprintf "url: %s\nmd5sum: %s\n"
+    (Printf.sprintf "archive: %s\nchecksum: %s\n"
        url md5sum);
 
   Unix.chdir local_dir;
