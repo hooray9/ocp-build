@@ -19,6 +19,8 @@ let arg_list = [
   " <descr> : the package/descr file for this version";
 
   "-no-url", Arg.Clear gen_url, " : don't gen a url";
+  "-branch", Arg.String (fun s -> branch_arg := Some s),
+  " <branch> : branch to use instead of package name";
 ]
 let arg_anon s = targets_arg := s :: !targets_arg
 let arg_usage = "ocp-opamer [OPTIONS] package_name version tarball_url"
