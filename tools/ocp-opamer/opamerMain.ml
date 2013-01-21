@@ -6,6 +6,7 @@ let descr_arg = ref None
 let opam_arg = ref None
 let login_arg = ref None
 let targets_arg = ref []
+let gen_url = ref true
 
 let arg_list = [
   "-login", Arg.String (fun s -> login_arg := Some s ),
@@ -17,6 +18,7 @@ let arg_list = [
   "-descr", Arg.String (fun s -> descr_arg := Some s ),
   " <descr> : the package/descr file for this version";
 
+  "-no-url", Arg.Clear gen_url, " : don't gen a url";
 ]
 let arg_anon s = targets_arg := s :: !targets_arg
 let arg_usage = "ocp-opamer [OPTIONS] package_name version tarball_url"
@@ -26,7 +28,8 @@ let _ =
 
 let (package, version, url) =
   match !targets_arg with
-    [ url; version; package ] -> (package, version, url)
+  | [ url; version; package ] -> (package, version, url)
+  | [ version; package ] when not !gen_url -> (package, version, "")
   | _ -> Arg.usage arg_list arg_usage; exit 2
 
 let branch = match !branch_arg with
@@ -96,14 +99,17 @@ let opam = match !opam_arg with
     opam
 
 let md5sum =
-  let cmd = Printf.sprintf
-    "wget --passive-ftp -q -O '%s' '%s'" archive_file
-    url in
-  if Sys.command cmd <> 0 then begin
-    failwith "could not download archive"
-  end;
-  let md5sum = Digest.file archive_file in
-  Digest.to_hex md5sum
+  if !gen_url then
+    let cmd = Printf.sprintf
+      "wget --passive-ftp -q -O '%s' '%s'" archive_file
+      url in
+    if Sys.command cmd <> 0 then begin
+      failwith "could not download archive"
+    end;
+    let md5sum = Digest.file archive_file in
+    Digest.to_hex md5sum
+  else
+    ""
 
 let _ =
 (* first, create a clone of the opam-repository repository *)
@@ -191,14 +197,18 @@ let _ =
   let package_url_file = Filename.concat package_version_dir "url" in
   File.file_of_string package_opam_file opam;
   File.file_of_string package_descr_file descr;
-  File.file_of_string package_url_file
-    (Printf.sprintf "archive: %S\nchecksum: %S\n"
-       url md5sum);
+  if !gen_url then
+    File.file_of_string package_url_file
+      (Printf.sprintf "archive: %S\nchecksum: %S\n"
+         url md5sum);
 
   Unix.chdir local_dir;
 
-  let cmd = Printf.sprintf
-    "git add opam descr url"
+  let cmd =
+    if !gen_url then
+      "git add opam descr url"
+    else
+      "git add opam descr"
   in
   if Sys.command cmd <> 0 then begin
     Printf.eprintf "Error: git could not add files ?\n";
