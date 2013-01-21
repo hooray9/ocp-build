@@ -1,6 +1,7 @@
 
 let cwd = Unix.getcwd ()
 
+let branch_arg = ref None
 let descr_arg = ref None
 let opam_arg = ref None
 let login_arg = ref None
@@ -27,6 +28,10 @@ let (package, version, url) =
   match !targets_arg with
     [ url; version; package ] -> (package, version, url)
   | _ -> Arg.usage arg_list arg_usage; exit 2
+
+let branch = match !branch_arg with
+    None -> package
+  | Some branch -> branch
 
 let home_dir = Sys.getenv "HOME"
 let opam_dir = Filename.concat home_dir ".opam"
@@ -147,7 +152,7 @@ let _ =
 
 
 (* for this package, checkout the correct branch *)
-  let cmd = Printf.sprintf "git checkout %s" package
+  let cmd = Printf.sprintf "git checkout %s" branch
   in
   if Sys.command cmd <> 0 then begin
 
@@ -158,7 +163,7 @@ let _ =
       exit 2
     end;
 
-    let cmd = Printf.sprintf "git checkout -b %s" package in
+    let cmd = Printf.sprintf "git checkout -b %s" branch in
     if Sys.command cmd <> 0 then begin
       Printf.eprintf "Error: could not create a new branch %S.\n" package;
       Printf.eprintf "Maybe you already have one, with  uncommited changes ?\n";
@@ -212,7 +217,7 @@ let _ =
 
 (* push to your opam-repository *)
   let cmd = Printf.sprintf
-    "git push origin %s" package
+    "git push origin %s" branch
   in
   if Sys.command cmd <> 0 then begin
     Printf.eprintf "Error: could not fetch latest version of your's\n";
