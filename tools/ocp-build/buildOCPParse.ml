@@ -24,7 +24,7 @@ open BuildOCPParser
     [ "begin"; "end"; "true"; "false";
       "library"; "program"; "objects"; "config"; "include"; "type";
       "files"; "requires"; "file"; "use"; "pack";
-      "if"; "then"; "else"; "syntaxes"; "camlp4"; "camlp5";
+      "if"; "then"; "else"; "syntaxes"; (* "camlp4"; "camlp5"; *)
       "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
       "not"; "&&"; "||"
     ]
@@ -73,8 +73,8 @@ let rec read_ocamlconf filename =
           | Kwd "&&" -> COND_AND
           | Kwd "||" -> COND_OR
           | Kwd "syntaxes" -> SYNTAXES
-          | Kwd "camlp4" -> CAMLP4
-          | Kwd "camlp5" -> CAMLP5
+(*          | Kwd "camlp4" -> CAMLP4 *)
+(*          | Kwd "camlp5" -> CAMLP5 *)
 	  | Ident s -> IDENT s
 	  | Kwd _ -> assert false
   in

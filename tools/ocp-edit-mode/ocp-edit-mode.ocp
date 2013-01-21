@@ -13,20 +13,7 @@
 (* shared as a library, because other tools, like 'ocp-complete'
   may want to load 'ocp-edit-mode' configuration. *)
 
-
-(*
-begin library "ocplib-edit-mode"
-  ppflags = [ "-config-file"; "typerex.config" ]
-
-  files = [
-       "editConfiguration.mlp" (ml = true
-             syntax = [ "ocp-subst-config" ]
-        )
-       "editOptions.ml" ]
-  requires = [ "ocplib-system"    ]
-  syntaxes = [ "ocp-subst-config" ]
-end
-*)
+if ( ocaml_major_version = "4" ) then {
 
 begin library "ocplib-edit-mode"
 
@@ -64,3 +51,5 @@ begin program "ocp-edit-mode"
                  "ocaml-typing" "ocplib-project" ]
 
 end
+
+}

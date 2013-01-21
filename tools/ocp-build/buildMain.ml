@@ -91,6 +91,8 @@ let meta_verbose_arg = ref 0
 let list_installed_arg = ref false
 let install_bundle_arg = ref None
 
+let define_args = ref []
+
 let init_arg = ref false
 
 let arg_list = BuildOptions.arg_list ()
@@ -116,6 +118,15 @@ let arg_list = [
     Printf.printf "%!";
     exit 0
   ), "Print version information";
+
+  "-define", Arg.String (fun s ->
+    define_args := s :: !define_args;
+    let (_  : bool BuildOCPVariable.source_option)
+        = BuildOCPVariable.new_initial_bool_option s true in
+
+    ()
+  ),
+  " OPTION : define an initial option";
 
   "-installed", Arg.Set list_installed_arg,
   "List installed packages";

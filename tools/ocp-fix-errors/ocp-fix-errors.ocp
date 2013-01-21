@@ -14,6 +14,8 @@ copyright = [ "INRIA" "OCamlPro" ]
 author = [ "Fabrice LE FESSANT <fabrice.le_fessant@ocamlpro.com>" ]
 licence = [ "GPLv3" ]
 
+if ( ocaml_major_version = "4" ) then {
+
 begin library "ocp-fix-errors-lib"
   files = [
 
@@ -40,3 +42,5 @@ begin program "ocp-fix-errors"
   "main.ml" ]
   requires = [ "ocp-fix-errors-lib" ]
 end
+
+}

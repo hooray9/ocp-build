@@ -191,15 +191,23 @@ maybe_else_one_toplevel_statement:
 ;
 
 condition:
-| IDENT EQUAL string_or_list { IsEqualStringList($1, $3) }
-| NOT simple_condition { NotCondition $2 }
-| simple_condition COND_AND simple_condition { AndConditions ($1, $3) }
-| simple_condition COND_OR simple_condition { OrConditions ($1, $3) }
-| simple_condition { $1 }
+condition2 { $1 }
 ;
 
-simple_condition:
+condition2:
+| condition1 COND_OR condition2 { OrConditions ($1, $3) }
+| condition1 { $1 }
+;
+
+condition1:
+| condition0 COND_AND condition1 { AndConditions ($1, $3) }
+| condition0 { $1 }
+;
+
+condition0:
+| NOT condition0 { NotCondition $2 }
 | LPAREN condition RPAREN { $2 }
+| IDENT EQUAL string_or_list { IsEqualStringList($1, $3) }
 | IDENT { IsTrue $1 }
 ;
 

@@ -152,5 +152,6 @@ configure: configure.ac m4/*.m4
 	autoconf
 
 opamize:
-	./_obuild/ocp-opamer/ocp-opamer.asm typerex $(VERSION) -descr packages/opam/typerex.descr -opam packages/opam/typerex.opam https://github.com/OCamlPro/typerex/tarball/typerex.$(VERSION)
+	./_obuild/ocp-opamer/ocp-opamer.asm -descr packages/opam/typerex.descr -opam packages/opam/typerex.opam  typerex $(VERSION) https://github.com/OCamlPro/typerex/tarball/typerex.$(VERSION)
+	./_obuild/ocp-opamer/ocp-opamer.asm -branch typerex -descr packages/opam/ocp-build.descr -opam packages/opam/ocp-build.opam  ocp-build $(VERSION) -no-url
 

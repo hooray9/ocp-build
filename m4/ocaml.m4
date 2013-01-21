@@ -238,3 +238,16 @@ EOF
   AC_MSG_RESULT([$OCAML_OS_TYPE])
   AC_SUBST([OCAML_OS_TYPE])
 ])
+
+AC_DEFUN([AX_SPLIT_VERSION],[
+    AC_REQUIRE([AC_PROG_SED])
+    AX_MAJOR_VERSION=`echo "$OCAMLVERSION" | $SED 's/\([[^.]][[^.]]*\).*/\1/'`
+    AX_MINOR_VERSION=`echo "$OCAMLVERSION" | $SED 's/[[^.]][[^.]]*.\([[^.]][[^.]]*\).*/\1/'`
+    AX_POINT_VERSION=`echo "$OCAMLVERSION" | $SED 's/[[^.]][[^.]]*.[[^.]][[^.]]*.\(.*\)/\1/'`
+    AC_MSG_CHECKING([Major version])
+    AC_MSG_RESULT([$AX_MAJOR_VERSION])
+    AC_MSG_CHECKING([Minor version])
+    AC_MSG_RESULT([$AX_MINOR_VERSION])
+    AC_MSG_CHECKING([Point version])
+    AC_MSG_RESULT([$AX_POINT_VERSION])
+])

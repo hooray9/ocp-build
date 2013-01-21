@@ -1,4 +1,4 @@
-AC_INIT(typerex,1.99.0-beta)
+AC_INIT(typerex,1.99.1-beta)
 AC_COPYRIGHT(Copyright 2012 OcamlPro SAS)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -16,9 +16,14 @@ AC_ARG_ENABLE(version-check,
  [VERSION_CHECK="$enableval"],
  [VERSION_CHECK="yes"])
 
+AX_SPLIT_VERSION(OCAMLVERSION)
+OCAML_MAJOR_VERSION=$AX_MAJOR_VERSION
+OCAML_MINOR_VERSION=$AX_MINOR_VERSION
+OCAML_POINT_VERSION=$AX_POINT_VERSION
+
 # Check that OCaml version is greater or equal to 4.00.0
 if test "$VERSION_CHECK" = "yes" ; then
-   AX_COMPARE_VERSION( [$OCAMLVERSION], [lt], [4.00.0],
+   AX_COMPARE_VERSION( [$OCAMLVERSION], [lt], [3.12.1],
      AC_MSG_ERROR([Your version of OCaml: $OCAMLVERSION is not supported]))
 fi
 
@@ -48,7 +53,9 @@ datarootdir="`eval echo ${datarootdir}`"
 datarootdir="`eval echo ${datarootdir}`"
 datadir=${datarootdir}/typerex
 
-
+AC_SUBST(OCAML_MAJOR_VERSION)
+AC_SUBST(OCAML_MINOR_VERSION)
+AC_SUBST(OCAML_POINT_VERSION)
 AC_SUBST(VERSION)
 AC_CONFIG_FILES(
   Makefile.config typerex.ocp

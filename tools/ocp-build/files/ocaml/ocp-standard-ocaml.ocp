@@ -48,19 +48,24 @@ begin
     has_asm  = true
   end
 
+  if ocaml_major_version = "4" then {
 
-  dirname = [ "%{OCAMLLIB}%/compiler-libs" ]
-  begin library "ocamlcommon"
-  end
-  begin library "ocamlbytecomp"
-    requires = [ "ocamlcommon" ]
-  end
-  begin library "ocamloptcomp"
-    requires = [ "ocamlcommon" ]
-  end
+    dirname = [ "%{OCAMLLIB}%/compiler-libs" ]
+    begin library "ocamlcommon"
+    end
+    begin library "ocamlbytecomp"
+      requires = [ "ocamlcommon" ]
+    end
+    begin library "ocamloptcomp"
+      requires = [ "ocamlcommon" ]
+    end
+  }
 
 end
 
+(* These projects are meta-packages, they don't contain anything, they
+   just add dependencies. They don't have generated=true, otherwise it
+   would mean they are actually installed and not meta. *)
 
 begin library "ocaml-bytecomp"
     requires = [ "ocamlbytecomp" ]

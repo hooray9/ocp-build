@@ -105,6 +105,9 @@ let ocamlyacc_cmd = new_initial_strings_option "ocamlyacc" [ "ocamlyacc" ]
 
 
 let ocaml_config_version = new_initial_strings_option "ocaml_version" []
+let ocaml_major_version = new_initial_strings_option "ocaml_major_version" [ ]
+let ocaml_minor_version = new_initial_strings_option "ocaml_minor_version" [ "00" ]
+let ocaml_point_version = new_initial_strings_option "ocaml_point_version" [ "0" ]
 let ocaml_config_system = new_initial_strings_option "system" []
 let ocaml_config_architecture = new_initial_strings_option "architecture" []
 let ocaml_config_ext_obj = new_initial_strings_option "ext_obj" [ ".o" ]
@@ -216,6 +219,19 @@ let check_is_ocamlopt = check_is_compiler ocamlopt_prefixes  [ "-v" ]
 let check_is_ocamllex = check_is_compiler ocamllex_prefixes  [ "-version" ]
 let check_is_ocamldep = check_is_compiler ocamldep_prefixes [ "-version" ]
 let check_is_ocamlyacc = check_is_compiler ocamlyacc_prefixes [ "-version" ]
+
+let split_version version =
+  let version = String.copy version in
+  for i = 0 to String.length version - 1 do
+    match version.[i] with
+      '0'..'9' -> ()
+    | _ -> version.[i] <- ' '
+  done;
+  match OcpString.split_simplify version ' ' with
+  | [ major ] -> (major, "00", "0")
+  | [ major; minor ] -> (major, minor, "0")
+  | major :: minor :: point :: _ -> (major, minor, point)
+  | [] -> failwith "Could not set major/minor/point version"
 
 let check_config pjo =
 
@@ -334,6 +350,11 @@ let check_config pjo =
   set_strings_option ocaml_config_ext_lib [cfg.ocaml_ext_lib];
   set_strings_option ocaml_config_ext_obj [cfg.ocaml_ext_obj];
   set_strings_option ocaml_config_version [cfg.ocaml_version];
+  let (major, minor, point) = split_version cfg.ocaml_version in
+  set_strings_option ocaml_major_version [ major ];
+  set_strings_option ocaml_minor_version [ minor ];
+  set_strings_option ocaml_point_version [ point ];
+
   set_strings_option ocaml_config_system [cfg.ocaml_system];
   set_strings_option ocaml_config_architecture [cfg.ocaml_architecture];
   set_strings_option ocaml_config_os_type [cfg.ocaml_os_type];

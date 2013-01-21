@@ -18,6 +18,8 @@ authors = [
 ]
 license = [ "LGPL-OCaml-exc6" ]
 
+if ( ocaml_major_version = "4" ) then {
+
 begin program "ocp-spotter"
 
       files = [ "utils.ml" "checksum.ml" "dotfile.ml" "xset.ml" "treeset.ml" "command.ml" "typeexpand.ml" "xlongident.ml" "name.ml" "xident.ml" "xpath.ml" "locident.ml" "typeFix.ml" "xprinttyp.ml" "ext.ml" "ttfold.ml" "cmt.ml" "spot.ml" "spoteval.ml" "spotconfig_intf.ml" "spotconfig.ml" "spotfile.ml" "pathreparse.ml" "ocamlspot.ml" ]
@@ -29,3 +31,4 @@ begin program "ocp-spotter"
 
 end
 
+}

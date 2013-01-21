@@ -23,3 +23,13 @@ authors = [
 (* If it is not specified otherwise: *)
 license = [ "GPLv3" ]
 datadir = [ "@datadir@" ]
+
+(* We don't need to do that ... as ocp-build does it for us. It is
+better to use ocp-build, as this way, any tool using .ocp files
+as a description of the project has a similar view of the project,
+without running ./configure.
+
+ocaml_major_version = "@OCAML_MAJOR_VERSION@"
+ocaml_minor_version = "@OCAML_MINOR_VERSION@"
+ocaml_point_version = "@OCAML_POINT_VERSION@"
+*)
