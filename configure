@@ -4619,7 +4619,7 @@ datadir=${datarootdir}/typerex
 
 
 
-ac_config_files="$ac_config_files Makefile.config typerex.ocp"
+ac_config_files="$ac_config_files Makefile.config typerex.ocp packages/opam/ocp-build.opam"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5329,6 +5329,7 @@ do
   case $ac_config_target in
     "Makefile.config") CONFIG_FILES="$CONFIG_FILES Makefile.config" ;;
     "typerex.ocp") CONFIG_FILES="$CONFIG_FILES typerex.ocp" ;;
+    "packages/opam/ocp-build.opam") CONFIG_FILES="$CONFIG_FILES packages/opam/ocp-build.opam" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

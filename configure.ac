@@ -58,7 +58,9 @@ AC_SUBST(OCAML_MINOR_VERSION)
 AC_SUBST(OCAML_POINT_VERSION)
 AC_SUBST(VERSION)
 AC_CONFIG_FILES(
-  Makefile.config typerex.ocp
+  Makefile.config \
+  typerex.ocp \
+  packages/opam/ocp-build.opam
 )
 AC_OUTPUT
 
