@@ -23,6 +23,10 @@ type package_type =
 (*  | ProjectToplevel *)
 | LibraryPackage
 | ObjectsPackage
+| SyntaxPackage
+(* TODO:
+| CObjectPackage (* generate with -output-obj *)
+*)
 
 and condition =
   | IsEqualStringList of string * string list
@@ -64,5 +68,6 @@ let string_of_package_type kind =
   match kind with
     ProgramPackage -> "program"
   | LibraryPackage -> "library"
+  | SyntaxPackage -> "syntax"
           (*	  | ProjectToplevel -> "toplevel" *)
   | ObjectsPackage -> "objects"

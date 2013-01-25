@@ -13,6 +13,7 @@
 
 val get_pp :
   BuildTypes.package_info ->
+  string -> (* source basename *)
   BuildOCPVariable.options ->
   BuildOCamlTypes.pp
 

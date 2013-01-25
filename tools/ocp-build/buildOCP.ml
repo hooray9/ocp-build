@@ -147,11 +147,22 @@ let print_deps msg pk =
   Printf.eprintf "%s: Project %s depends on:\n%!" msg pk.package_name;
   List.iter (fun dep ->
     let pd = dep.dep_project in
-    Printf.eprintf "\t%s%s%s%s\n%!" pd.package_name
+    Printf.eprintf "\t%s %s%s%s%s\n%!"
+      (string_of_package_type pd.package_type)
+      pd.package_name
       (if dep.dep_link then "(link)" else "")
       (if dep.dep_syntax then "(syntax)" else "")
       (if dep.dep_optional then "(optional)" else "")
   ) pk.package_requires
+
+
+let new_dep pk =
+  {
+    dep_project = pk;
+    dep_link = false;
+    dep_syntax = false;
+    dep_optional = false;
+  }
 
 (* Do a closure of all dependencies for this project. Called only on
 validated_projects *)
@@ -160,6 +171,16 @@ let update_deps pj =
   if verbose 2 then print_deps "BEFORE update_deps" pj;
 
   (*
+    This computation depends on what we are dealing with:
+    - For a syntax:
+    - we must include all transitive link dependencies
+    - for a Library dependency, we want to include all link dependencies
+    - for a Syntax dependency, we want to also include syntax dependencies
+
+    - For a library, all syntax dependencies should remain syntax
+    dependencies. Link dependencies of syntaxes should become syntax
+    dependencies.
+
     For now, we have three kinds of dependencies:
     1) 'link' dependencies: we must copy all 'link' transitive dependencies
     as new 'link' dependencies.
@@ -176,61 +197,84 @@ let update_deps pj =
   let deps = Hashtbl.create 111 in
   let list = ref [] in
 
-(* Keep only one copy of a package, with all the flags merged
-  pj.package_requires <-
-    List.filter (fun dep ->
-      let pd = dep.dep_project in
-      try
-        let dep2 = Hashtbl.find deps pd.package_id in
-        dep2.dep_link <- dep2.dep_link || dep.dep_link;
-        dep2.dep_syntax <- dep2.dep_syntax || dep.dep_syntax;
-        dep2.dep_optional <- dep2.dep_optional && dep.dep_optional;
-        false
-      with Not_found ->
-        Hashtbl.add deps dep.dep_project.package_id dep;
-        list := dep :: !list;
-        true
-    ) pj.package_requires;
-*)
+  (* Keep only one copy of a package, with all the flags merged
+     pj.package_requires <-
+     List.filter (fun dep ->
+     let pd = dep.dep_project in
+     try
+     let dep2 = Hashtbl.find deps pd.package_id in
+     dep2.dep_link <- dep2.dep_link || dep.dep_link;
+     dep2.dep_syntax <- dep2.dep_syntax || dep.dep_syntax;
+     dep2.dep_optional <- dep2.dep_optional && dep.dep_optional;
+     false
+     with Not_found ->
+     Hashtbl.add deps dep.dep_project.package_id dep;
+     list := dep :: !list;
+     true
+     ) pj.package_requires;
+  *)
 
   let new_dep pj2 =
     try
       Hashtbl.find deps pj2.package_id
     with Not_found ->
-      let dep = {
-        dep_project = pj2;
-        dep_link = false;
-        dep_syntax = false;
-        dep_optional = false;
-      } in
+      let dep = new_dep pj2 in
       Hashtbl.add deps pj2.package_id dep;
       list := dep :: !list;
       dep
   in
 
-(* add all link dependencies, transitively *)
+  let is_syntax =
+    match pj.package_type with
+      SyntaxPackage  -> true
+    | LibraryPackage
+    | ProgramPackage
+    | ObjectsPackage
+      -> false
+  in
+  List.iter (fun dep ->
+    if dep.dep_link then
+      match dep.dep_project.package_type with
+      | SyntaxPackage
+      | ProgramPackage ->
+        if is_syntax then
+          dep.dep_link <- true
+        else begin
+          dep.dep_syntax <- true;
+          dep.dep_link <- false;
+        end
+      | LibraryPackage
+      | ObjectsPackage
+        -> ()
+  ) pj.package_requires;
+
+  (* add all link dependencies, transitively *)
   let rec add_link_deps pj =
     List.iter (fun dep ->
-      if dep.dep_link then
-        let pj2 = dep.dep_project in
-        let dep2 = new_dep pj2 in
-        if not dep2.dep_link then begin
-          dep2.dep_link <- true;
-          add_link_deps pj2
-        end
+      let pj2 = dep.dep_project in
+      let dep2 = new_dep pj2 in
+      if verbose 3 then
+        Printf.eprintf "%S -> %S\n" pj.package_name pj2.package_name;
+      if dep.dep_link && not dep2.dep_link then begin
+        dep2.dep_link <- true;
+        if verbose 3 then
+          Printf.eprintf "%S -> link %S\n" pj.package_name pj2.package_name;
+        add_link_deps pj2
+      end
     ) pj.package_requires
   in
   add_link_deps pj;
 
-
-(* add syntax dependencies, and their link dependencies
-transformed into syntax dependencies *)
+    (* add syntax dependencies, and their link dependencies
+       transformed into syntax dependencies *)
   let rec add_link_as_syntax_deps pj =
     List.iter (fun dep ->
       if dep.dep_link then
         let pj2 = dep.dep_project in
         let dep2 = new_dep pj2 in
         if not dep2.dep_syntax then begin
+          if verbose 3 then
+            Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           dep2.dep_syntax <- true;
           add_link_as_syntax_deps pj2
         end
@@ -244,62 +288,66 @@ transformed into syntax dependencies *)
         let dep2 = new_dep pj2 in
         if not dep2.dep_syntax then begin
           dep2.dep_syntax <- true;
+          if verbose 3 then
+            Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           add_link_as_syntax_deps pj2;
         end
     ) pj.package_requires
   in
   add_syntax_deps pj;
 
-(*
-  let rec add_link_deps to_set dep =
-    if dep.dep_link then
-      let pj2 = dep.dep_project in
-      let dep2 = try
-                   Hashtbl.find deps pj2.package_id
-        with Not_found ->
-          let dep = {
-            dep_project = pj2;
-            dep_link = false;
-            dep_syntax = false;
-            dep_optional = false;
-          } in
-          Hashtbl.add deps pj2.package_id dep;
-          list := dep :: !list;
-          dep
-      in
-      to_set dep2;
-      match pj2.package_type with
-      | LibraryPackage
-      | ObjectsPackage ->
-        List.iter (add_link_deps to_set) pj2.package_requires;
-      | ProgramPackage -> ()
-  in
 
-  let rec add_dep dep =
+
+  (*
+    let rec add_link_deps to_set dep =
+    if dep.dep_link then
+    let pj2 = dep.dep_project in
+    let dep2 = try
+    Hashtbl.find deps pj2.package_id
+    with Not_found ->
+    let dep = {
+    dep_project = pj2;
+    dep_link = false;
+    dep_syntax = false;
+    dep_optional = false;
+    } in
+    Hashtbl.add deps pj2.package_id dep;
+    list := dep :: !list;
+    dep
+    in
+    to_set dep2;
+    match pj2.package_type with
+    | LibraryPackage
+    | ObjectsPackage ->
+    List.iter (add_link_deps to_set) pj2.package_requires;
+    | ProgramPackage -> ()
+    in
+
+    let rec add_dep dep =
     let pj2 = dep.dep_project in
     match pj2.package_type with
     | LibraryPackage
     | ObjectsPackage ->
-      if dep.dep_link then
-        List.iter
-          (add_link_deps (fun dep -> dep.dep_link <- true))
-          pj2.package_requires;
-      (* TODO: why dep.dep_syntax <- false HERE ? If we want to
-         generalize to "tags", we would probably need to tell how to
-         build the closure of these tags. For example, the "link" tag
-         means that we should keep in the closure all the next deps
-         with also the "link" tag, but unset their "syntax" tag. But,
-         for the "syntax" tag, we only want to keep in the closure the
-         deps with the "link" tag, after changing it to "syntax" !  *)
+    if dep.dep_link then
+    List.iter
+    (add_link_deps (fun dep -> dep.dep_link <- true))
+    pj2.package_requires;
+    (* TODO: why dep.dep_syntax <- false HERE ? If we want to
+    generalize to "tags", we would probably need to tell how to
+    build the closure of these tags. For example, the "link" tag
+    means that we should keep in the closure all the next deps
+    with also the "link" tag, but unset their "syntax" tag. But,
+    for the "syntax" tag, we only want to keep in the closure the
+    deps with the "link" tag, after changing it to "syntax" !  *)
 
-      if dep.dep_syntax then
-        List.iter
-          (add_link_deps (fun dep -> dep.dep_syntax <- false))
-          pj2.package_requires;
+    if dep.dep_syntax then
+    List.iter
+    (add_link_deps (fun dep -> dep.dep_syntax <- false))
+    pj2.package_requires;
     | ProgramPackage -> ()
-  in
-  List.iter add_dep pj.package_requires;
-*)
+    in
+    List.iter add_dep pj.package_requires;
+  *)
   pj.package_requires <- !list;
 
   (*  TODO: do better
@@ -309,12 +357,12 @@ transformed into syntax dependencies *)
 
   if verbose 2 then print_deps "AFTER update_deps SORT" pj;
 
-(*
-  (* TODO: verify this is useless ? since sorted later again *)
-  pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
+  (*
+    (* TODO: verify this is useless ? since sorted later again *)
+    pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
 
-  if verbose 2 then print_deps "AFTER update_deps SORT" pj;
-*)
+    if verbose 2 then print_deps "AFTER update_deps SORT" pj;
+  *)
   ()
 
 
@@ -430,6 +478,44 @@ let verify_packages packages =
     state.missing;
 (* Note that the result of this function can contain more elements
   as the initial list, as new dependencies are automatically added. *)
+
+  List.iter (fun pk ->
+
+    begin
+    (* a list of packages that should appear before this package *)
+    let is_after = list_option_with_default pk.package_options "is_after"  []
+    in
+    List.iter (fun name ->
+      try
+        let pk2 = Hashtbl.find state.validated (name, "") in
+        let found = ref false in
+        List.iter (fun dep ->
+          if dep.dep_project == pk2 then found := true;
+        ) pk.package_requires;
+        if not !found then
+          pk.package_requires <- new_dep pk2 :: pk.package_requires;
+      with Not_found -> ()
+    ) is_after;
+    end;
+
+begin
+    (* a list of packages that should appear after this package *)
+    let is_before = list_option_with_default pk.package_options "is_before" []
+    in
+    List.iter (fun name ->
+      try
+        let pk2 = Hashtbl.find state.validated (name, "") in
+        let found = ref false in
+        List.iter (fun dep ->
+          if dep.dep_project == pk then found := true;
+        ) pk2.package_requires;
+        if not !found then
+          pk2.package_requires <- new_dep pk :: pk2.package_requires;
+      with Not_found -> ()
+    ) is_before;
+end;
+  ) !list;
+
   let project_sorted = PackageDepSorter.sort !list in
   List.iter update_deps project_sorted;
 
@@ -474,7 +560,7 @@ let verify_packages packages =
         Printf.eprintf "\t%S%s%s\n"
           dp.dep_project.package_name
           (if dp.dep_link then " (link)" else "")
-          (if dp.dep_syntax then " (syntax)" else "")
+          (if dp.dep_syntax then " (syntax)" else "");
       ) pk.package_requires
     end;
   ) pj.project_sorted;

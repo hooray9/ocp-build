@@ -11,6 +11,18 @@
 (*                                                                            *)
 (******************************************************************************)
 
+(* TODO: generate a
+
+begin syntax "toto:syntax"
+  requires = [ "toto" ]
+end
+ automatically from
+begin library "toto"
+  ...
+end
+*)
+
+
 let verbose = DebugVerbosity.verbose ["O"] "BuildOCamlSyntaxes"
 
 (* TODO:
@@ -77,6 +89,9 @@ let execution_dependencies pk kind =
         pk.lib_cmo_objects
       else
         assert false (* TODO *)
+    | SyntaxPackage ->
+      (* TODO: what shall we do ? *)
+      []
   with NoSuchFileInDir (filename, dirname) as e ->
     Printf.fprintf stderr "BuildOCamlRules.find_dst_file: could not find %S in %S\n%!"
       filename dirname;
@@ -142,26 +157,10 @@ let add_pp_require lib s =
 let add_pp_requires r pp =
   List.iter (fun file -> add_rule_source r file) pp.pp_requires
 
-let get_pp lib options =
+let get_pp lib basename options =
 (*  Printf.eprintf "get_pp %S\n%!" lib.lib_name; *)
-  let syntax = match strings_option options syntax_option with
-    |  [] ->
-      if bool_option_true options copy_syntaxes then
-        List.map (fun dep -> dep.dep_project)
-          (List.filter (fun dep -> dep.dep_syntax) lib.lib_requires)
-      else
-        []
-    | syntax ->
-      List.map (fun s ->
-        try
-          StringMap.find s !packages_by_name
-        with Not_found ->
-          failwith (Printf.sprintf
-                      "Syntax %S could not be found among packages\n%!" s )
-      ) syntax
-  in
-
-  if syntax = [] then
+  match strings_option options syntax_option with
+  |  [] ->
     let pp_requires = strings_option options pp_requires_option in
     let pp_option = strings_option options pp_option in
     let pp_requires =
@@ -173,7 +172,119 @@ let get_pp lib options =
       pp_requires = List.flatten pp_requires;
     }
 
-  else
+  | _:: _ :: _ ->
+      Printf.eprintf "Error with package %S, filw %S:\n"
+        lib.lib_name basename;
+      Printf.eprintf "   Only one syntax can be specified.\n%!";
+      exit 2
+
+  | [ s ] ->
+    let pksy =
+      try
+        StringMap.find s !packages_by_name
+      with Not_found ->
+        Printf.eprintf "Error with package %S, filw %S:\n"
+          lib.lib_name basename;
+        Printf.eprintf
+            "   Syntax %S could not be found among packages\n%!" s;
+        exit 2
+    in
+
+    let found = ref false in
+    List.iter (fun dep ->
+      if dep.dep_syntax && dep.dep_project == pksy then
+        found := true
+    ) lib.lib_requires;
+    if not !found then begin
+        Printf.eprintf "Error with package %S, file %S:\n"
+          lib.lib_name basename;
+        Printf.eprintf
+            "   Syntax %S was not required by package.\n%!" pksy.lib_name;
+    end;
+
+    if verbose 2 then begin
+      Printf.eprintf "Package %S, file %S, syntax %S:\n"
+        lib.lib_name basename pksy.lib_name;
+      List.iter (fun dep ->
+        let l = dep.dep_project in
+        Printf.eprintf "  dep: %s %S\n%!"
+          (string_of_package_type l.lib_type) l.lib_name
+      ) pksy.lib_requires;
+    end;
+
+    let preprocessor = ref [] in
+    List.iter (fun dep ->
+      match dep.dep_project.lib_type with
+        ProgramPackage ->
+          preprocessor := dep.dep_project :: !preprocessor
+      | LibraryPackage
+      | ObjectsPackage
+      | SyntaxPackage -> ()
+    ) pksy.lib_requires;
+
+      match !preprocessor with
+      | [] ->
+        Printf.eprintf "Error with package %S, file %S:\n"
+          lib.lib_name basename;
+        Printf.eprintf "   One of the syntax must specify the preprocessor to use.\n%!";
+      exit 2
+      | _ :: _ :: _ ->
+        Printf.eprintf "Error with package %S, file %S:\n"
+          lib.lib_name basename;
+        Printf.eprintf "   Only one preprocessor should be specified within syntaxes.\n%!";
+        exit 2
+
+      | [ pp ] ->
+
+        let pp_flags = ref [] in
+        let pp_option = ref [] in
+        let pp_requires = ref [] in
+
+        if bool_option_true pp.lib_options generated_option then
+          pp_option := [ pp.lib_name ]
+        else begin
+          pp_requires := [ find_dst_file lib.lib_dst_dir (pp.lib_name ^ ".byte") ];
+          pp_option := [
+            Printf.sprintf "%%{%s_DST_DIR}%%/%s.byte" pp.lib_name pp.lib_name
+          ];
+        end;
+
+        let already_linked_map = ref StringSet.empty in
+          (* remove libraries that are already included in the preprocessor *)
+        List.iter (fun dep ->
+          if dep.dep_link then
+            already_linked_map := StringSet.add dep.dep_project.lib_name
+              !already_linked_map
+        ) pp.lib_requires;
+
+        List.iter (fun dep ->
+          let p = dep.dep_project in
+          if p != pp
+            && dep.dep_link
+            && not (StringSet.mem p.lib_name !already_linked_map)
+            && p.lib_sources <> [] then begin
+            pp_requires := (execution_dependencies p "byte") @ !pp_requires;
+            pp_flags := !pp_flags @
+              [ S "-I"; BD p.lib_dst_dir ] @
+              (match p.lib_type with
+              | ProgramPackage -> assert false
+              | ObjectsPackage ->
+                List.map (fun s -> BF s) p.lib_cmo_objects
+              | LibraryPackage ->
+                [ S (p.lib_name ^ ".cma") ]
+              | SyntaxPackage -> []
+              )
+            end
+        ) pksy.lib_requires;
+
+    {
+      pp_flags = !pp_flags;
+      pp_option = !pp_option;
+      pp_requires = !pp_requires;
+    }
+
+
+(*
 (* Discover the syntaxes that are needed *)
 (* Add the dependencies of these syntaxes *)
     let pp_components = ref [] in
@@ -264,3 +375,5 @@ let get_pp lib options =
       pp_option = !pp_option;
       pp_requires = !pp_requires;
     }
+*)
+

@@ -141,11 +141,13 @@ let command_includes lib pack_for =
           let lib = dep.dep_project in
           match lib.lib_type with
               ProgramPackage (* | ProjectToplevel *) -> ()
-            | LibraryPackage | ObjectsPackage ->
+            | LibraryPackage
+            | ObjectsPackage ->
               if dep.dep_link then begin
 	        add_include_dir lib.lib_dst_dir;
 	        add_include_dir lib.lib_src_dir;
               end
+            | SyntaxPackage -> ()
 	) lib.lib_requires;
 
       (* we put the source dir last in case there are some remaining objects files there, since
@@ -597,6 +599,7 @@ let add_cmxs2asm_rule b lib linkflags cclib cmx_files cmxo_files o_files opt_fil
 	      add_command_arg cmd (BF a_file)
 	    ) pj.lib_asm_cmx_objects;
 	  | ProgramPackage -> () (* dependency towards a preprocessor ? *)
+          | SyntaxPackage -> ()
     ) lib.lib_requires;
 
     let cmd = add_files_to_link_to_command cmd options cmx_files in
@@ -714,7 +717,7 @@ let add_mli_source b lib pj mli_file options =
   src_files := IntMap.add mli_file.file_id mli_file !src_files;
 
   let mut_dir = mut_dir lib mli_file in
-  let ppv = BuildOCamlSyntaxes.get_pp lib options in
+  let ppv = BuildOCamlSyntaxes.get_pp lib basename options in
   let mli_file, force =
     match ppv.pp_option with
       [] -> mli_file, Force_not
@@ -983,7 +986,7 @@ let add_ml_source b lib pj ml_file options =
 
     let mut_dir = mut_dir lib ml_file in
     let ml_file = create_ml_file_if_needed b lib mut_dir options ml_file in
-    let ppv = BuildOCamlSyntaxes.get_pp lib options in
+    let ppv = BuildOCamlSyntaxes.get_pp lib basename options in
     let ml_file, force =
       match ppv.pp_option with
         [] -> ml_file, Force_not
@@ -1400,6 +1403,19 @@ let revert_object_files () =
 
 
 let process_sources b lib =
+
+  match lib.lib_type with
+  | SyntaxPackage ->
+    if lib.lib_sources <> [] then begin
+      Printf.eprintf "Syntax %S: 'files' should be empty !\n" lib.lib_name;
+      Printf.eprintf "   If your syntax contains sources, you should build a library\n";
+      Printf.eprintf "   and define the syntax to require this library.\n%!";
+      exit 2
+    end
+
+  | LibraryPackage
+  | ProgramPackage
+  | ObjectsPackage ->
   let src_dir = lib.lib_src_dir in
   let _dst_dir = lib.lib_dst_dir in
   reset_object_files ();
@@ -1534,6 +1550,9 @@ let add_program b lib =
             with Not_found ->
               map := StringMap.add modname lib1 !map
           ) modules
+        | SyntaxPackage ->
+(* Nothing to do ? *)
+          ()
     ) lib.lib_requires
   end;
 
@@ -1631,6 +1650,7 @@ let add_package b pk =
       LibraryPackage -> add_library b  lib
     | ProgramPackage -> add_program b  lib
     | ObjectsPackage -> add_objects b  lib
+    | SyntaxPackage -> ()
 (*      | _ -> Printf.eprintf "\tWarning: Don't know what to do with 'add_project %s'\n" lib.lib_name *)
   with Failure s ->
     Printf.eprintf "While preparing package %S:\n%!" pk.package_name;

@@ -40,6 +40,7 @@ open BuildOCPTree
 %token <BuildOCPTree.statement list> INCLUDED
 %token OBJECTS
 %token LIBRARY
+%token SYNTAX
 %token PROGRAM
 %token CONFIG
 %token EQUAL
@@ -80,6 +81,7 @@ package_type:
   PROGRAM { ProgramPackage }
 | LIBRARY { LibraryPackage }
 | OBJECTS { ObjectsPackage }
+| SYNTAX  { SyntaxPackage }
 ;
 
 toplevel_statement:
@@ -122,11 +124,11 @@ simple_statement:
 | FILES PLUSEQUAL list_of_files { StmtFilesAppend $3 }
 /* The two next ones only for backward compatibility */
 | REQUIRES list_of_requires { StmtRequiresAppend $2 }
-| SYNTAXES list_of_syntaxes { StmtRequiresAppend $2 }
+/*| SYNTAXES list_of_syntaxes { StmtRequiresAppend $2 } */
 | REQUIRES EQUAL list_of_requires { StmtRequiresAppend $3 }
-| SYNTAXES EQUAL list_of_syntaxes { StmtRequiresAppend $3 }
+/*| SYNTAXES EQUAL list_of_syntaxes { StmtRequiresAppend $3 } */
 | REQUIRES PLUSEQUAL list_of_requires { StmtRequiresAppend $3 }
-| SYNTAXES PLUSEQUAL list_of_syntaxes { StmtRequiresAppend $3 }
+/* | SYNTAXES PLUSEQUAL list_of_syntaxes { StmtRequiresAppend $3 } */
 ;
 
 list_of_files:
@@ -138,10 +140,12 @@ list_of_requires:
   List.map (fun (x, options) -> (x, OptionBoolSet("link", true) :: options)) $1 }
 ;
 
+/*
 list_of_syntaxes:
 | list_of_string_attributes {
   List.map (fun (x, options) -> (x, OptionBoolSet("syntax", true) :: options)) $1 }
 ;
+*/
 
 camlp4_or_camlp5:
 | CAMLP4 { Camlp4 }
@@ -150,13 +154,18 @@ camlp4_or_camlp5:
 
 simple_option:
 | USE STRING { OptionConfigSet $2 }
-| IDENT EQUAL string_or_list { OptionListSet ($1,$3) }
-| IDENT PLUSEQUAL string_or_list { OptionListAppend ($1,$3) }
-| IDENT MINUSEQUAL string_or_list { OptionListRemove ($1,$3) }
-| IDENT EQUAL TRUE { OptionBoolSet ($1, true) }
-| IDENT EQUAL FALSE { OptionBoolSet ($1, false) }
+| rhs EQUAL string_or_list { OptionListSet ($1,$3) }
+| rhs PLUSEQUAL string_or_list { OptionListAppend ($1,$3) }
+| rhs MINUSEQUAL string_or_list { OptionListRemove ($1,$3) }
+| rhs EQUAL TRUE { OptionBoolSet ($1, true) }
+| rhs EQUAL FALSE { OptionBoolSet ($1, false) }
 /* | SYNTAX EQUAL STRING { OptionListSet ("syntax", [$3]) } */
-| IDENT { OptionBoolSet ($1, true) }
+| rhs { OptionBoolSet ($1, true) }
+;
+
+rhs:
+| IDENT { $1 }
+| SYNTAX { "syntax" }
 ;
 
 string_or_list:

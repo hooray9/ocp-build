@@ -55,6 +55,7 @@ let create_package name ptype dirname_t =
     | ProgramPackage -> "program"
     | ObjectsPackage -> "objects"
     | LibraryPackage -> "library"
+    | SyntaxPackage -> "syntax"
     (*      | ProjectToplevel -> "toplevel" *)
     )
     name;

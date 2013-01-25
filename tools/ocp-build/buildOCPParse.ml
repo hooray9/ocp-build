@@ -22,7 +22,7 @@ open BuildOCPParser
 
   let lexer = Ocamllexer.make_lexer
     [ "begin"; "end"; "true"; "false";
-      "library"; "program"; "objects"; "config"; "include"; "type";
+      "library"; "syntax"; "program"; "objects"; "config"; "include"; "type";
       "files"; "requires"; "file"; "use"; "pack";
       "if"; "then"; "else"; "syntaxes"; (* "camlp4"; "camlp5"; *)
       "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
@@ -52,6 +52,7 @@ let rec read_ocamlconf filename =
 	  | Kwd "end" -> END
 	  | Kwd "objects" -> OBJECTS
 	  | Kwd "library" -> LIBRARY
+	  | Kwd "syntax" -> SYNTAX
 	  | Kwd "config" -> CONFIG
 	  | Kwd "use" -> USE
 	  | Kwd "program" -> PROGRAM

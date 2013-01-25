@@ -151,6 +151,10 @@ configure: configure.ac m4/*.m4
 	aclocal -I m4
 	autoconf
 
+tag:
+	git tag typerex.$(VERSION)
+	git push ocamlpro typerex.$(VERSION)
+
 opamize:
 	$(MAKE) opamize-typerex
 	$(MAKE) opamize-ocp-build

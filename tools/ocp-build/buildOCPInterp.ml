@@ -292,6 +292,7 @@ let add_project_dep pk s options =
     with Not_found -> ()
   end;
 
+(*
   begin
     try
       match StringMap.find "syntax" options with
@@ -300,6 +301,7 @@ let add_project_dep pk s options =
         Printf.fprintf stderr "Warning: option \"syntax\" is not bool !\n%!";
     with Not_found -> ()
   end;
+*)
 
   begin
     try
