@@ -24,7 +24,7 @@ open BuildOCPParser
     [ "begin"; "end"; "true"; "false";
       "library"; "syntax"; "program"; "objects"; "config"; "include"; "type";
       "files"; "requires"; "file"; "use"; "pack";
-      "if"; "then"; "else"; "syntaxes"; (* "camlp4"; "camlp5"; *)
+      "if"; "then"; "else";
       "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
       "not"; "&&"; "||"
     ]

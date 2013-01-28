@@ -150,6 +150,7 @@ doc:
 configure: configure.ac m4/*.m4
 	aclocal -I m4
 	autoconf
+	./configure $(CONFIGURE_ARGS)
 
 tag:
 	git tag typerex.$(VERSION)

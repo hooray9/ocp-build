@@ -23,6 +23,10 @@ val empty_config :(BuildOCPVariable.option_value StringMap.t ->
             BuildOCPVariable.option_value StringMap.t)
     list -> config
 
+val generated_config :(BuildOCPVariable.option_value StringMap.t ->
+            BuildOCPVariable.option_value StringMap.t)
+    list -> config
+
 val translate_options :
   BuildOCPVariable.options ->
   BuildOCPTree.set_option list -> BuildOCPVariable.options

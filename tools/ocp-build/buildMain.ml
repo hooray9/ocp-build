@@ -459,11 +459,23 @@ let build () =
   (* Don't modify default values from now on, since they have been included
    in the default configuration ! *)
 
+    let env_dirs = ref [
+      cfg.ocaml_ocamllib;
+    ] in
+    let env_files = ref [] in
+    List.iter (fun dir ->
+      let dir = File.of_string dir in
+      env_files := (BuildOCP.scan_root dir) @ !env_files)
+      !env_dirs;
+
     let state = BuildOCP.init_packages () in
-    let nerrors =
-      time "Loading time: %.2fs\n%!"
-        (BuildOCP.load_ocp_files state) !!root_files
+
+    let nerrors1 =
+      let config = BuildOCP.generated_config () in
+      time "Env loading time: %.2fs\n%!"
+      (BuildOCP.load_ocp_files config state)  !env_files
     in
+
     List.iter (fun dirname ->
       let dirs =
         if dirname = "" || dirname = "-" then
@@ -475,12 +487,20 @@ let build () =
       in
       List.iter (BuildOCamlMeta.load_META_files state cfg) dirs
     ) !meta_dirnames_arg;
+
+   let nerrors =
+     let config = BuildOCP.empty_config () in
+      time "Loading time: %.2fs\n%!"
+        (BuildOCP.load_ocp_files config state) !!root_files
+    in
+
     if nerrors > 0 then exit 2;
     let pj =
       time "Verification time: %.2fs\n%!"
       BuildOCP.verify_packages state in
- BuildOCP.save_project_state pj
-   (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
+
+    BuildOCP.save_project_state pj
+      (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
 
   let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n" pj.package_name pj.package_dirname
 	(BuildOCPTree.string_of_package_type pj.package_type)

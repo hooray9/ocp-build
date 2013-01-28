@@ -14,7 +14,9 @@
 open BuildOCPTypes
 
 val init_packages : unit -> BuildOCPInterp.state
-val load_ocp_files : BuildOCPInterp.state -> File.t list -> int
+val load_ocp_files :
+  BuildOCPInterp.config ->
+  BuildOCPInterp.state -> File.t list -> int
 val verify_packages : BuildOCPInterp.state -> BuildOCPTypes.project
 
 (* val load_project : File.t list -> project * int *)
@@ -40,4 +42,8 @@ val save_project_state : project -> File.t -> unit
 val load_project_state : File.t -> project
 
 val find_obuild : (string -> unit) -> string -> unit
+
+
+val empty_config : unit -> BuildOCPInterp.config
+val generated_config : unit -> BuildOCPInterp.config
 

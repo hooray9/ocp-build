@@ -1,3 +1,4 @@
+CONFIGURE_ARGS=@CONFIGURE_ARGS@
 
 DATADIR=@datarootdir@
 BINDIR=@bindir@

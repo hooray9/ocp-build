@@ -88,6 +88,7 @@ let empty_config set_defaults =
     config_filename = "";
   }
 
+
 let configs = Hashtbl.create 17
 
 
@@ -96,6 +97,10 @@ let find_config config_name = Hashtbl.find configs config_name
 
 let option_list_set options name list =
       StringMap.add name (OptionList list) options
+
+
+let option_bool_set options name bool =
+  StringMap.add name (OptionBool bool) options
 
 let rec option_list_remove prev list =
   match list with
@@ -189,6 +194,13 @@ let option_list_remove options name list =
     let names = StringMap.find name meta_options in
     options_list_remove options names list
   with Not_found -> option_list_remove options name list
+
+
+let generated_config set_defaults =
+  let config = empty_config set_defaults in
+  { config with config_options = option_bool_set config.config_options
+    "generated" true }
+
 
 let rec translate_condition options cond =
   match cond with

@@ -323,6 +323,24 @@ let install install_where install_what lib installdir =
     end;
 
 
+    List.iter (fun file ->
+      safe_mkdir log installdir;
+      let basename = Filename.basename file in
+      let dst_file = Filename.concat installdir basename in
+      let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
+      install_or_uninstall log src_file dst_file
+    )
+      (list_option_with_default lib.lib_options "lib_files" []);
+
+    List.iter (fun file ->
+      safe_mkdir log installbin;
+      let basename = Filename.basename file in
+      let dst_file = Filename.concat installbin basename in
+      let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
+      install_or_uninstall log src_file dst_file
+    )
+      (list_option_with_default lib.lib_options "bin_files" []);
+
   (* What kind of META file do we create ? *)
     let topdir_list = split_dir (Filename.dirname installdir) in
     let ocamlfind_path = List.map split_dir install_where.install_ocamlfind in

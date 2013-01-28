@@ -120,15 +120,11 @@ one_statement:
 simple_statement:
 | simple_option { StmtOption $1 }
 | FILES EQUAL list_of_files { StmtFilesSet $3 }
-/* | FILE EQUAL STRING { StmtFilesSet [$3, []] } */
 | FILES PLUSEQUAL list_of_files { StmtFilesAppend $3 }
-/* The two next ones only for backward compatibility */
+
 | REQUIRES list_of_requires { StmtRequiresAppend $2 }
-/*| SYNTAXES list_of_syntaxes { StmtRequiresAppend $2 } */
 | REQUIRES EQUAL list_of_requires { StmtRequiresAppend $3 }
-/*| SYNTAXES EQUAL list_of_syntaxes { StmtRequiresAppend $3 } */
 | REQUIRES PLUSEQUAL list_of_requires { StmtRequiresAppend $3 }
-/* | SYNTAXES PLUSEQUAL list_of_syntaxes { StmtRequiresAppend $3 } */
 ;
 
 list_of_files:

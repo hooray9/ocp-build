@@ -139,6 +139,10 @@ begin library "ocplib-oasis"
 end
 
 begin program "ocp-build"
+  lib_files = [
+    "files/ocaml/ocp-standard-ocaml.ocp"
+    "files/ocaml/camlp4.ocp"
+  ]
   install = true
   files = [
     "buildVersion.ml" (ocp2ml = true env_strings = [ "datadir" ])

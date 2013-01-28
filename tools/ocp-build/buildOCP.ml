@@ -382,7 +382,11 @@ let init_packages () =
   let packages = BuildOCPInterp.initial_state () in
   packages
 
-let load_ocp_files packages files =
+let empty_config () = BuildOCPInterp.empty_config !BuildOCPVariable.options
+let generated_config () =
+  BuildOCPInterp.generated_config !BuildOCPVariable.options
+
+let load_ocp_files config packages files =
 
 (*
   let pj =
@@ -404,7 +408,7 @@ let load_ocp_files packages files =
 *)
 
 
-  let config = BuildOCPInterp.empty_config !BuildOCPVariable.options in
+(*  let config = BuildOCPInterp.empty_config !BuildOCPVariable.options in *)
 
   let nerrors = ref 0 in
 
@@ -431,7 +435,7 @@ let load_ocp_files packages files =
 	    else
 	      iter next_parents files
   in
-  let _config = iter [ "", config ] files in
+  iter [ "", config ] files;
   !nerrors
 
 
