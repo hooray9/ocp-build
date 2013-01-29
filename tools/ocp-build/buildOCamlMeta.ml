@@ -139,6 +139,12 @@ let load_META_files pj cfg top_dirname =
             (OptionBool true) pk.package_options;
 
           begin
+            match meta.meta_version with
+              None -> ()
+            | Some version -> pk.package_version <- version
+          end;
+
+          begin
             match archive with
               None ->
                 pk.package_options <- StringMap.add "meta"

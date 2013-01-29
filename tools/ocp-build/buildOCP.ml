@@ -29,6 +29,9 @@ type package_comparison =
 | PackageConflict
 | PackageUpgrade
 
+let normalized_dir dir =
+  File.to_string (File.of_string dir)
+
 let compare_packages pk1 pk2 =
   let o1 = pk1.package_options in
   let o2 = pk2.package_options in
@@ -38,10 +41,10 @@ let compare_packages pk1 pk2 =
     false, false ->
       PackageConflict
   | true, true ->
-    if pk1.package_dirname = pk2.package_dirname &&
-       pk1.package_type = pk2.package_type &&
-       pk1.package_version = pk2.package_version
-      (* TODO: We should also test for asm/byte... *)
+    if normalized_dir pk1.package_dirname = normalized_dir pk2.package_dirname &&
+      pk1.package_type = pk2.package_type &&
+      pk1.package_version = pk2.package_version
+    (* TODO: We should also test for asm/byte... *)
     then begin
       if verbose 2 then
         Printf.eprintf "Discarding duplicated package %S\n%!" pk1.package_name;
@@ -49,13 +52,15 @@ let compare_packages pk1 pk2 =
     end
     else
       begin
-        Printf.eprintf "Conflict over %S\n" pk1.package_name;
-        Printf.eprintf "dirname: %S\n" pk1.package_dirname;
-        Printf.eprintf "type: %S\n" (string_of_package_type pk1.package_type);
-        Printf.eprintf "version: %S\n" pk1.package_version;
-        Printf.eprintf "dirname: %S\n" pk2.package_dirname;
-        Printf.eprintf "type: %S\n" (string_of_package_type pk2.package_type);
-        Printf.eprintf "version: %S\n" pk2.package_version;
+        if verbose 3 then begin
+          Printf.eprintf "Conflict over %S\n" pk1.package_name;
+          Printf.eprintf "dirname: %S\n" pk1.package_dirname;
+          Printf.eprintf "type: %S\n" (string_of_package_type pk1.package_type);
+          Printf.eprintf "version: %S\n" pk1.package_version;
+          Printf.eprintf "dirname: %S\n" pk2.package_dirname;
+          Printf.eprintf "type: %S\n" (string_of_package_type pk2.package_type);
+          Printf.eprintf "version: %S\n" pk2.package_version;
+        end;
         PackageConflict
       end
 

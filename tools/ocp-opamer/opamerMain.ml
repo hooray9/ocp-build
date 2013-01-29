@@ -214,17 +214,15 @@ let _ =
   in
   if Sys.command cmd <> 0 then begin
     Printf.eprintf "Error: git could not add files ?\n";
-    Printf.eprintf "Weird...\n%!";
-    exit 2
+    Printf.eprintf "Weird... Probably already added !\n%!";
   end;
 
   let cmd = Printf.sprintf
     "git commit -m '%s version %s' ." package version
   in
   if Sys.command cmd <> 0 then begin
-    Printf.eprintf "Error: git could not add files ?\n";
-    Printf.eprintf "Weird...\n%!";
-    exit 2
+    Printf.eprintf "Error: git could not commit files ?\n";
+    Printf.eprintf "Weird... Probably already commited !\n%!";
   end;
 
 (* push to your opam-repository *)
