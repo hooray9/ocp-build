@@ -464,6 +464,7 @@ let build () =
     ] in
     let env_files = ref [] in
     List.iter (fun dir ->
+      Printf.printf "Scanning installed .ocp files in %S\n%!" dir;
       let dir = File.of_string dir in
       env_files := (BuildOCP.scan_root dir) @ !env_files)
       !env_dirs;
@@ -502,7 +503,8 @@ let build () =
     BuildOCP.save_project_state pj
       (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
 
-  let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n" pj.package_name pj.package_dirname
+  let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n"
+    pj.package_name pj.package_dirname
 	(BuildOCPTree.string_of_package_type pj.package_type)
         pj.package_source_kind
       in

@@ -328,24 +328,21 @@ let add_project_dep pk s options =
 ()
 
 let define_package pj name config kind =
+  let dirname =
+    try
+      match StringMap.find "dirname" config.config_options with
+	  OptionList list ->
+            BuildSubst.subst (String.concat Filename.dir_sep list)
+	| _ -> raise Not_found
+      with Not_found ->
+        config.config_dirname
+  in
+
   let pk = new_package pj name
-    config.config_dirname config.config_filename kind
+    dirname config.config_filename kind
   in
   let project_options = config.config_options in
   pk.package_sources <-  config.config_files;
- (*
-   TODO: verify :pp and :nolink
-
- pk.package_deps_sorted <- List.map (fun dep ->
-    let dep_name, kind = OcpString.cut_at dep ':' in
-    let link = match kind with
-        "nolink" | "pp" -> false
-      | "" -> true
-      | _ ->
-        Printf.eprintf "Warning: for package %s, require %S has unknown kind\n%!" name dep;
-        false
-    in
-    add_project_dep pk link dep_name) config.config_requires; *)
   pk.package_options <- project_options;
   pk.package_version <- string_option_with_default project_options "version"
     "0.1-alpha";

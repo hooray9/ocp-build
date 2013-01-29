@@ -83,3 +83,4 @@ ocp-build/primitives.ml
 Makefile.config
 typerex.config
 typerex.ocp
+packages/opam/ocp-build.opam

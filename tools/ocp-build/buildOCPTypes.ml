@@ -29,7 +29,7 @@ end)
 type package = {
   package_name : string; (* basename of project *)
   mutable package_dirname : string; (* where the project files are *)
-  mutable package_source_kind : string;
+  mutable package_source_kind : string; (* meta or ocp ? *)
   mutable package_provides : string; (* TODO: what the project provides,
 					default "" => same as name.
 					if provides is specified, then

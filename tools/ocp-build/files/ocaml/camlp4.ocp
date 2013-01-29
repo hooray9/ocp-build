@@ -11,8 +11,8 @@
 (**************************************************************************)
 
 begin
+  version = "OCAML_VERSION"
   generated = true
-
   dirname = [ "%{OCAMLLIB}%" "camlp4" ]
 
    begin library "camlp4lib"

@@ -11,10 +11,11 @@
 (**************************************************************************)
 
 begin
-  version = "OCAML_VERSION"
-
   generated = true
+  version = "OCAML_VERSION"
   dirname = [ "%{OCAMLLIB}%" ]
+
+  begin
 
   begin library "unix"
     has_byte = true
@@ -61,12 +62,11 @@ begin
     end
   }
 
-end
-
 (* These projects are meta-packages, they don't contain anything, they
    just add dependencies. They don't have generated=true, otherwise it
    would mean they are actually installed and not meta. *)
 
+meta = true
 begin library "ocaml-bytecomp"
     requires = [ "ocamlbytecomp" ]
 end
@@ -89,4 +89,9 @@ end
 
 begin library "ocaml-asmcomp-amd64"
     requires = [ "ocamloptcomp" ]
+end
+
+
+end
+
 end

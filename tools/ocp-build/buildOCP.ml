@@ -24,31 +24,97 @@ type state = {
   missing : (string * string, package list ref) Hashtbl.t;
 }
 
+type package_comparison =
+  PackageEquality
+| PackageConflict
+| PackageUpgrade
+
+let compare_packages pk1 pk2 =
+  let o1 = pk1.package_options in
+  let o2 = pk2.package_options in
+  let pk1_generated = bool_option_with_default o1 "generated" false in
+  let pk2_generated = bool_option_with_default o2 "generated" false in
+  match pk1_generated, pk2_generated with
+    false, false ->
+      PackageConflict
+  | true, true ->
+    if pk1.package_dirname = pk2.package_dirname &&
+       pk1.package_type = pk2.package_type &&
+       pk1.package_version = pk2.package_version
+      (* TODO: We should also test for asm/byte... *)
+    then begin
+      if verbose 2 then
+        Printf.eprintf "Discarding duplicated package %S\n%!" pk1.package_name;
+      PackageEquality
+    end
+    else
+      begin
+        Printf.eprintf "Conflict over %S\n" pk1.package_name;
+        Printf.eprintf "dirname: %S\n" pk1.package_dirname;
+        Printf.eprintf "type: %S\n" (string_of_package_type pk1.package_type);
+        Printf.eprintf "version: %S\n" pk1.package_version;
+        Printf.eprintf "dirname: %S\n" pk2.package_dirname;
+        Printf.eprintf "type: %S\n" (string_of_package_type pk2.package_type);
+        Printf.eprintf "version: %S\n" pk2.package_version;
+        PackageConflict
+      end
+
+  (* TODO: if we have the sources of a new version, we should probably
+     accept the new version, but not accept any installed version
+     depending on the old version.
+
+     TODO: implement this in a different pass : we should filter out
+     packages that are duplicated, especially to discard installed
+     packages. But what if we have the sources of A, { A + B }
+     installed, and not the sources of B ?
+
+     In the meantime, the solution is to desinstall the installed
+     versions when they conflict.  *)
+
+  | true, false -> PackageConflict
+  | false, true -> PackageConflict
+
+
 let rec validate_project s pk =
   if verbose 2 then
     Printf.eprintf "validate_project: %s, tag=%s, id=%d\n" pk.package_name pk.package_tag pk.package_id;
   if pk.package_missing_deps = 0 then begin
     let key =  (pk.package_name, pk.package_tag) in
-    begin try
-            let pk2 = Hashtbl.find s.validated key in
-            Printf.eprintf "Error: two projects called %s\n" pk.package_name;
-            Printf.eprintf "  One is defined in %s\n" pk.package_dirname;
-            Printf.eprintf "  and one is defined in %s\n" pk2.package_dirname;
-            Printf.eprintf "%!";
-            exit 2
-      with Not_found -> ()
-    end;
-    Hashtbl.add s.validated key pk;
-    pk.package_validated <- true;
 
-    try
-      let list_ref = Hashtbl.find s.missing key in
-      Hashtbl.remove s.missing key;
-      List.iter (fun pk2 ->
-	pk2.package_missing_deps <- pk2.package_missing_deps - 1;
-	validate_project s pk2
-      ) !list_ref;
-    with Not_found -> ()
+    let should_add =
+      try
+        let pk2 = Hashtbl.find s.validated key in
+
+        match compare_packages pk pk2 with
+        | PackageEquality ->
+          (* same package, no need to add *)
+          false
+        | PackageUpgrade ->
+          Hashtbl.remove s.validated key;
+          true
+
+        | PackageConflict ->
+          Printf.eprintf "Error: two projects called %s\n" pk.package_name;
+          Printf.eprintf "  One is defined in %s\n" pk.package_dirname;
+          Printf.eprintf "  and one is defined in %s\n" pk2.package_dirname;
+          Printf.eprintf "%!";
+          exit 2
+      with Not_found -> true
+    in
+
+    if should_add then begin
+      Hashtbl.add s.validated key pk;
+      pk.package_validated <- true;
+
+      try
+        let list_ref = Hashtbl.find s.missing key in
+        Hashtbl.remove s.missing key;
+        List.iter (fun pk2 ->
+	  pk2.package_missing_deps <- pk2.package_missing_deps - 1;
+	  validate_project s pk2
+        ) !list_ref;
+      with Not_found -> ()
+    end
   end
 
 let check_project s pk =
@@ -540,7 +606,9 @@ end;
     project_disabled = Array.of_list !project_disabled;
     project_incomplete = Array.of_list !project_incomplete;
   } in
-  assert (npackages =
+(* TODO: fix this assertion. The equality stands only if we count
+also duplicated packages. *)
+  assert (npackages >=
       Array.length pj.project_sorted +
         Array.length pj.project_incomplete +
         Array.length pj.project_disabled);

@@ -140,7 +140,7 @@ end
 
 begin program "ocp-build"
   lib_files = [
-    "files/ocaml/ocp-standard-ocaml.ocp"
+    "files/ocaml/ocaml.ocp"
     "files/ocaml/camlp4.ocp"
   ]
   install = true
