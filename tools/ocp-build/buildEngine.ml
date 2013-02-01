@@ -1200,9 +1200,9 @@ let errors () = !errors
 let fatal_errors () = !fatal_errors
 
 let sanitize b delete_orphans =
-  (*  Printf.fprintf stderr "BuildEngine.sanitize %s\n%!" b.build_dir_filename; *)
+(*  Printf.fprintf stderr "BuildEngine.sanitize %s\n%!" b.build_dir_filename; *)
   let dir = File.of_string b.build_dir_filename in
-  let cdir = BuildEngineContext.find_directory b b.build_dir_filename in
+  let cdir = BuildEngineContext.add_directory b b.build_dir_filename in
   let orphan_files = ref 0 in
   let rec iter dir cdir =
     File.Dir.iter (fun basename ->

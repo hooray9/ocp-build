@@ -156,6 +156,10 @@ tag:
 	git tag typerex.$(VERSION)
 	git push ocamlpro typerex.$(VERSION)
 
+force_tag:
+	git tag -f typerex.$(VERSION)
+	git push -f ocamlpro typerex.$(VERSION)
+
 opamize:
 	$(MAKE) opamize-typerex
 	$(MAKE) opamize-ocp-build

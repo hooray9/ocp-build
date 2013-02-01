@@ -38,7 +38,7 @@ open BuildOptions
 
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
-let version = "2012-07-05 09:11 Fabrice"
+let version = BuildVersion.version
 
 let print_version () =
   Printf.fprintf stderr "%s\n%!" version;
@@ -407,11 +407,14 @@ let build () =
 
   if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
 
-  let _project_ocpbuild_version = create_option root_config
+  let project_ocpbuild_version = create_option root_config
     [ "ocpbuild_version" ]
     ["The version of ocp-build used to save this file"]
     SimpleConfig.string_option version
   in
+
+  if !!project_ocpbuild_version != BuildVersion.version then
+    project_ocpbuild_version =:= BuildVersion.version;
 
   let _project_other_dirs_option = create_option root_config
     [ "other_dirs" ]
@@ -468,6 +471,12 @@ let build () =
       let dir = File.of_string dir in
       env_files := (BuildOCP.scan_root dir) @ !env_files)
       !env_dirs;
+
+    if !!root_files = [] then begin
+      Printf.eprintf "Error: no known .ocp files\n";
+      Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
+      exit 2
+    end;
 
     let state = BuildOCP.init_packages () in
 
@@ -692,12 +701,24 @@ let build () =
   (* build the list of targets *)
       let targets = ref [] in
       let add_project_targets lib =
-        if pjo.option_bytecode then
-          targets := List.map fst lib.lib_byte_targets @ !targets;
-        if pjo.option_native then
-          targets := List.map fst lib.lib_asm_targets @ !targets;
+        if not lib.lib_installed then begin
+          if pjo.option_bytecode then
+            targets := List.map fst lib.lib_byte_targets @ !targets;
+          if pjo.option_native then
+            targets := List.map fst lib.lib_asm_targets @ !targets;
+        end
       in
       List.iter add_project_targets !projects;
+
+      if !targets = [] then begin
+        Printf.eprintf "Error: project contains no targets\n%!";
+        Printf.eprintf "\tAre your .ocp files empty ?\n%!";
+        exit 2
+      end;
+
+      List.iter (fun s ->
+        Printf.eprintf "TARGET %S\n%!" (File.to_string s.file_file)
+      ) !targets;
 
       if !targets <> [] then begin
         begin

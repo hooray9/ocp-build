@@ -320,7 +320,7 @@ let add_filename b dir filename =
 
 
 let create current_dir_filename build_dir_filename =
-(*  Printf.fprintf stderr "BuildEngineContext.create %s\n%!" build_dir_filename; *)
+(*  Printf.eprintf "BuildEngineContext.create %s\n%!" build_dir_filename; *)
   BuildMisc.safe_mkdir build_dir_filename;
 
   let (build_rules : (int, build_rule) Hashtbl.t) = Hashtbl.create 1111 in
@@ -384,9 +384,8 @@ let create current_dir_filename build_dir_filename =
     }
 
   in
-(*  b.verbosity_arg <- 4; *)
+(*  Printf.eprintf "add_directory MASTER: %s\n" current_dir_filename; *)
   let dir = add_directory b current_dir_filename in
-(*  Printf.eprintf "Current directory: %s\n" dir.dir_fullname; *)
   dir.dir_fullname <- ".";
   dir.dir_file <- File.of_string ".";
   let dir2 = add_directory b current_dir_filename in
