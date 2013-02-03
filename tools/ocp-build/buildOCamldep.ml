@@ -199,7 +199,7 @@ let filter_deps options option modules =
     not (StringSet.mem modname nodeps)) modules
 
 let load_modules_dependencies lib options force dst_dir pack_for filename =
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "load_modules_dependencies %s\n" filename;
   let source, modules = load_ocamldep_modules filename in
   let modules =
@@ -257,7 +257,7 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
         (*      Printf.eprintf "find_module CMO %s\n" depname; *)
           match deps with
 	      [] ->
-	        if verbose 3 then
+	        if verbose 5 then
 	          Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
 	        ()
 	    | (dst_dir, lib_modules) :: deps ->
@@ -290,7 +290,7 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
           (*      Printf.eprintf "find_module CMX %s\n" depname; *)
           match deps with
 	      [] ->
-	        if verbose 3 then
+	        if verbose 5 then
 	          Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
 	        ()
 	    | (dst_dir, lib_modules) :: deps ->
@@ -326,7 +326,7 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
         (*      Printf.eprintf "find_module CMI %s\n" depname; *)
         match deps with
 	    [] ->
-	      if verbose 3 then
+	      if verbose 5 then
 	        Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
 	      ()
 	  | (dst_dir, lib_modules) :: deps ->
@@ -348,9 +348,9 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
       List.iter (find_module deps) modules;
       [cmi_target, !dependencies]
   in
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "load_modules_dependencies %s DONE\n" filename;
-  if verbose 2 then
+  if verbose 3 then
     print_dependencies dependencies;
   dependencies
 

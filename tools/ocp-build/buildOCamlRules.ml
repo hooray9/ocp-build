@@ -358,7 +358,7 @@ end)
 
 let sort_ocaml_files cmo_files =
 
-  if verbose 2 then begin
+  if verbose 3 then begin
     Printf.eprintf "Sorting:\n";
     List.iter (fun file ->
       Printf.eprintf "%s " file.file_basename;
@@ -401,7 +401,7 @@ let sort_ocaml_files cmo_files =
   let cmo_files =
     List.map (fun to_sort -> to_sort.to_sort_value) (FileSorter.sort list) in
 
-  if verbose 2 then begin
+  if verbose 3 then begin
     Printf.eprintf "\n";
     Printf.eprintf "Sorted:\n";
     List.iter (fun file ->
@@ -815,7 +815,7 @@ let add_mli_source b lib pj mli_file options =
 	| ML ->
 	  lib_modules := StringMap.add modname (MLandMLI, basename) !lib_modules
     with Not_found ->
-      if verbose 3 then
+      if verbose 5 then
 	Printf.eprintf "Adding module %s to %s\n" modname lib.lib_name;
       lib_modules := StringMap.add modname (MLI, basename) !lib_modules
   end;
@@ -901,13 +901,13 @@ let create_ml_file_if_needed b lib mut_dir options ml_file =
     if File.X.exists tmp_ml_file then begin
       let old_ml_content = File.X.read_to_string tmp_ml_file in
       if ml_content <> old_ml_content then begin
-	  if verbose 1 then
+	  if verbose 2 then
 	    Printf.fprintf stderr "create %s [outdated]\n%!"
 	      (File.to_string tmp_ml_file);
             File.X.write_of_string tmp_ml_file ml_content
       end
     end else begin
-      if verbose 1 then
+      if verbose 2 then
 	  Printf.fprintf stderr "create %s [unexisting] \n%!"
 	    (File.to_string tmp_ml_file);
         File.X.write_of_string tmp_ml_file ml_content;
@@ -925,14 +925,14 @@ let copy_mli_if_needed b mut_dir mll_file kernel_name =
       if File.X.exists tmp_mli_file then
         let old_mli_content = File.X.read_to_string tmp_mli_file in
         if mli_content <> old_mli_content then begin
-	  if verbose 1 then
+	  if verbose 2 then
 	    Printf.fprintf stderr "cp %s %s [outdated]\n%!"
 	      (File.to_string mli_file) (File.to_string tmp_mli_file);
             File.X.write_of_string tmp_mli_file mli_content
 	end else
 	  ()
       else begin
-	if verbose 1 then
+	if verbose 2 then
 	  Printf.fprintf stderr "cp %s %s [unexisting] \n%!"
 	    (File.to_string mli_file) (File.to_string tmp_mli_file);
         File.X.write_of_string tmp_mli_file mli_content;
@@ -1100,7 +1100,7 @@ let add_ml_source b lib pj ml_file options =
 	| MLI ->
 	  lib_modules := StringMap.add modname (MLandMLI, basename) !lib_modules
     with Not_found ->
-      if verbose 3 then
+      if verbose 5 then
 	Printf.eprintf "Adding module %s to %s\n" modname lib.lib_name;
       lib_modules := StringMap.add modname (ML, basename) !lib_modules
   end;
@@ -1589,7 +1589,7 @@ let add_program b lib =
 
 let add_package b pk =
   try
-    if verbose 4 then Printf.eprintf "Adding %s\n" pk.package_name;
+    if verbose 7 then Printf.eprintf "Adding %s\n" pk.package_name;
 
     let package_dirname =
       try
@@ -1603,7 +1603,7 @@ let add_package b pk =
 
 
     let src_dir = add_directory b (absolute_filename package_dirname) in
-    if verbose 4 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
+    if verbose 7 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
 
     let already_installed =
       bool_option_true pk.package_options generated_option
@@ -1622,7 +1622,7 @@ let add_package b pk =
 	    safe_mkdir dirname;
 	  add_directory b dirname
     in
-    if verbose 4 then Printf.eprintf "\tto %s\n" dst_dir.dir_fullname;
+    if verbose 7 then Printf.eprintf "\tto %s\n" dst_dir.dir_fullname;
 
 
     let mut_dir =

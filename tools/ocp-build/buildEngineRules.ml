@@ -58,7 +58,7 @@ let add_rule_sources r files =
 
 let add_rule_target r file =
   r.rule_targets <- file :: r.rule_targets;
-  if verbose 2 && file.file_target_of <> [] then
+  if verbose 3 && file.file_target_of <> [] then
     Printf.eprintf "Warning: file %s targetted by multiple rules\n" (file_filename file);
   file.file_target_of <- r :: file.file_target_of
 

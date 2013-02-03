@@ -38,6 +38,11 @@ open BuildOptions
 
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
+let initial_verbosity =
+  try
+    Some (int_of_string (Sys.getenv "OCPBUILD_VERBOSITY"))
+  with _ -> None
+
 let version = BuildVersion.version
 
 let print_version () =
@@ -59,15 +64,39 @@ let time s f x =
   else
     f x
 
-let time2 s f x1 x2 =
-  if !time_arg then
-    let t0 = Unix.gettimeofday () in
-    let y = f x1 x2 in
-    let t1 = Unix.gettimeofday () in
-    Printf.printf s (t1 -. t0);
+let time_initial = Unix.gettimeofday ()
+let timer_find_project = ref 0.
+let timer_load_config = ref 0.
+let timer_create_context = ref 0.
+let timer_configure = ref 0.
+let timer_save_local = ref 0.
+let timer_find_env = ref 0.
+let timer_load_env = ref 0.
+let timer_load_meta = ref 0.
+let timer_load_project = ref 0.
+let timer_sort_packages = ref 0.
+let timer_create_rules = ref 0.
+let timer_init_build = ref 0.
+let timer_check_sanitize = ref 0.
+let timer_build_project = ref 0.
+
+let timer0 = ref time_initial
+
+let add_timing msg timer f x =
+  let t0 = Unix.gettimeofday () in
+(*  Printf.eprintf "discarded before %s: %.2f\n%!" msg (t0 -. !timer0); *)
+  timer0 := t0;
+  try
+    let y = f x in
+    let timer1 = Unix.gettimeofday () in
+    timer := (timer1 -. !timer0) +. !timer;
+    timer0 := timer1;
     y
-  else
-    f x1 x2
+  with e ->
+    let timer1 = Unix.gettimeofday () in
+    timer := (timer1 -. !timer0) +. !timer;
+    timer0 := timer1;
+    raise e
 
 let save_project = ref false
 let save_arguments_arg = ref false
@@ -270,8 +299,7 @@ let build () =
         option_installlib = None; (* TODO not used ??? *)
       } in
 
-      let cfg =
-        time "Check config: %.2fs\n%!" BuildConfig.check_config pjo in
+      let cfg = BuildConfig.check_config pjo in
       let ocamlfind_path = MetaConfig.load_config () in
 
       let install_where =
@@ -330,10 +358,12 @@ let build () =
 
           let build_dir_filename = (* absolute_filename *) build_dir_basename in
 
-          if verbose 2 then Printf.eprintf "Arguments parsed\n%!";
+          if verbose 3 then Printf.eprintf "Arguments parsed\n%!";
 
 
-          let root_config, pjo = BuildOptions.load_local root_file in
+          let root_config, pjo =
+            add_timing "load ocp-build.conf" timer_load_config
+            BuildOptions.load_local root_file in
 
           if pjo.option_ocamllib <> "" then begin
     (* do this before check_config *)
@@ -342,16 +372,13 @@ let build () =
 
   (*  time "Config time: %.2fs\n%!" BuildConfig.load_config local_config_file; *)
           let cfg =
-            time "Check config: %.2fs\n%!" BuildConfig.check_config pjo in
+            add_timing
+              "check config"
+              timer_configure BuildConfig.check_config pjo in
 
-
-
-
-
-
-
-
-          let ocamlfind_path = MetaConfig.load_config () in
+          let ocamlfind_path =
+            add_timing  "check ocamlfind"
+              timer_configure MetaConfig.load_config () in
 
           let install_where =
       let open BuildOCamlInstall in
@@ -388,9 +415,6 @@ let build () =
 
       else
 
-
-
-
   let host = Printf.sprintf "%s-%s-%s"
     cfg.ocaml_system cfg.ocaml_architecture cfg.ocaml_version in
 
@@ -401,11 +425,16 @@ let build () =
     | ArchNone -> build_dir_filename
   in
 (*  Printf.fprintf stderr "build_dir_filename = %s\n%!" build_dir_filename; *)
-  let b = BuildEngineContext.create (File.to_string root_dir) build_dir_filename in
+  let b =
+    add_timing "create context" timer_create_context
+    (BuildEngineContext.create (File.to_string root_dir))
+    build_dir_filename in
+
 
   b.stop_on_error_arg <- !stop_on_error_arg;
 
   if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
+
 
   let project_ocpbuild_version = create_option root_config
     [ "ocpbuild_version" ]
@@ -431,7 +460,8 @@ let build () =
 
   let ncores =
     if ncores < 1 then
-      BuildConfig.number_of_cores () + 1
+      add_timing "find n cores" timer_configure
+        BuildConfig.number_of_cores () + 1
     else
       ncores
   in
@@ -446,15 +476,20 @@ let build () =
   if use_digests then BuildEngineMtime.use_digests true;
   if force_scan then begin
     save_project := true;
-    let files = BuildOCP.scan_root root_dir in
+
+    let files = add_timing "find project"
+      timer_find_project
+      BuildOCP.scan_root
+      root_dir in
     root_files =:= files (* !!project_other_dirs *)
   end;
 
   if !save_project then begin
     Printf.fprintf stderr "Updating ocp-build.root\n%!";
-    BuildOptions.save_local root_config
+    BuildOptions.must_save_local true
   end;
-  BuildOptions.maybe_save_local root_config;
+  add_timing "save local" timer_save_local
+    BuildOptions.maybe_save_local root_config;
 
     b.cross_arg <- !cross_arg;
 
@@ -469,7 +504,8 @@ let build () =
     List.iter (fun dir ->
       Printf.printf "Scanning installed .ocp files in %S\n%!" dir;
       let dir = File.of_string dir in
-      env_files := (BuildOCP.scan_root dir) @ !env_files)
+      env_files := (add_timing "find env" timer_find_env
+                      BuildOCP.scan_root dir) @ !env_files)
       !env_dirs;
 
     if !!root_files = [] then begin
@@ -482,10 +518,11 @@ let build () =
 
     let nerrors1 =
       let config = BuildOCP.generated_config () in
-      time "Env loading time: %.2fs\n%!"
+      add_timing "load env" timer_load_env
       (BuildOCP.load_ocp_files config state)  !env_files
     in
 
+    add_timing "load meta" timer_load_meta
     List.iter (fun dirname ->
       let dirs =
         if dirname = "" || dirname = "-" then
@@ -500,13 +537,13 @@ let build () =
 
    let nerrors =
      let config = BuildOCP.empty_config () in
-      time "Loading time: %.2fs\n%!"
+      add_timing "load project" timer_load_project
         (BuildOCP.load_ocp_files config state) !!root_files
     in
 
     if nerrors > 0 then exit 2;
     let pj =
-      time "Verification time: %.2fs\n%!"
+      add_timing "sort packages" timer_sort_packages
       BuildOCP.verify_packages state in
 
     BuildOCP.save_project_state pj
@@ -518,7 +555,7 @@ let build () =
         pj.package_source_kind
       in
 
-    if verbose 3 || !list_projects_arg then begin
+    if verbose 5 || !list_projects_arg then begin
 
       Printf.eprintf "Disabled packages:\n";
       Array.iter print_package pj.project_disabled;
@@ -563,7 +600,8 @@ let build () =
   ) pj.project_missing;
   end;
 
-  time "Context time: %.2fs\n%!" BuildOCamlRules.create pj b;
+  add_timing "create rules" timer_create_rules
+    (BuildOCamlRules.create pj) b;
 
   if !distclean_arg then begin
     BuildActions.do_distclean ();
@@ -614,6 +652,8 @@ let build () =
 	    exit 2
 	) list
   end;
+
+  add_timing "B" timer_load_config (fun _ -> ()) ();
 
   if !uninstall_arg then
     List.iter (fun lib ->
@@ -698,7 +738,7 @@ let build () =
 
     else
 
-  (* build the list of targets *)
+      (* build the list of targets *)
       let targets = ref [] in
       let add_project_targets lib =
         if not lib.lib_installed then begin
@@ -716,14 +756,17 @@ let build () =
         exit 2
       end;
 
-      List.iter (fun s ->
+      (*
+        List.iter (fun s ->
         Printf.eprintf "TARGET %S\n%!" (File.to_string s.file_file)
-      ) !targets;
+        ) !targets;
+      *)
 
       if !targets <> [] then begin
         begin
           try
-	    time2 "Build init time: %.2f\n%!" BuildEngine.init b !targets
+	    add_timing "init build" timer_init_build
+              (BuildEngine.init b) !targets
           with BuildEngine.MissingSourceWithNoBuildingRule (r, filename) ->
 	    let (rule_filename, rule_loc, rule_name) = r.rule_loc in
 	    BuildMisc.print_loc rule_filename rule_loc;
@@ -733,7 +776,8 @@ let build () =
 	    BuildEngineRules.print_rule r;
 	    exit 2
         end;
-        let orphans = time2 "Sanitizing time: %.2fs\n%!" BuildEngine.sanitize b !delete_orphans_arg in
+        let orphans = add_timing "check sanitize" timer_check_sanitize
+          (BuildEngine.sanitize b) !delete_orphans_arg in
         if orphans > 0 then begin
           Printf.fprintf stderr "Error: found %d orphan files in _obuild. You must remove them.\n" orphans;
           Printf.fprintf stderr "\n";
@@ -745,9 +789,10 @@ let build () =
           if orphans < 0 then
             Printf.fprintf stderr "Warning: deleted %d orphan files in _obuild\n" (-orphans);
         Printf.fprintf stderr "Building using %d cores\n%!" ncores;
-        time2  "Building time: %.2fs\n%!" BuildEngine.parallel_loop b ncores;
-        let errors = BuildEngine.fatal_errors() @ BuildEngine.errors() in
-        if verbose 1 || errors <> [] then begin
+        add_timing "build project"
+          timer_build_project (BuildEngine.parallel_loop b) ncores;
+        let errors = BuildEngine.fatal_errors() @ BuildEngineDisplay.errors() in
+        if verbose 2 || errors <> [] then begin
           Printf.eprintf "%s. %d commands executed, %d files generated.\n%!"
 	    (if errors = [] then "No error" else
 	        Printf.sprintf "%d errors" (List.length errors))
@@ -767,23 +812,42 @@ let build () =
       end;
       Printf.eprintf "%!";
       let t1 = Unix.gettimeofday () in
-      if !time_arg then
-        Printf.printf "Total time: %.2fs\n%!" (t1 -. t0);
+      Printf.printf "Successfully built in %.2fs\n%!" (t1 -. t0);
+      if !time_arg then begin
+        List.iter (fun (msg, timer) ->
+          if !timer > 0.009 then
+            Printf.printf "\t%4.2fs to %s\n%!" !timer msg
+        ) [
+          "load ocp-build.conf",timer_load_config;
+        "check tools", timer_configure;
+        "init VFS", timer_create_context;
+        "find project .ocp files", timer_find_project;
+        "save ocp-build.root", timer_save_local;
+        "find env .ocp files", timer_find_env;
+        "load env .ocp files", timer_load_env;
+        "load env META files", timer_load_meta;
+        "load project .ocp files", timer_load_project;
+        "sort packages", timer_sort_packages;
+        "instantiate rules", timer_create_rules;
+        "init engine", timer_init_build;
+        "check sanitize", timer_check_sanitize;
+        "build project", timer_build_project;
+        ]
+      end;
 
       Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir)
 
-with e ->
-  let backtrace = Printexc.get_backtrace () in
-  Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir);
-  Printf.fprintf stderr "ocp-build: Fatal Exception %s\n%s\n%!" (Printexc.to_string e) backtrace;
-  raise e
-
+        with e ->
+          let backtrace = Printexc.get_backtrace () in
+          Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir);
+          Printf.fprintf stderr "ocp-build: Fatal Exception %s\n%s\n%!" (Printexc.to_string e) backtrace;
+          raise e
 
 let _ =
   Printexc.record_backtrace true;
 
   BuildOptions.load_global ();
-  set_verbosity !!BuildOptions.GlobalOptions.verbosity_option;
+  begin match initial_verbosity with None -> () | Some v -> set_verbosity v end;
   Arg.parse arg_list (fun s -> targets_arg := s :: !targets_arg) arg_usage;
   BuildOptions.maybe_save_global ();
 

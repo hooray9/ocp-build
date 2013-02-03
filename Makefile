@@ -164,8 +164,15 @@ opamize:
 	$(MAKE) opamize-typerex
 	$(MAKE) opamize-ocp-build
 opamize-typerex:
-	./_obuild/ocp-opamer/ocp-opamer.asm -descr packages/opam/typerex.descr -opam packages/opam/typerex.opam  typerex $(VERSION) https://github.com/OCamlPro/typerex/tarball/typerex.$(VERSION)
+	./_obuild/ocp-opamer/ocp-opamer.asm \
+	 	-descr packages/opam/typerex.descr \
+		-opam packages/opam/typerex.opam  \
+		typerex $(VERSION) \
+		https://github.com/OCamlPro/typerex/tarball/typerex.$(VERSION)
 
 opamize-ocp-build:
-	./_obuild/ocp-opamer/ocp-opamer.asm -branch typerex -descr packages/opam/ocp-build.descr -opam packages/opam/ocp-build.opam  ocp-build $(VERSION) -no-url
+	./_obuild/ocp-opamer/ocp-opamer.asm -branch typerex \
+		-descr packages/opam/ocp-build.descr \
+		-opam packages/opam/ocp-build.opam \
+		 ocp-build $(VERSION) -no-url
 

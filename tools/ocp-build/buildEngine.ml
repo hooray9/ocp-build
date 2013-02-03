@@ -23,16 +23,6 @@ let verbose =
   DebugVerbosity.add_submodules "B" [ "BE" ];
   DebugVerbosity.verbose [ "BE" ] "BuildEngine"
 
-let need_escape =
-  try
-    ignore (Sys.getenv "TERM"); true
-  with Not_found ->
-    match Win32.os_type with
-      Win32.WINDOWS | Win32.CYGWIN -> true
-    | Win32.UNIX -> false
-
-let term_escape s =
-  if need_escape then String.escaped s else s
 (*
 (* open BuildGlobals *)
 
@@ -202,7 +192,7 @@ to rebuild to get compilation information ?
     command_need_execution
 
 let init b targets =
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 1: init\n";
   (* Phase 1: clean everything *)
   (* reset and initialize *)
@@ -212,34 +202,34 @@ let init b targets =
   ) b.build_rules;
 
   (* Phase 2: check existence and modification times *)
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 2: loading times\n";
 
   Hashtbl.iter (fun _ f ->
 
-    if verbose 4 then Printf.eprintf "Filename %s " (file_filename f);
+    if verbose 7 then Printf.eprintf "Filename %s " (file_filename f);
     begin
       begin
 	match f.file_kind with
 	    FILE_VIRTUAL ->
-	      if verbose 4 then Printf.eprintf " virtual";
+	      if verbose 7 then Printf.eprintf " virtual";
 	      f.file_exists <- false;
 	      f.file_mtime <- BuildEngineMtime.zero;
 	  | FILE_TEMPORARY ->
-	    if verbose 4 then Printf.eprintf " temp";
+	    if verbose 7 then Printf.eprintf " temp";
 	  | FILE_REAL ->
 	    try
               let filename = file_filename f in
-	      if verbose 4 then Printf.eprintf " exists";
+	      if verbose 7 then Printf.eprintf " exists";
 	      f.file_exists <- true;
 	      f.file_mtime <- BuildEngineMtime.compute filename
 	    with _ ->
-	      if verbose 4 then Printf.eprintf " does not exist";
+	      if verbose 7 then Printf.eprintf " does not exist";
 	      f.file_exists <- false;
 	      f.file_mtime <- BuildEngineMtime.zero
       end
     end;
-      if  verbose 4 then begin
+      if  verbose 7 then begin
 	begin
 	  match f.file_target_of with
 	      [] -> Printf.eprintf "(source)"
@@ -256,33 +246,33 @@ let init b targets =
   let rec activate_rule r =
     match r.rule_state with
 	RULE_INACTIVE ->
-	  if verbose 4 then begin
+	  if verbose 7 then begin
 	    Printf.eprintf "ACTIVATING RULE\n%!";
 	    BuildEngineRules.print_rule r;
 	  end;
 	  r.rule_state <- RULE_ACTIVE;
-	  if verbose 5 then
+	  if verbose 9 then
 	    Printf.eprintf "rule %d <- STATE ACTIVE\n" r.rule_id;
 	  IntMap.iter (fun _ file -> activate_source file) r.rule_sources
       | RULE_ACTIVE -> () (* already active *)
       | _ -> assert false
 
   and activate_source f =
-    if verbose 5 then
+    if verbose 9 then
       Printf.eprintf "activate_source [%s]\n" (file_filename f);
     match f.file_target_of with
 	[] ->
-	  if verbose 5 then
+	  if verbose 9 then
 	    Printf.eprintf "no rule to build target [%s]\n" (file_filename f);
 
       | [r] -> activate_rule r
       | _ -> delayed_rules := f.file_target_of :: !delayed_rules
   in
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 3: activating rules\n";
 
   List.iter activate_source targets;
-  if verbose 2 then
+  if verbose 3 then
     Printf.eprintf "%d targets waiting for active rule\n" (List.length !delayed_rules);
 
   let rec iter_delayed_rules () =
@@ -303,7 +293,7 @@ let init b targets =
 		 source directory, there is no easy way to detect
 		 early that all these rules are similar. Either we
 		 activate all of them, or we only activate one.  *)
-	      if verbose 3 then begin
+	      if verbose 5 then begin
 		Printf.eprintf "Picking rule %d among other ones\n" r.rule_id;
 		Printf.eprintf "All rules:";
 		List.iter (fun r -> BuildEngineRules.print_rule r) rules;
@@ -314,12 +304,12 @@ let init b targets =
 	iter_delayed_rules ()
   in
   iter_delayed_rules ();
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 3: activating delayed rules\n";
 
   (* Phase 4: update the readiness of all active rules *)
 
-  if verbose 4 then Printf.eprintf "Rules activated\n%!";
+  if verbose 7 then Printf.eprintf "Rules activated\n%!";
   (* A rule needs to be replayed if one of the targets is either non existing
      or older than one of the sources. Even if it exists, a file might be set as
      non existing if it has to be rebuilt.
@@ -351,7 +341,7 @@ let init b targets =
 (*	  newest_source := max !newest_source f.file_mtime *)
 	end else begin
 	  incr missing_sources;
-	  if verbose 4 then Printf.eprintf "Missing %s\n%!" (file_filename f);
+	  if verbose 7 then Printf.eprintf "Missing %s\n%!" (file_filename f);
 	  match f.file_target_of with
 	      [] -> raise (MissingSourceWithNoBuildingRule (r, file_filename f))
 	    | _ -> ()
@@ -369,23 +359,23 @@ let init b targets =
 	    if (* r.rule_active *) r.rule_state <> RULE_INACTIVE then begin
 	      active_rule := true;
 	      incr missing_sources;
-	      if verbose 4 then Printf.eprintf "Waiting for %s\n%!" (file_filename f);
+	      if verbose 7 then Printf.eprintf "Waiting for %s\n%!" (file_filename f);
 	    end) f.file_target_of;
 (*	  if not !active_rule then
 	    raise (MissingSourceWithNoBuildingRule (r, file_filename f)) *)
       ) r.rule_time_dependencies;
 
       r.rule_missing_sources <- !missing_sources;
-      if verbose 4 then Printf.eprintf "Initializing rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources;
+      if verbose 7 then Printf.eprintf "Initializing rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources;
       if r.rule_state <> RULE_WAITING &&
 	(!missing_target ||
 	  !missing_sources > 0 || true
          (* || !oldest_target < !newest_source *) )
       then begin
-	if verbose 5 then
+	if verbose 9 then
 	  Printf.eprintf "rule %d <- STATE WAITING\n" r.rule_id;
 	r.rule_state  <- RULE_WAITING;
-	if verbose 4 then Printf.eprintf "Killing targets from rule %d\n%!" r.rule_id;
+	if verbose 7 then Printf.eprintf "Killing targets from rule %d\n%!" r.rule_id;
 
 	List.iter kill_target r.rule_targets
       end
@@ -400,7 +390,7 @@ let init b targets =
      build process, it should be recomputed. *)
   and kill_target f =
     if f.file_exists then begin
-      if verbose 4 then Printf.eprintf "Killing target %s\n%!" (file_filename f);
+      if verbose 7 then Printf.eprintf "Killing target %s\n%!" (file_filename f);
       f.file_exists <- false;
       List.iter kill_rule f.file_target_of;
       List.iter (fun r ->
@@ -414,14 +404,14 @@ let init b targets =
 
   and kill_rule r =
     if r.rule_state = RULE_ACTIVE then begin
-      if verbose 4 then Printf.eprintf "Killing rule %d\n%!" r.rule_id;
-      if verbose 5 then
+      if verbose 7 then Printf.eprintf "Killing rule %d\n%!" r.rule_id;
+      if verbose 9 then
 	Printf.eprintf "rule %d <- STATE WAITING\n" r.rule_id;
       r.rule_state <- RULE_WAITING;
       List.iter kill_target r.rule_targets
     end
   in
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 4: checking active rules\n";
   Hashtbl.iter (fun _ r ->
      check_rule r) b.build_rules;
@@ -429,7 +419,7 @@ let init b targets =
 (* Phase 5: update the different queues *)
 (* Now, fill the queues ! *)
 
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 5: filling queues\n";
 
   Hashtbl.iter (fun _ r ->
@@ -447,7 +437,11 @@ let init b targets =
       | RULE_EXECUTED -> assert false
   ) b.build_rules;
 
-  if verbose 3 then
+  b.build_stats_to_execute <-
+    IntMap.cardinal !queue_ready +
+    IntMap.cardinal !queue_waiting;
+
+  if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 5: done\n";
   ()
 
@@ -503,7 +497,7 @@ let temp_files = ref IntMap.empty
 let check_temporary b r file =
   try
     let (r',list) = IntMap.find file.file_id !temp_files in
-    if r.rule_missing_sources = 0 && verbose 2 then
+    if r.rule_missing_sources = 0 && verbose 3 then
       Printf.eprintf "rule %d postponed to avoid conflict with rule %d\n" r.rule_id r'.rule_id;
     list := r :: !list;
     r.rule_missing_sources <- r.rule_missing_sources + 1;
@@ -536,7 +530,7 @@ let release_temporaries b r =
     temp_files := IntMap.remove file.file_id !temp_files;
     List.iter (fun r ->
 
-      if verbose 3 then
+      if verbose 5 then
 	Printf.eprintf "\t\t\trule %d: missing %d -> %d (release_temporary)\n" r.rule_id r.rule_missing_sources (r.rule_missing_sources - 1);
       r.rule_missing_sources <- r.rule_missing_sources - 1;
       assert (r.rule_missing_sources >= 0);
@@ -552,17 +546,18 @@ let release_temporaries b r =
 
 
 let rec next_rule b =
-  if verbose 4 then Printf.eprintf "next_rule: %d targets ready\n%!" (IntMap.cardinal !queue_ready);
+  if verbose 7 then Printf.eprintf "next_rule: %d targets ready\n%!" (IntMap.cardinal !queue_ready);
   match IntMap.min_elt !queue_ready with
       None ->
 	None
     | Some (id, r) ->
-      if verbose 4 then Printf.eprintf "next_rule: testing rule %d\n%!" r.rule_id;
+      if verbose 7 then Printf.eprintf "next_rule: testing rule %d\n%!" r.rule_id;
       queue_ready := IntMap.remove id !queue_ready;
+      b.build_stats_executed <- b.build_stats_executed + 1;
       if r.rule_missing_sources > 0 || r.rule_state = RULE_EXECUTED || check_temporaries b r then
 	next_rule b
       else begin
-      if verbose 4 then
+      if verbose 7 then
 	begin
 	  Printf.eprintf "NEXT RULE\n%!";
 	  BuildEngineRules.print_rule r;
@@ -571,13 +566,13 @@ let rec next_rule b =
 	      Printf.eprintf "ERROR: missing source %s\n%!" (file_filename f)
 	  ) r.rule_sources;
 	end;
-	if verbose 5 then
+	if verbose 9 then
 	  Printf.eprintf "rule %d <- STATE EXECUTING\n" r.rule_id;
 	r.rule_state <- RULE_EXECUTING;
 	Some r
       end
 
-let errors = ref []
+(* let errors = ref [] *)
 let fatal_errors = ref []
 
 type execution_status =
@@ -586,9 +581,9 @@ type execution_status =
   | EXECUTION_AVOIDED
 
 let rule_executed b r execution_status =
-  if verbose 3 then
-    Printf.eprintf "rule_executed %d\n" r.rule_id;
   if verbose 5 then
+    Printf.eprintf "rule_executed %d\n" r.rule_id;
+  if verbose 9 then
     Printf.eprintf "rule %d <- STATE EXECUTED\n" r.rule_id;
   r.rule_state <- RULE_EXECUTED;
   let temp_dir = BuildEngineRules.rule_temp_dir r in
@@ -626,15 +621,13 @@ let rule_executed b r execution_status =
 	    f.file_exists <- true;
 	    f.file_mtime <- BuildEngineMtime.compute filename
 	  with e ->
-	    Printf.eprintf "Error, exception %s in rule_executed\n%!"
-	      (Printexc.to_string e);
-	    errors :=
-	      [Printf.sprintf "Target %s not built" (file_filename f);] :: !errors
+	    BuildEngineDisplay.add_error
+	      [Printf.sprintf "Target %s not built" (file_filename f);]
       end;
       if f.file_exists then
 	List.iter (fun r2 ->
 	  if r2.rule_state <> RULE_INACTIVE then begin
-	  if verbose 3 then
+	  if verbose 5 then
 	    Printf.eprintf "\t\t\trule %d: missing %d -> %d (rule %d executed)\n" r2.rule_id r2.rule_missing_sources (r2.rule_missing_sources - 1) r.rule_id;
 	  r2.rule_missing_sources <- r2.rule_missing_sources - 1;
 	  if (r2.rule_missing_sources < 0) then begin
@@ -656,7 +649,7 @@ let rule_executed b r execution_status =
 sub-targets of both .cmo and .cmx files. As such, they are not actually targets
 of the rules, but side-effects. *)
       (* We should remove it if it was generated again !!! *)
-      if verbose 4 then Printf.eprintf "Target file was already generated\n%!";
+      if verbose 7 then Printf.eprintf "Target file was already generated\n%!";
 (*
       if !cross_arg && Sys.file_exists (file_filename f) then
 	Unix.unlink (file_filename f)
@@ -689,7 +682,7 @@ let rec add_dependency b r target_file filenames =
   match filenames with
       [] -> raise EmptyListOfDependencies
     | filename :: other_filenames ->
-      if verbose 4 then Printf.eprintf "\tDEP %s\n%!" filename;
+      if verbose 7 then Printf.eprintf "\tDEP %s\n%!" filename;
       let dirname = Filename.dirname filename in
       (*      let pj = r.rule_lib.lib_project in *)
       let dirname = cross_dirname b dirname in
@@ -705,13 +698,13 @@ let rec add_dependency b r target_file filenames =
 	  None -> ()
 	| Some src_file ->
 	  if List.for_all (fun r -> r.rule_state = RULE_INACTIVE) src_file.file_target_of then begin
-	    if verbose 4 then
+	    if verbose 7 then
 	      Printf.eprintf "\t\tDisabled. Trying next.\n";
 	    add_dependency b r target_file other_filenames
 	  end else
 	    if not (IntMap.mem src_file.file_id r.rule_sources) then
 	      begin
-		if verbose 4 then
+		if verbose 7 then
 		  Printf.eprintf "\t\tAdding dependency\n";
 		r.rule_sources <-
 		  IntMap.add src_file.file_id src_file r.rule_sources;
@@ -720,13 +713,13 @@ let rec add_dependency b r target_file filenames =
 		    (*			Printf.eprintf "Missing new dep %s =>\n%!" (file_filename src_file); *)
 		    (*			Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
 
-		  if verbose 4 then
+		  if verbose 7 then
 		    Printf.eprintf "\t\t\trule %d: missing %d -> %d\n" r.rule_id r.rule_missing_sources (r.rule_missing_sources + 1);
 		  r.rule_missing_sources <- r.rule_missing_sources + 1;
 		  if r.rule_missing_sources = 1 then
 		    queue_waiting := IntMap.add r.rule_id r !queue_waiting
 		end else begin
-		  if verbose 4 then Printf.eprintf "Adding useless dependency to %s\n%!"
+		  if verbose 7 then Printf.eprintf "Adding useless dependency to %s\n%!"
 		    (file_filename src_file);
 		end
 	      end
@@ -749,12 +742,12 @@ let add_dependency b r target_file filenames =
 
 (* TODO: replace BuildOcamldep.load_dependencies by a generic function inside LoadDeps *)
 let load_dependency_file b loader file r_ok =
-  if verbose 4 then Printf.eprintf "Loading dependencies from %s\n%!" (file_filename file);
+  if verbose 7 then Printf.eprintf "Loading dependencies from %s\n%!" (file_filename file);
   begin try
 	  let dependencies = (* BuildOcamldep.load_dependencies *) loader (file_filename file) in
 
 	  List.iter (fun (filename, deps) ->
-	    if verbose 4 then Printf.eprintf "FILE %s\n%!" filename;
+	    if verbose 7 then Printf.eprintf "FILE %s\n%!" filename;
 	    let dirname = Filename.dirname filename in
 	    let (rule_filename, rule_loc, rule_name) = r_ok.rule_loc in
 	    let dirname = cross_dirname b dirname in
@@ -763,7 +756,7 @@ let load_dependency_file b loader file r_ok =
 	      BuildEngineContext.find_file dir (Filename.basename filename) in
 	    List.iter (fun r ->
 	      if r.rule_state <> RULE_INACTIVE then begin
-		if verbose 4 then begin
+		if verbose 7 then begin
 		  Printf.eprintf "Adding deps to rule %d \n%!" r.rule_id;
 		  BuildEngineRules.print_rule r;
 		end;
@@ -783,7 +776,8 @@ let load_dependency_file b loader file r_ok =
 		  ) !unmanaged_dependencies;
 		  if !unmanaged_dependencies <> [] then begin
 		    Unix.unlink (file_filename file);
-		    errors := [Printf.sprintf "Dependency file %s contains unmanaged dependencies. Removed. You should rebuild." (file_filename file)] :: !errors
+                    BuildEngineDisplay.add_error
+                       [Printf.sprintf "Dependency file %s contains unmanaged dependencies. Removed. You should rebuild." (file_filename file)]
 		  end;
 		  unmanaged_dependencies := []
 		end
@@ -797,7 +791,7 @@ let load_dependency_file b loader file r_ok =
      TODO: add an option to not remove the file for debugging purpose !
   *)
       Unix.unlink (file_filename file);
-      errors := [Printf.sprintf "Incorrect dependency file %s (Exception %s). Removed. You should rebuild." (file_filename file) (Printexc.to_string e)] :: !errors
+      BuildEngineDisplay.add_error [Printf.sprintf "Incorrect dependency file %s (Exception %s). Removed. You should rebuild." (file_filename file) (Printexc.to_string e)]
   end
 
 
@@ -816,13 +810,7 @@ let execute_command b proc =
   let cmd_args =
     (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
   in
-  if verbose 1 then begin
-    Printf.eprintf "[%d.%d] BEGIN '%s' %s\n%!" r.rule_id proc.proc_step
-      (term_escape (String.concat "' '" cmd_args))
-    (match cmd.cmd_stdout_pipe with
-      None -> ""
-      | Some filename -> Printf.sprintf "> '%s'" filename);
-  end;
+  BuildEngineDisplay.begin_command b proc;
   Printf.fprintf b.build_log "'%s' %s\n"
     (String.concat "' '" cmd_args)
     (match cmd.cmd_stdout_pipe with
@@ -832,7 +820,7 @@ let execute_command b proc =
     (Some (temp_stdout b r)) (Some (temp_stderr b r))
   in
   incr stats_command_executed;
-  if verbose 4 then Printf.eprintf "EXEC started\n%!";
+  if verbose 7 then Printf.eprintf "EXEC started\n%!";
   pid
 
 let new_proc r =
@@ -865,7 +853,7 @@ let s = String.create 32768
 
 (* TODO: Use File.copy Copy line-oriented file *)
 let copy_file b src dst =
-  if verbose 4 then Printf.eprintf "copy_file from %s to %s\n%!" src dst;
+  if verbose 7 then Printf.eprintf "copy_file from %s to %s\n%!" src dst;
   try
     File.RawIO.copy_file src dst;
     0
@@ -877,39 +865,58 @@ let copy_file b src dst =
     2
 
 let command_executed b proc status =
-  if verbose 4 then Printf.eprintf "command_executed...\n%!";
+  if verbose 7 then Printf.eprintf "command_executed...\n%!";
   match proc.proc_last with
+  | None -> assert false
     | Some cmd ->
       let r = proc.proc_rule in
       let cmd_args =
         (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
       in
 
-      let verbose = status <> 0 || verbose 1 in
+      let force_verbose =  status <> 0 || verbose 2 in
 
-      if verbose then Printf.eprintf "[%d.%d]   END '%s'\n%!" r.rule_id proc.proc_step
-	 (term_escape (String.concat "' '" cmd_args));
+      BuildEngineDisplay.end_command b proc status;
+
+(*
+      if force_verbose then
+        Printf.eprintf "[%d.%d]   END '%s'\n%!" r.rule_id proc.proc_step
+	 (BuildEngineDisplay.term_escape (String.concat "' '" cmd_args))
+      else
+        if verbose 1 then
+          let percent = b.build_stats_executed * 100 / b.build_stats_to_execute
+          in
+          Printf.eprintf "[%2d%%] %-50s OK\n%!" percent
+            r.rule_main_target.file_basename
+        else begin
+          let point = b.build_stats_executed * 79 / b.build_stats_to_execute
+          in
+          if point > b.build_stats_lastpoint then begin
+            Printf.eprintf ".%!";
+            b.build_stats_lastpoint <- point
+          end end;
+*)
       let copy_status =
 	match cmd.cmd_stdout_pipe with
 	    None ->
-	      if verbose then
-		print_file  "Command stdout:" (temp_stdout b r);
+(*	      if force_verbose then
+		print_file  "Command stdout:" (temp_stdout b r); *)
 	      0
 	  | Some file ->
 	    let src = temp_stdout b r in
 	    copy_file b src file;
       in
-      Unix.unlink (temp_stdout b r);
-      if verbose then
-	print_file  "Command stderr:" (temp_stderr b r);
-      if status <> 0 then begin
-	errors :=
+(*      if force_verbose then
+	print_file  "Command stderr:" (temp_stderr b r); *)
+(*      if status <> 0 then begin
+	add_error
 	  [
 	    Printf.sprintf "[%d.%d] '%s'" r.rule_id proc.proc_step
-	       (term_escape (String.concat "' '" cmd_args));
+	       (BuildEngineDisplay.term_escape (String.concat "' '" cmd_args));
 	    File.string_of_file (temp_stderr b r)
-	  ] :: !errors;
-      end;
+	  ];
+      end; *)
+      Unix.unlink (temp_stdout b r);
       Unix.unlink (temp_stderr b r);
       stats_files_generated := (List.length r.rule_targets) + !stats_files_generated;
       if status <> 0 then status else copy_status
@@ -931,16 +938,17 @@ let parallel_loop b ncores =
     if nslots > 0 then begin
       if
 	!fatal_errors <> [] ||
-	  (b.stop_on_error_arg && !errors <> []) then wait_for_end nslots else
+	  (b.stop_on_error_arg &&
+             BuildEngineDisplay.has_error()) then wait_for_end nslots else
 	match next_rule b with
 	    None -> wait_for_end nslots
 	  | Some r ->
-	    if verbose 2 then Printf.eprintf "[%d.0] Examining rule\n%!" r.rule_id;
+	    if verbose 3 then Printf.eprintf "[%d.0] Examining rule\n%!" r.rule_id;
 	    if rule_need_execution b r then begin
 	      let proc = new_proc r in
 	      iter (execute_proc proc nslots)
 	    end else begin
-	      if verbose 2 then Printf.eprintf "[%d.0] Execution not needed !!!!\n%!" r.rule_id;
+	      if verbose 3 then Printf.eprintf "[%d.0] Execution not needed !!!!\n%!" r.rule_id;
 	      rule_executed b r EXECUTION_AVOIDED;
 	      iter nslots
 	    end
@@ -949,7 +957,7 @@ let parallel_loop b ncores =
 
   and wait_for_end nslots =
     if !slots = IntMap.empty then begin
-      if verbose 2 then
+      if verbose 3 then
 	print_waiting_queue ()
       else begin
 	let len = IntMap.cardinal !queue_waiting in
@@ -965,7 +973,7 @@ let parallel_loop b ncores =
     assert (nslots >= 0);
     let nslots =
       try
-	if verbose 2 then Printf.eprintf "Wait for %d processes\n%!" (IntMap.cardinal !slots);
+	if verbose 3 then Printf.eprintf "Wait for %d processes\n%!" (IntMap.cardinal !slots);
 	let (pid, status) =
            if Win32.os_type = Win32.WINDOWS then
              let list = ref [] in
@@ -991,18 +999,18 @@ let parallel_loop b ncores =
 		      None -> status
 		    | Some cmd ->
 		      let status = command_executed b proc status in
-		      if verbose 2 then
+		      if verbose 3 then
 			Printf.eprintf "[%d.%d] Just finished executing\n%!"
 			  proc.proc_rule.rule_id proc.proc_step;
-		      (* if verbose 4 then print_indented_command cmd; *)
+		      (* if verbose 7 then print_indented_command cmd; *)
 		      status
 		in
 		proc.proc_last <- None;
 		if status <> 0 then begin
 		  let (rule_filename, rule_loc, rule_name) = proc.proc_rule.rule_loc in
 		  (* print_project_location pj; *)
-		  Printf.eprintf "[%d.%d] ERROR in project %s\n%!"
-		    proc.proc_rule.rule_id proc.proc_step rule_name;
+(*(		  Printf.eprintf "[%d.%d] ERROR in project %s\n%!"
+		    proc.proc_rule.rule_id proc.proc_step rule_name; *)
 		  (*		   then must_stop := true; *)
 		  rule_executed b proc.proc_rule EXECUTION_FAILURE;
 		  nslots + 1
@@ -1011,7 +1019,7 @@ let parallel_loop b ncores =
 	      with Not_found -> nslots
 	    end
       with e ->
-	  (*	if verbose 4 then *)
+	  (*	if verbose 7 then *)
 	Printf.eprintf "Error in waiting loop: exception %s\n%!" (Printexc.to_string e);
 	(* nslots *)
 	exit 2
@@ -1021,12 +1029,12 @@ let parallel_loop b ncores =
   and execute_proc proc nslots =
     match proc.proc_commands with
 	[] ->
-	  if verbose 2 then
+	  if verbose 3 then
 	    Printf.eprintf "[%d.%d] rule finished\n%!" proc.proc_rule.rule_id proc.proc_step;
 	  rule_executed b proc.proc_rule EXECUTION_SUCCESS;
 	  nslots
       | cmd :: tail ->
-	if verbose 2 then
+	if verbose 3 then
 	  Printf.eprintf "[%d.%d] command executed\n%!" proc.proc_rule.rule_id proc.proc_step;
 	proc.proc_step <- proc.proc_step + 1;
 	proc.proc_commands <- tail;
@@ -1043,13 +1051,13 @@ let parallel_loop b ncores =
               if not (File.X.exists temp_dir) then
                 File.Dir.make_all temp_dir;
 	      proc.proc_last <- Some cmd;
-	      if verbose 2 then
+	      if verbose 3 then
 		Printf.eprintf "[%d.%d] new exec\n%!" proc.proc_rule.rule_id proc.proc_step;
 	      let pid = execute_command b proc in
 	      slots := IntMap.add pid proc !slots;
 	      nslots - 1
 	  | LoadDeps (loader, file, r) ->
-	    if verbose 4 then
+	    if verbose 7 then
 	      Printf.eprintf "[%d.%d] load deps\n%!" proc.proc_rule.rule_id proc.proc_step;
 	    (*	    let loader =
 		    try
@@ -1067,7 +1075,7 @@ let parallel_loop b ncores =
 	    let ff1 = BuildEngineRules.file_of_argument r f1 in
 	    let ff2 = BuildEngineRules.file_of_argument r f2 in
 
-	    if verbose 1 then
+	    if verbose 2 then
 	      Printf.eprintf "[%d.%d] cp %s %s\n%!"
 		proc.proc_rule.rule_id proc.proc_step
 		fa1 fa2;
@@ -1093,7 +1101,7 @@ let parallel_loop b ncores =
 	    let ff1 = BuildEngineRules.file_of_argument r f1 in
 	    let ff2 = BuildEngineRules.file_of_argument r f2 in
 
-	    if verbose 1 then
+	    if verbose 2 then
 	      Printf.eprintf "[%d.%d] mv %s %s\n%!"
 		proc.proc_rule.rule_id proc.proc_step
 		fa1 fa2;
@@ -1123,7 +1131,7 @@ let parallel_loop b ncores =
 
             if File.X.exists ff1 then
 	      begin try
-	              if verbose 1 then
+	              if verbose 2 then
 	                Printf.eprintf "[%d.%d] mv? %s %s\n%!"
 			  proc.proc_rule.rule_id proc.proc_step
 		          fa1 fa2;
@@ -1191,12 +1199,14 @@ let save_cache b =
 let parallel_loop b ncores =
   try
     parallel_loop b ncores;
+    BuildEngineDisplay.finish ();
     save_cache b
   with e ->
+    BuildEngineDisplay.finish ();
     save_cache b;
     raise e
 
-let errors () = !errors
+(*let errors () = !errors *)
 let fatal_errors () = !fatal_errors
 
 let sanitize b delete_orphans =
@@ -1212,7 +1222,8 @@ let sanitize b delete_orphans =
           let cdir = BuildEngineContext.find_dir cdir basename in
           iter filename cdir
         with Not_found ->
-          Printf.fprintf stderr "Warning: orphan directory %s/%s\n%!"  cdir.dir_fullname basename;
+          Printf.eprintf "Warning: orphan directory %s/%s\n%!"
+            cdir.dir_fullname basename;
           match delete_orphans with
               KeepOrphans
             | DeleteOrphanFiles -> ()
@@ -1222,7 +1233,7 @@ let sanitize b delete_orphans =
         try
           ignore (BuildEngineContext.find_file cdir basename)
         with Not_found ->
-          Printf.fprintf stderr "Warning: orphan file %s/%s\n%!" cdir.dir_fullname basename;
+          Printf.eprintf "Warning: orphan file %s/%s\n%!" cdir.dir_fullname basename;
           match delete_orphans with
               KeepOrphans -> incr orphan_files
             | DeleteOrphanFiles
@@ -1239,7 +1250,8 @@ let sanitize b delete_orphans =
         let cdir = BuildEngineContext.find_dir cdir basename in
         iter filename cdir
       with Not_found ->
-        Printf.fprintf stderr "Warning: orphan directory %s/%s\n%!" cdir.dir_fullname basename;
+        Printf.eprintf "Warning: orphan directory %s/%s\n%!"
+          cdir.dir_fullname basename;
         match delete_orphans with
             KeepOrphans
           | DeleteOrphanFiles -> ()

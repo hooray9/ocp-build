@@ -55,6 +55,7 @@ begin library "ocp-build-engine"
   "buildEngineGlobals.ml";    (* Global tables and misc functions *)
   "buildEngineRules.ml"             (* Functions to create compilation rules *)
   "buildEngineContext.ml";    (* Initialisation of the build Engine *)
+  "buildEngineDisplay.ml";
   "buildEngine.ml";           (* The generic parallel build engine *)
   ]
 

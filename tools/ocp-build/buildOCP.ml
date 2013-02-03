@@ -46,13 +46,13 @@ let compare_packages pk1 pk2 =
       pk1.package_version = pk2.package_version
     (* TODO: We should also test for asm/byte... *)
     then begin
-      if verbose 2 then
+      if verbose 3 then
         Printf.eprintf "Discarding duplicated package %S\n%!" pk1.package_name;
       PackageEquality
     end
     else
       begin
-        if verbose 3 then begin
+        if verbose 5 then begin
           Printf.eprintf "Conflict over %S\n" pk1.package_name;
           Printf.eprintf "dirname: %S\n" pk1.package_dirname;
           Printf.eprintf "type: %S\n" (string_of_package_type pk1.package_type);
@@ -81,7 +81,7 @@ let compare_packages pk1 pk2 =
 
 
 let rec validate_project s pk =
-  if verbose 2 then
+  if verbose 3 then
     Printf.eprintf "validate_project: %s, tag=%s, id=%d\n" pk.package_name pk.package_tag pk.package_id;
   if pk.package_missing_deps = 0 then begin
     let key =  (pk.package_name, pk.package_tag) in
@@ -239,7 +239,7 @@ let new_dep pk =
 validated_projects *)
 let update_deps pj =
 
-  if verbose 2 then print_deps "BEFORE update_deps" pj;
+  if verbose 3 then print_deps "BEFORE update_deps" pj;
 
   (*
     This computation depends on what we are dealing with:
@@ -324,11 +324,11 @@ let update_deps pj =
     List.iter (fun dep ->
       let pj2 = dep.dep_project in
       let dep2 = new_dep pj2 in
-      if verbose 3 then
+      if verbose 5 then
         Printf.eprintf "%S -> %S\n" pj.package_name pj2.package_name;
       if dep.dep_link && not dep2.dep_link then begin
         dep2.dep_link <- true;
-        if verbose 3 then
+        if verbose 5 then
           Printf.eprintf "%S -> link %S\n" pj.package_name pj2.package_name;
         add_link_deps pj2
       end
@@ -344,7 +344,7 @@ let update_deps pj =
         let pj2 = dep.dep_project in
         let dep2 = new_dep pj2 in
         if not dep2.dep_syntax then begin
-          if verbose 3 then
+          if verbose 5 then
             Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           dep2.dep_syntax <- true;
           add_link_as_syntax_deps pj2
@@ -359,7 +359,7 @@ let update_deps pj =
         let dep2 = new_dep pj2 in
         if not dep2.dep_syntax then begin
           dep2.dep_syntax <- true;
-          if verbose 3 then
+          if verbose 5 then
             Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           add_link_as_syntax_deps pj2;
         end
@@ -426,13 +426,13 @@ let update_deps pj =
       List.iter add_dep pj.package_requires
       ) pj.package_requires; *)
 
-  if verbose 2 then print_deps "AFTER update_deps SORT" pj;
+  if verbose 3 then print_deps "AFTER update_deps SORT" pj;
 
   (*
     (* TODO: verify this is useless ? since sorted later again *)
     pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
 
-    if verbose 2 then print_deps "AFTER update_deps SORT" pj;
+    if verbose 3 then print_deps "AFTER update_deps SORT" pj;
   *)
   ()
 
@@ -493,7 +493,7 @@ let load_ocp_files config packages files =
             let file = File.to_string file in
 	    if OcpString.starts_with file parent then
 	      let dirname = Filename.dirname file in
-	      if verbose 3 then
+	      if verbose 5 then
 	        Printf.eprintf "Reading %s with context from %s\n%!" file parent;
 	      let config =
 		try
@@ -631,7 +631,7 @@ also duplicated packages. *)
           dep1.dep_project.package_id
           dep2.dep_project.package_id) pk.package_requires;
 
-    if verbose 5 then begin
+    if verbose 9 then begin
       Printf.eprintf "Package %S\n" pk.package_name;
       List.iter (fun dp ->
         Printf.eprintf "\t%S%s%s\n"

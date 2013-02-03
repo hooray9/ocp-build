@@ -366,6 +366,8 @@ module LocalOptions = struct
   let maybe_save root_config =
     if !must_save_local then save root_config
 
+  let must_save_local bool = must_save_local := true
+
 end
 
 let arg_list () = List.rev !arg_list
@@ -380,6 +382,7 @@ let rec shortcut_arg new_name old_name list =
 
 let load_local = LocalOptions.load
 let save_local = LocalOptions.save
+let must_save_local = LocalOptions.must_save_local
 let maybe_save_local = LocalOptions.maybe_save
 
 let must_save_global = GlobalOptions.must_save_global

@@ -111,6 +111,10 @@ and build_context = {
   mutable build_rules : (int, build_rule) Hashtbl.t;
   mutable build_files : (int, build_file) Hashtbl.t;
 
+  mutable build_stats_to_execute : int;
+  mutable build_stats_executed : int;
+  mutable build_stats_lastpoint : int;
+
   mutable build_directories : (int * int64, build_directory) Hashtbl.t;
   mutable build_next_dir_id : int;
   mutable build_next_file_id : int;

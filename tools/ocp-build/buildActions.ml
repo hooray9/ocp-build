@@ -46,7 +46,7 @@ let rec delete_file_or_directory filename =
 let init_deleted () = deleted_files := []
 
 let print_deleted () =
-  if verbose 1 then begin
+  if verbose 2 then begin
     Printf.eprintf "Deleted files%s:"
       (if !fake_arg then "(faked)" else "");
     List.iter (fun filename ->
@@ -79,7 +79,7 @@ let do_clean b =
 	  | "cma" | "byte" | "opt" | "mlpp" | "mlipp" ->
 
 	    if Sys.file_exists filename then begin
-	      Printf.eprintf "\tscheduling for deletion\n";
+(*	      Printf.eprintf "\tscheduling for deletion\n"; *)
 	      delete_file filename
 	    end else
 	      Printf.eprintf "\tfile does not exist\n";

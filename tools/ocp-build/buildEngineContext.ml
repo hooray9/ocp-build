@@ -135,7 +135,7 @@ let rec add_directory db filename =
 *)
 
 let find_directory b dirname =
-  if verbose 3 then
+  if verbose 5 then
     Printf.fprintf stderr
        "BuildEngineContext.find_directory %s\n"
        dirname;
@@ -143,26 +143,26 @@ let find_directory b dirname =
   Hashtbl.find b.build_directories key
 
 let rec add_directory b filename =
-  if verbose 3 then
+  if verbose 5 then
     Printf.fprintf stderr
        "BuildEngineContext.add_directory %s\n"
        filename;
   let st, key = get_file_uid filename in
-  if verbose 3 then
+  if verbose 5 then
     Printf.fprintf stderr
        "BuildEngineContext.add_directory |%s| (%d,%Ld)\n"
        filename (fst key) (snd key);
   try
     let dir = Hashtbl.find b.build_directories key in
-    if verbose 3 then
+    if verbose 5 then
        Printf.fprintf stderr "Found\n";
     dir
   with Not_found ->
-    if verbose 3 then
+    if verbose 5 then
        Printf.fprintf stderr "Not found\n";
     let dir =
     let dirname = Filename.dirname filename in
-      if verbose 3 then
+      if verbose 5 then
          Printf.fprintf stderr "\tdirname = %s\n" filename;
       match st.Unix.st_kind with
 	  Unix.S_LNK ->
@@ -175,7 +175,7 @@ let rec add_directory b filename =
 	    add_directory b filename
 	| Unix.S_DIR -> begin
 	  let basename = Filename.basename filename in
-          if verbose 3 then
+          if verbose 5 then
             Printf.fprintf stderr "\tfilename = %s\n" filename;
 	  if dirname = filename then
 	    let rec dir = {
@@ -381,6 +381,11 @@ let create current_dir_filename build_dir_filename =
 
       cross_arg = None;
       stop_on_error_arg = true;
+
+      (* to display progress *)
+      build_stats_to_execute = 0;
+      build_stats_executed = 0;
+      build_stats_lastpoint = 0;
     }
 
   in

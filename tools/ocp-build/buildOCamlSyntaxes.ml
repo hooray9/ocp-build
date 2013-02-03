@@ -202,7 +202,7 @@ let get_pp lib basename options =
             "   Syntax %S was not required by package.\n%!" pksy.lib_name;
     end;
 
-    if verbose 2 then begin
+    if verbose 3 then begin
       Printf.eprintf "Package %S, file %S, syntax %S:\n"
         lib.lib_name basename pksy.lib_name;
       List.iter (fun dep ->
@@ -297,7 +297,7 @@ let get_pp lib basename options =
         @ !pp_components;
     ) lib.lib_requires;
     let pp_components = List.rev !pp_components in
-    if verbose 4 then begin
+    if verbose 7 then begin
       Printf.eprintf "pp_components for %s:\n%!" lib.lib_name;
       List.iter (fun dep ->
         Printf.eprintf "\t%s\n%!" dep.dep_project.lib_name
@@ -321,7 +321,7 @@ let get_pp lib basename options =
           end
       end
     ) pp_components;
-    if verbose 4 then begin
+    if verbose 7 then begin
       Printf.eprintf "syntax for %s:\n%!" lib.lib_name;
       List.iter (fun p ->
         Printf.eprintf "\tpp: %s\n%!" p.lib_name

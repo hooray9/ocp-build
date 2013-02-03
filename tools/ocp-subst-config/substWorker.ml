@@ -112,21 +112,21 @@ let replace_string =
 
 let arg_list = Arg.align [
   "-config-file", Arg.String (fun s -> config_file_arg := Some s ),
-  " <config> : name of config file";
+  "file Name of config file";
 
   "--output", Arg.String (fun s -> output_arg := Some s), "";
   "-o", Arg.String (fun s -> output_arg := Some s),
-  " <filename> : name of file to generate (- for stdout)";
+  "output Name of file to generate (- for stdout)";
 
   "-i", Arg.Set inplace_arg, "";
-  "--inplace", Arg.Set inplace_arg, " : replace in file";
+  "--inplace", Arg.Set inplace_arg, " Replace in file";
 
   "-s", Arg.String (fun s -> output_suffix_arg := Some s), "";
   "--suffix", Arg.String (fun s -> output_suffix_arg := Some s),
-  " SUFFIX : replace in file and remove suffix ('.in' for example)";
+  "suffix Replace in file and remove suffix ('.in' for example)";
 
   "--replace-string", Arg.Tuple replace_string, "";
-  "-str", Arg.Tuple replace_string, " STR REPL : replace string STR by REPL";
+  "-str", Arg.Tuple replace_string, "STR REPL Replace string STR by REPL";
 
 (*  "-subst", Arg.String arg_anon, " <file> : substitute in file";*)
 ]
