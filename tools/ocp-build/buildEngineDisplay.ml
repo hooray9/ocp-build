@@ -82,16 +82,11 @@ let end_command b proc status =
     let cmd_args =
       (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
     in
-
     begin
       if verbose 2 then begin
         Printf.eprintf "[%d.%d]   END(%d) '%s'\n%!" r.rule_id proc.proc_step
           status
           (term_escape (String.concat "' '" cmd_args));
-        if cmd.cmd_stdout_pipe = None then
-	  print_file  "Command stdout:" (temp_stdout b r);
-        if status <> 0 then
-	  print_file  "Command stderr:" (temp_stderr b r);
       end
       else
         if verbose 1 then
@@ -108,6 +103,9 @@ let end_command b proc status =
             b.build_stats_lastpoint <- point
           end;
     end;
+    if cmd.cmd_stdout_pipe = None then
+      print_file  "Command stdout:" (temp_stdout b r);
+    print_file  "Command stderr:" (temp_stderr b r);
     if status <> 0 then
       errors :=
 	[

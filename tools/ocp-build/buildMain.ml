@@ -516,7 +516,7 @@ let build () =
 
     let state = BuildOCP.init_packages () in
 
-    let nerrors1 =
+    let _nerrors1 =
       let config = BuildOCP.generated_config () in
       add_timing "load env" timer_load_env
       (BuildOCP.load_ocp_files config state)  !env_files

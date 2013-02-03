@@ -868,59 +868,31 @@ let command_executed b proc status =
   if verbose 7 then Printf.eprintf "command_executed...\n%!";
   match proc.proc_last with
   | None -> assert false
-    | Some cmd ->
-      let r = proc.proc_rule in
-      let cmd_args =
-        (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
-      in
-
-      let force_verbose =  status <> 0 || verbose 2 in
-
-      BuildEngineDisplay.end_command b proc status;
-
-(*
-      if force_verbose then
-        Printf.eprintf "[%d.%d]   END '%s'\n%!" r.rule_id proc.proc_step
-	 (BuildEngineDisplay.term_escape (String.concat "' '" cmd_args))
-      else
-        if verbose 1 then
-          let percent = b.build_stats_executed * 100 / b.build_stats_to_execute
-          in
-          Printf.eprintf "[%2d%%] %-50s OK\n%!" percent
-            r.rule_main_target.file_basename
-        else begin
-          let point = b.build_stats_executed * 79 / b.build_stats_to_execute
-          in
-          if point > b.build_stats_lastpoint then begin
-            Printf.eprintf ".%!";
-            b.build_stats_lastpoint <- point
-          end end;
-*)
-      let copy_status =
-	match cmd.cmd_stdout_pipe with
-	    None ->
-(*	      if force_verbose then
-		print_file  "Command stdout:" (temp_stdout b r); *)
-	      0
-	  | Some file ->
-	    let src = temp_stdout b r in
-	    copy_file b src file;
-      in
-(*      if force_verbose then
-	print_file  "Command stderr:" (temp_stderr b r); *)
-(*      if status <> 0 then begin
-	add_error
-	  [
-	    Printf.sprintf "[%d.%d] '%s'" r.rule_id proc.proc_step
-	       (BuildEngineDisplay.term_escape (String.concat "' '" cmd_args));
-	    File.string_of_file (temp_stderr b r)
-	  ];
-      end; *)
-      Unix.unlink (temp_stdout b r);
-      Unix.unlink (temp_stderr b r);
-      stats_files_generated := (List.length r.rule_targets) + !stats_files_generated;
-      if status <> 0 then status else copy_status
-    | None -> assert false
+  | Some cmd ->
+    let r = proc.proc_rule in
+    BuildEngineDisplay.end_command b proc status;
+    let copy_status =
+      match cmd.cmd_stdout_pipe with
+	None ->
+	  0
+      | Some file ->
+	let src = temp_stdout b r in
+	copy_file b src file;
+    in
+      (*      if force_verbose then
+	      print_file  "Command stderr:" (temp_stderr b r); *)
+      (*      if status <> 0 then begin
+	      add_error
+	      [
+	      Printf.sprintf "[%d.%d] '%s'" r.rule_id proc.proc_step
+	      (BuildEngineDisplay.term_escape (String.concat "' '" cmd_args));
+	      File.string_of_file (temp_stderr b r)
+	      ];
+              end; *)
+    Unix.unlink (temp_stdout b r);
+    Unix.unlink (temp_stderr b r);
+    stats_files_generated := (List.length r.rule_targets) + !stats_files_generated;
+    if status <> 0 then status else copy_status
 
 (*
 let print_project_location pj =
@@ -1007,11 +979,12 @@ let parallel_loop b ncores =
 		in
 		proc.proc_last <- None;
 		if status <> 0 then begin
-		  let (rule_filename, rule_loc, rule_name) = proc.proc_rule.rule_loc in
-		  (* print_project_location pj; *)
-(*(		  Printf.eprintf "[%d.%d] ERROR in project %s\n%!"
-		    proc.proc_rule.rule_id proc.proc_step rule_name; *)
-		  (*		   then must_stop := true; *)
+(*
+  let (rule_filename, rule_loc, _rule_name) = proc.proc_rule.rule_loc in
+  print_project_location pj;
+  Printf.eprintf "[%d.%d] ERROR in project %s\n%!"
+  proc.proc_rule.rule_id proc.proc_step rule_name;
+*)
 		  rule_executed b proc.proc_rule EXECUTION_FAILURE;
 		  nslots + 1
 		end else
