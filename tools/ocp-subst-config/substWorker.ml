@@ -17,8 +17,13 @@
 
 open StringSubst
 
-let config_file_arg = ref "variables.config"
-let output_arg = ref "-"
+let output_arg = ref None
+let output_suffix_arg = ref None
+let inplace_arg = ref false
+
+let config_file_arg = ref None
+let replace_string_arg1 = ref []
+let replace_string_arg2 = ref []
 
 let rec find_config_file dirname basename =
   let filename = Filename.concat dirname basename in
@@ -61,32 +66,69 @@ let subst_in_file recursive config source_file dest_file =
   nsubst
 
 let arg_anon filename =
-  let config_file =
-      if Filename.is_implicit !config_file_arg then
-        find_config_file
-          (Filename.dirname filename) !config_file_arg
-      else !config_file_arg in
-  let config = load_config_file config_file in
+  let config =
+    match !config_file_arg with
+    | None ->
+        let config = empty_subst () in
+        List.iter2 (add_to_subst config)
+          !replace_string_arg1 !replace_string_arg2;
+        config
+    | Some filename ->
+        let config_file =
+          if Filename.is_implicit filename then
+            find_config_file
+              (Filename.dirname filename) filename
+          else filename in
+        load_config_file config_file
+  in
   let dest_file =
-    if !output_arg = "-" then None
-    else
-      if !output_arg = "-in" then
-        if Filename.check_suffix filename ".in" then
-          Some (Filename.chop_suffix filename ".in")
-        else begin
-          Printf.fprintf stderr
-            "Filename %s has no .in suffix (use -o)\n%!" filename;
+    match !inplace_arg, !output_arg, !output_suffix_arg with
+      true, None, None -> Some filename
+    | true, _, _ ->
+      Printf.eprintf "Error: -i(--inplace) is incompatible with other output arguments.\n%!";
+      exit 2
+    | _, None, None -> None
+    | _, Some _, Some _ ->
+      Printf.eprintf "Error: -o (--output) and -s (--suffix) are incompatible.\n%!";
+      exit 2
+    | _, Some "-", _ -> None
+    | _, Some filename, _ -> Some filename
+    | _, _, Some suffix ->
+      if Filename.check_suffix filename suffix then
+        Some (Filename.chop_suffix filename suffix)
+      else begin
+        Printf.eprintf
+            "Error: filename %S has no suffix %S (use -o)\n%!" filename suffix;
           exit 2
         end
-      else
-        Some !output_arg
   in
   ignore (subst_in_file true config filename dest_file)
 
-let arg_list = [
-  "-config-file", Arg.String ( (:=) config_file_arg ), " <config> : name of config file";
-  "-o", Arg.String ( (:=) output_arg ), " <filename> : name of file to generate (- for stdout)";
-  "-subst", Arg.String arg_anon, " <file> : substitute in file";
+let replace_string =
+  [
+    Arg.String (fun s -> replace_string_arg1 := s :: !replace_string_arg1);
+    Arg.String (fun s -> replace_string_arg2 := s :: !replace_string_arg2);
+  ]
+
+let arg_list = Arg.align [
+  "-config-file", Arg.String (fun s -> config_file_arg := Some s ),
+  " <config> : name of config file";
+
+  "--output", Arg.String (fun s -> output_arg := Some s), "";
+  "-o", Arg.String (fun s -> output_arg := Some s),
+  " <filename> : name of file to generate (- for stdout)";
+
+  "-i", Arg.Set inplace_arg, "";
+  "--inplace", Arg.Set inplace_arg, " : replace in file";
+
+  "-s", Arg.String (fun s -> output_suffix_arg := Some s), "";
+  "--suffix", Arg.String (fun s -> output_suffix_arg := Some s),
+  " SUFFIX : replace in file and remove suffix ('.in' for example)";
+
+  "--replace-string", Arg.Tuple replace_string, "";
+  "-str", Arg.Tuple replace_string, " STR REPL : replace string STR by REPL";
+
+(*  "-subst", Arg.String arg_anon, " <file> : substitute in file";*)
 ]
 
 let arg_usage = Printf.sprintf "%s [OPTIONS] files" Sys.argv.(0)
