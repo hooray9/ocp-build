@@ -64,6 +64,13 @@ let functions = [
   ];
 ]
 
+(* Keywords to NOT complete *)
+let keywords = [
+  "let"; "in";
+  "while"; "do"; "done";
+  "with";
+]
+
 module MLI = struct
   open Approx_lexer
 
@@ -265,12 +272,16 @@ let find_labels prefix =
 let subcmd_main args =
   match args with
   | [| prefix |] ->
-    Printf.printf "(message \"ocp-edit-mode candidates -infile %s %s\")\n"
-      (match !target_filename with
-        None -> "???" | Some filename -> filename) prefix;
+    let infile = match !target_filename with
+      | None -> ""
+      | Some filename -> Printf.sprintf " -infile %s" filename in
+    Printf.printf "(message \"ocp-edit-mode candidates%s %s\")\n" infile prefix;
 
     let candidates =
-      match prefix.[0] with
+      if List.mem prefix keywords then
+        (* do not propose completion when we are writing a keyword *)
+        []
+      else match prefix.[0] with
       | 'a'..'z' when String.contains prefix '.' ->
         (* this is a label, try another strategy *)
         let pos = String.index prefix '.' in
@@ -287,6 +298,9 @@ let subcmd_main args =
     Printf.bprintf b "))\n";
     print_string (Buffer.contents b);
     flush stdout
-  | _ -> assert false
+
+  | _ ->
+    Printf.eprintf "usage: %s [-infile <file>] prefix\n" (Filename.basename Sys.argv.(0));
+    exit 1
 
 
