@@ -195,12 +195,12 @@ let find_candidates prefix =
       None -> ()
     | Some filename ->
       begin try
-              iter_words (fun s ->
-        if String.length s > prefix_len &&
-          String.sub s 0 prefix_len = prefix then
-          candidates := StringSet.add s !candidates
-      ) filename;
-        with _ -> ()
+        iter_words (fun s ->
+          if String.length s > prefix_len &&
+             String.sub s 0 prefix_len = prefix then
+            candidates := StringSet.add s !candidates
+        ) filename;
+      with _ -> ()
       end;
 
       let dirname = Filename.dirname filename in
@@ -277,9 +277,8 @@ let subcmd_main args =
         let prefix_prefix = String.sub prefix 0 (pos+1) in
         List.map (fun s -> prefix_prefix ^ s)
           (find_labels (String.sub prefix (pos+1) (String.length prefix - pos -1)))
-      | 'A'..'Z' ->
-          find_candidates prefix
-      | _ -> []
+      | 'a'..'z'
+      | 'A'..'Z' -> find_candidates prefix
     in
 
     let b = Buffer.create 1000 in
