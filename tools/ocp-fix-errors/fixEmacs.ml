@@ -17,12 +17,12 @@ let with_current_buffer file actions indent b =
   Printf.bprintf b ")\n"
 
 let goto_char pos indent b =
-  Printf.bprintf b "%s(goto-char %d)\n" indent pos
+  Printf.bprintf b "%s(ocp-goto-char %d)\n" indent pos
 
 let delete_region file begin_pos end_pos indent b =
   let begin_pos = final_pos file begin_pos in
   let end_pos = final_pos file end_pos in
-  Printf.bprintf b "%s(delete-region %d %d)\n" indent begin_pos end_pos;
+  Printf.bprintf b "%s(ocp-delete-region %d %d)\n" indent begin_pos end_pos;
   add_edition file (Deletion (begin_pos, end_pos - begin_pos))
 
 let insert_strings file pos strings indent b =

@@ -14,13 +14,7 @@
       (with-temp-buffer
         (insert (shell-command-to-string
                  (concat ocp-fix-errors-program " " temp-file " " line-num)))
-	(goto-char (point-min))
-	(while (re-search-forward "(goto-char " nil t)
-	  (replace-match "(ocp-goto-char "))
-	(goto-char (point-min))
-	(while (re-search-forward "(delete-region " nil t)
-	  (replace-match "(ocp-delete-region "))
-	(eval-buffer))
+      (eval-buffer))
     (delete-file temp-file)
     ))
 )
