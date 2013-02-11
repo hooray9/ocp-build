@@ -19,5 +19,26 @@
     ))
 )
 
+(defun ocp-bytes-of-point(p)
+  (length (encode-coding-string
+	   (buffer-substring-no-properties 1 p) buffer-file-coding-system)))
+
+(defun ocp-byte-pos-to-pos (byte-pos)
+  (let* ((bytes (1- byte-pos))
+	 (pos (max 1 (/ byte-pos 6)))
+	 (iter 0)
+	 (b (ocp-bytes-of-point pos)))
+    (while (and (< b bytes) (<= pos (point-max)))
+      (setq iter (1+ iter))
+      (setq pos (+ pos (max (/ (- bytes b) 6) 1)))
+      (setq b (ocp-bytes-of-point pos)))
+    pos))
+
+(defun ocp-goto-char (pos)
+  (goto-char (ocp-byte-pos-to-pos pos)))
+
+(defun ocp-delete-region (s e)
+  (delete-region (ocp-byte-pos-to-pos s) (ocp-byte-pos-to-pos e)))
+
 (message "Loaded ocp-fix-errors-program")
 
