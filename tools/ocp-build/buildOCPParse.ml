@@ -23,7 +23,7 @@ open BuildOCPParser
   let lexer = Ocamllexer.make_lexer
     [ "begin"; "end"; "true"; "false";
       "library"; "syntax"; "program"; "objects"; "config"; "include"; "type";
-      "files"; "requires"; "file"; "use"; "pack";
+      "files"; "requires"; "file"; "use"; "pack"; "test"; "tests";
       "if"; "then"; "else";
       "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
       "not"; "&&"; "||"
@@ -52,6 +52,8 @@ let rec read_ocamlconf filename =
 	  | Kwd "end" -> END
 	  | Kwd "objects" -> OBJECTS
 	  | Kwd "library" -> LIBRARY
+	  | Kwd "test" -> TEST
+	  | Kwd "tests" -> TESTS
 	  | Kwd "syntax" -> SYNTAX
 	  | Kwd "config" -> CONFIG
 	  | Kwd "use" -> USE
@@ -81,6 +83,7 @@ let rec read_ocamlconf filename =
   in
   let dir = Filename.dirname filename in
   let trap_include lexbuf =
+    try
     match token_of_token (lexer lexbuf) with
     | INCLUDE ->
         let next_token = token_of_token (lexer lexbuf) in
@@ -100,6 +103,12 @@ let rec read_ocamlconf filename =
           | _ -> raise Parsing.Parse_error
         end
     | token -> token
+    with Ocamllexer.Error (error, n, m) ->
+      Printf.eprintf "File %S, line 1, characters %d-%d:\n"
+        filename n m;
+      Ocamllexer.report_error Format.err_formatter error;
+      Format.fprintf Format.err_formatter "@.";
+      exit 2
   in
   let ast =
     try

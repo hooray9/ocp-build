@@ -60,6 +60,8 @@ open BuildOCPTree
 %token SYNTAXES
 %token CAMLP4
 %token CAMLP5
+%token TEST
+%token TESTS
 
 %start main
 %type <BuildOCPTree.statement list> main
@@ -80,6 +82,7 @@ toplevel_statements:
 package_type:
   PROGRAM { ProgramPackage }
 | LIBRARY { LibraryPackage }
+| TEST    { TestPackage }
 | OBJECTS { ObjectsPackage }
 | SYNTAX  { SyntaxPackage }
 ;
@@ -122,6 +125,9 @@ simple_statement:
 | FILES EQUAL list_of_files { StmtFilesSet $3 }
 | FILES PLUSEQUAL list_of_files { StmtFilesAppend $3 }
 
+| TESTS EQUAL list_of_files { StmtTestsSet $3 }
+| TESTS PLUSEQUAL list_of_files { StmtTestsAppend $3 }
+
 | REQUIRES list_of_requires { StmtRequiresAppend $2 }
 | REQUIRES EQUAL list_of_requires { StmtRequiresAppend $3 }
 | REQUIRES PLUSEQUAL list_of_requires { StmtRequiresAppend $3 }
@@ -162,6 +168,7 @@ simple_option:
 rhs:
 | IDENT { $1 }
 | SYNTAX { "syntax" }
+| TEST { "test" }
 ;
 
 string_or_list:

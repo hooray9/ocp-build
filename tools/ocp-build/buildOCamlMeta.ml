@@ -13,29 +13,34 @@
 
 open MetaTypes
 
+let verbose = DebugVerbosity.verbose ["B"] "BuildOCamlMeta"
+
 open BuildTypes
 open BuildEngineTypes
 open BuildEngineGlobals
 
 open BuildOCPTypes
 open BuildOCPVariable
-open BuildConfig.TYPES
+open BuildOCamlConfig.TYPES
 
 let load_META_files pj cfg top_dirname =
-  Printf.eprintf "Loading METAs from %S\n%!" top_dirname;
+  if verbose 4 then
+    Printf.eprintf "Loading METAs from %S\n%!" top_dirname;
   BuildScanner.scan_directory (fun meta_dirname basename meta_filename ->
     (*
       Printf.eprintf "dirname=%S\n%!" dirname;
       Printf.eprintf "basename=%S\n%!" basename;
       Printf.eprintf "filename=%S\n%!" filename;
     *)
-    if OcpString.starts_with basename "META" then
+    if basename = "META" || OcpString.starts_with basename "META." then
       try
         let meta = MetaParser.parse_file meta_filename in
-        Printf.eprintf "Loaded %S\n%!" meta_filename;
+        if verbose 4 then
+          Printf.eprintf "Loaded %S\n%!" meta_filename;
 
         let rec add_meta meta_dirname pj path name meta =
-          Printf.eprintf "add_meta %S %S\n%!" path name;
+          if verbose 4 then
+            Printf.eprintf "add_meta %S %S\n%!" path name;
 
           let dirname = match meta.meta_directory with
             | Some dirname when dirname <> "" ->
@@ -50,7 +55,8 @@ let load_META_files pj cfg top_dirname =
             | _ -> meta_dirname
           in
 
-          Printf.eprintf "dirname=%S\n%!" dirname;
+          if verbose 4 then
+            Printf.eprintf "dirname=%S\n%!" dirname;
           let exists =
             match meta.meta_exists_if with
               [] -> true
@@ -58,8 +64,9 @@ let load_META_files pj cfg top_dirname =
               List.for_all (fun filename ->
                 let proof_filename = Filename.concat dirname filename in
                 if not (Sys.file_exists proof_filename) then begin
-                  Printf.eprintf
-                    "Warning: proof of package %S does not exist\n%!"
+                  if verbose 4 then
+                    Printf.eprintf
+                      "Warning: proof of package %S does not exist\n%!"
                     proof_filename;
                   false
                 end else true) list
@@ -149,7 +156,8 @@ let load_META_files pj cfg top_dirname =
               None ->
                 pk.package_options <- StringMap.add "meta"
                   (OptionBool true) pk.package_options;
-                Printf.eprintf "Warning: package %S is meta\n%!" fullname
+                if verbose 4 then
+                  Printf.eprintf "Warning: package %S is meta\n%!" fullname
             | Some archive ->
               pk.package_options <- StringMap.add "archive"
                 (OptionList [archive]) pk.package_options;

@@ -301,6 +301,7 @@ let update_deps pj =
     | LibraryPackage
     | ProgramPackage
     | ObjectsPackage
+    | TestPackage
       -> false
   in
   List.iter (fun dep ->
@@ -317,6 +318,11 @@ let update_deps pj =
       | LibraryPackage
       | ObjectsPackage
         -> ()
+      | TestPackage ->
+        Printf.eprintf "Error: Test %S appears in requirements of %S\n%!"
+          dep.dep_project.package_name
+          pj.package_name;
+          exit 2;
   ) pj.package_requires;
 
   (* add all link dependencies, transitively *)
@@ -599,7 +605,10 @@ end;
        set flags before processing file attributes. *)
     pk.package_files <- List.map (fun (file, options) ->
       (file, BuildOCPInterp.translate_options pk.package_options options)
-    ) pk.package_sources;
+    ) pk.package_raw_files;
+    pk.package_tests <- List.map (fun (file, options) ->
+      (file, BuildOCPInterp.translate_options pk.package_options options)
+    ) pk.package_raw_tests;
   ) project_sorted;
 
   let npackages = Array.length packages in
@@ -758,7 +767,7 @@ let find_package pj file =
           check_file pk (filename ^ ".ml");
           check_file pk (filename ^ ".mli")
         | _ -> ()
-    ) pk.package_sources
+    ) pk.package_raw_files
   ) pj.project_sorted;
 
   !list

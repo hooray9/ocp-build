@@ -23,4 +23,46 @@ end
 begin program "ocp-subst-config"
   files = [ "substMain.ml" ]
   requires = [ "ocplib-subst-worker" ]
+
+(* tests can be added to a program *)
+  test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
+                  "%{tests}%/%{test}%.input"
+              ]
+  test_output = [  "%{tests}%/%{test}%.output" ]
+  tests = [
+        "test1"
+        "test2"
+  ]
+
 end
+
+begin test "ocp-subst-config.test-suite1"
+(* if no files, search requires for a program to test *)
+  files = []
+  requires = [ "ocp-subst-config" ]
+
+  test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
+                  "%{tests}%/%{test}%.input"
+              ]
+  test_output = [  "%{tests}%/%{test}%.output" ]
+  tests = [
+        "test1"
+        "test2"
+  ]
+
+end
+
+begin test "ocp-subst-config.test-suite2"
+(* build the program, only if testing *)
+  files = [ "substMain.ml" ]
+  requires = [ "ocplib-subst-worker" ]
+
+  test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
+                  "%{tests}%/%{test}%.input"
+              ]
+  tests = [
+        "test1" (  test_output = [  "%{tests}%/%{test}%.output" ] )
+        "test2" (* don't check output, only status code *)
+  ]
+end
+

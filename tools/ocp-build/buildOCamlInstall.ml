@@ -54,6 +54,18 @@ type install_what = {
   install_asm_lib : bool;
 }
 
+type package_uninstaller = {
+  mutable un_nfiles : int;
+  mutable un_ndirs : int;
+  mutable un_version : string;
+  mutable un_name : string;
+  mutable un_descr : string;
+  mutable un_warning : string option;
+  mutable un_directory : string;
+  mutable un_type : string;
+  mutable un_packages : string list;
+}
+
 type kind = DIR | FILE | VERSION | WARNING | DESCR | TYPE | PACK
 
 type log = (kind * string) list
@@ -523,18 +535,6 @@ let uninstall install_where lib =
       "install" true
   then
     uninstall_by_name install_where lib.lib_name
-
-type package_uninstaller = {
-  mutable un_nfiles : int;
-  mutable un_ndirs : int;
-  mutable un_version : string;
-  mutable un_name : string;
-  mutable un_descr : string;
-  mutable un_warning : string option;
-  mutable un_directory : string;
-  mutable un_type : string;
-  mutable un_packages : string list;
-}
 
 let load_uninstaller filename =
     let list = File.lines_of_file filename in

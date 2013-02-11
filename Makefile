@@ -77,6 +77,10 @@ install:
 install-manager:
 	sudo cp _obuild/ocaml-manager/ocaml-manager.asm /usr/bin/ocaml-manager
 	sudo ocaml-manager -update
+
+install-ocpbuild:
+	sudo cp _obuild/ocp-build/ocp-build.asm /usr/local/bin/ocp-build
+
 #
 #  Building boot/ocp-build.boot is difficult, because it must run
 # with any version of ocamlrun. Currently, we remove dynamic dependencies

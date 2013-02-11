@@ -51,6 +51,22 @@ particularities:
   which files should be rebuilt.
 \end{itemize}
 
+\section{Environment Variables}
+
+\ocpbuild{} uses the following environment variables :
+\begin{description}
+\item[HOME] : the user directory (``.'' if not defined)
+\item[OCP\_HOME] : ocp-build configuration directory (``\$HOME/.ocp''
+  if not defined)
+\item[PATH] : the path of directories containing commands (separated
+  by ``:'' on Unix, ``;'' on Windows)
+\item[TERM] : if defined, characters are escaped (also on Windows)
+\item[OCPBUILD\_VERBOSITY] : verbosity before the -v option is parsed.
+\item[OCP\_DEBUG\_MODULES] : which modules to debug (need more info...)
+\item[OCAMLLIB] : not directly used by \ocpbuild{}, but used by OCaml,
+  from which \ocpbuild{} computes its own configuration.
+\end{description}
+
 \section{Configuration Files}
 
  {\tt ocp-build} uses two different kind of files to describe a project:
@@ -113,6 +129,50 @@ a dependency towards {\tt ocplib-system}. {\tt ocp-build} will
 automatically add the dependency towards {\tt unix} required by {\tt
   ocplib-system}.
 
+\subsection{OCaml Configuration}
+
+The following variables are automatically defined by
+\ocpbuild{} from OCaml configuration:
+\begin{description}
+\item[ocaml\_major\_version]
+\item[ocaml\_minor\_version]
+\item[ocaml\_point\_version]
+\end{description}
+
+\subsection{OCaml options}
+
+\subsubsection{Per-package options}
+
+\begin{description}
+\item[dirname(string)] The directory where the package files are located.
+\item[generated(bool)] If true, the package is already installed
+\item[has\_byte(bool)]
+\item[has\_asm(bool)]
+\end{description}
+
+\subsubsection{Per-file options}
+
+
+\begin{description}
+\item[ml(bool)] The file is an implementation source (.ml file)
+\item[mli(bool)] The file is an interface source (.mli file)
+\item[cflags(list)] Options to be passed to the C compiler
+\item[ccopt(list)] ???
+\item[nopervasives(bool)]
+\item[nodeps(list)] A list of false dependencies
+\item[nocmxdeps(list)] A list of false dependencies for native code
+\item[bytelink(list)]
+\item[bytecomp(list)]
+\item[asmlink(list)]
+\item[asmcomp(list)]
+\item[dep(list)]
+\item[rule\_sources(list)]
+\item[pp(list)] ???
+\item[pp\_requires(list)] ???
+\item[sort(bool)]
+\end{description}
+
+
 \subsection{Advanced options}
 
 \subsubsection{Per-file options}
@@ -141,6 +201,7 @@ begin library "ocplib-fast"
   ]
 end
 \end{verbatim}
+
 
 \subsubsection{Configurations}
 

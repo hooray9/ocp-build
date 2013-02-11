@@ -27,7 +27,14 @@
 type subst
 
 val empty_subst : unit -> subst
+
+(* [add_to_subst subst src dst] mutates [subst] to add
+ a transition from [src] to [dst]. *)
 val add_to_subst : subst -> string -> string -> unit
+(* [add_to_copy subst src dst] returns a copy of [subst] with a
+   transition from [src] to [dst]. *)
+val add_to_copy : subst -> string -> string -> subst
+
 val subst_of_list : (string * string) list -> subst
 
 val subst : subst -> string -> int * string

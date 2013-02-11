@@ -19,20 +19,7 @@ open SimpleConfig
     mutable option_verbosity : int;
     mutable option_usestdlib : bool;
     mutable option_digest : bool;
-    mutable option_bytecode : bool;
-    mutable option_native : bool;
-
-    mutable option_ocamlbin : string;
-    mutable option_ocamllib : string;
-
-    mutable option_ocamlc : string list;
-    mutable option_ocamlopt : string list;
-    mutable option_ocamldep : string list;
-    mutable option_ocamllex : string list;
-    mutable option_ocamlyacc : string list;
-
-    mutable option_installbin : string;
-    mutable option_installlib : string option;
+    mutable option_ocaml : string option;
   }
 
 module GlobalOptions : sig
@@ -41,6 +28,7 @@ module GlobalOptions : sig
 
 end
 
+val global_config_dir : File.t
 
 val load_global : unit -> unit
 val maybe_save_global : unit -> unit

@@ -113,6 +113,7 @@ is not yet an optional plugin, but it should at some point (TODO).
 *)
 begin library "ocp-build-ocaml-plugin"
   files = [
+    "buildOCamlConfig.ml";
     "buildOCamlTypes.ml";
     "buildOCamlMisc.ml";
     "buildOCamlVariables.ml";
@@ -122,6 +123,7 @@ begin library "ocp-build-ocaml-plugin"
     "buildOCamlRules.ml";       (* Initialisation of the build Engine *)
     "buildOCamlInstall.ml"
     "buildOCamlMeta.ml";
+        "buildOCamlTest.ml";
   ]
   requires = [ "ocp-build-lib" "ocplib-ocamlfind" ]
 end

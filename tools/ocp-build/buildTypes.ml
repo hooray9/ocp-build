@@ -85,5 +85,6 @@ and package_info = {
   mutable lib_dep_deps : build_file IntMap.t;
   mutable lib_includes : string list option;
   mutable lib_sources : (string * BuildOCPVariable.options) list;
+  mutable lib_tests : (string * BuildOCPVariable.options) list;
   mutable lib_archive : string;
 }

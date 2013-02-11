@@ -78,6 +78,7 @@ let execution_dependencies pk kind =
   let pk_name = pk.lib_name in
   try
     match pk.lib_type with
+    | TestPackage -> assert false
     | ProgramPackage ->
       let exe_ext = if kind = "byte" then byte_exe else asm_exe in
       [find_dst_file pk.lib_dst_dir (pk_name ^ exe_ext)]
@@ -217,6 +218,7 @@ let get_pp lib basename options =
       match dep.dep_project.lib_type with
         ProgramPackage ->
           preprocessor := dep.dep_project :: !preprocessor
+      | TestPackage -> assert false
       | LibraryPackage
       | ObjectsPackage
       | SyntaxPackage -> ()
@@ -268,6 +270,7 @@ let get_pp lib basename options =
               [ S "-I"; BD p.lib_dst_dir ] @
               (match p.lib_type with
               | ProgramPackage -> assert false
+                | TestPackage -> assert false
               | ObjectsPackage ->
                 List.map (fun s -> BF s) p.lib_cmo_objects
               | LibraryPackage ->

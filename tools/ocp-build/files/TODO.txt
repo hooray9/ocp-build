@@ -1,3 +1,42 @@
+1/ add -configure to verify that all specified targets can be built
+
+2/ add tests
+
+begin test "abc"
+  files = [ "toto.ml" ]
+  requires = [ ... ]
+  test_args = [ "-init"; "-scan"; "%{test}%" ]
+  test_dir = [ "%{abc_SRC_DIR}%/tests/%{test}%" ]
+  tests = [
+   "toto1" 
+   "toto2" ]
+end
+
+
+
+Stage one: check environment -> build _obuild/env.cfg
+Stage two: check project  -> build ocp-build.conf
+Stage three: build project
+
+-config CONFIG_FILE            # information for configuration
+-configure                     # configure only
+-load-configuration CONFIGURATION_FILE # do not configuration
+-save-configuration CONFIGURATION_FILE # load configuration
+
+
+
+ocp-build -configure
+ocp-build -has PACKAGE1
+ocp-build -has PACKAGE2
+ocp-build -make
+
+begin rule "xxx"
+  target = [ "..." ]
+  files = [ "..." ]
+  requires = [ "..." ]
+end
+
+
 - detect when the same file is defined twice in "files"
 
 New option -view-tree pour afficher l'arbre des répertoire avec les

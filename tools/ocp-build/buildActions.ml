@@ -56,11 +56,11 @@ let print_deleted () =
     deleted_files := [];
   end
 
-(* [do_clean ()] remove all files that appear
-  as the result of a generating rule, with an
-   OCaml extension.
-*)
-let do_clean b =
+let do_clean () =
+  delete_file_or_directory "_obuild"
+
+
+(*
   init_deleted ();
   Hashtbl.iter (fun _ file ->
     match file.file_kind with
@@ -118,5 +118,6 @@ let do_distclean () =
   BuildScanner.scan_directory_for_extensions "." !map;
   print_deleted ();
   ()
+*)
 
 let list_of_ocp_files_filename = "ocp-build.root"

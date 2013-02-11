@@ -73,34 +73,34 @@ let get_project name = StringMap.find name !projects
 *)
 
 
-let new_library b pj package_dirname src_dir dst_dir mut_dir =
+let new_library b pk package_dirname src_dir dst_dir mut_dir =
 
   let lib =
     {
       lib_context = b;
-      lib_source_kind = pj.package_source_kind;
-      lib_archive = string_option_with_default pj.package_options "archive" pj.package_name;
-      lib_meta = bool_option_with_default pj.package_options "meta" false;
-      lib_id = pj.package_id;
-      lib_name = pj.package_name;
-      lib_version = pj.package_version;
+      lib_source_kind = pk.package_source_kind;
+      lib_archive = string_option_with_default pk.package_options "archive" pk.package_name;
+      lib_meta = bool_option_with_default pk.package_options "meta" false;
+      lib_id = pk.package_id;
+      lib_name = pk.package_name;
+      lib_version = pk.package_version;
       lib_dirname = File.of_string package_dirname;
-      lib_provides = pj.package_provides ;
-      lib_type = pj.package_type ;
-      lib_tag = pj.package_tag;
-      lib_filename = pj.package_filename;
-      lib_node = pj.package_node;
-      lib_missing_deps = pj.package_missing_deps;
+      lib_provides = pk.package_provides ;
+      lib_type = pk.package_type ;
+      lib_tag = pk.package_tag;
+      lib_filename = pk.package_filename;
+      lib_node = pk.package_node;
+      lib_missing_deps = pk.package_missing_deps;
       lib_requires = List.map (fun dep ->
         let pd = Hashtbl.find all_projects dep.dep_project.package_id in
         { dep with dep_project = pd }
-      ) pj.package_requires;
-      lib_added = pj.package_added;
-      lib_options = pj.package_options;
-      lib_installed = bool_option_true pj.package_options generated_option;
+      ) pk.package_requires;
+      lib_added = pk.package_added;
+      lib_options = pk.package_options;
+      lib_installed = bool_option_true pk.package_options generated_option;
 
     (* lib_package = pj; *)
-      lib_loc = (pj.package_filename, pj.package_loc, pj.package_name);
+      lib_loc = (pk.package_filename, pk.package_loc, pk.package_name);
       lib_src_dir = src_dir;
       lib_dst_dir = dst_dir;
       lib_mut_dir = mut_dir;
@@ -118,11 +118,8 @@ let new_library b pj package_dirname src_dir dst_dir mut_dir =
       lib_internal_modules = StringsMap.empty;
       lib_dep_deps = IntMap.empty;
       lib_includes = None;
-      lib_sources = pj.package_files;
-
-(*List.map (fun (file, options) ->
-        (file, BuildOCPInterp.translate_options pj.package_options options)
-      ) pj.package_sources; *)
+      lib_sources = pk.package_files;
+      lib_tests = pk.package_tests;
     }
   in
   Hashtbl.add all_projects lib.lib_id lib;

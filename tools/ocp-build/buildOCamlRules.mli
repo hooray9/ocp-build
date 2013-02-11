@@ -14,4 +14,6 @@
 
 (* From the [validated_projects] table, fill the other
    tables *)
-val create : BuildOCPTypes.project -> BuildEngineTypes.build_context -> unit
+val create : BuildEngineTypes.build_context -> BuildOCPTypes.project ->
+  bool ->  (* should we build tests *)
+  unit

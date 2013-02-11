@@ -38,21 +38,8 @@ open SimpleConfig
     mutable option_verbosity : int;
     mutable option_usestdlib : bool;
     mutable option_digest : bool;
-    mutable option_bytecode : bool;
-    mutable option_native : bool;
 
-    mutable option_ocamlbin : string;
-    mutable option_ocamllib : string;
-
-    mutable option_ocamlc : string list;
-    mutable option_ocamlopt : string list;
-    mutable option_ocamldep : string list;
-    mutable option_ocamllex : string list;
-    mutable option_ocamlyacc : string list;
-
-    mutable option_installbin : string;
-    mutable option_installlib : string option;
-  }
+    mutable option_ocaml : string option;  }
 
 let must_save_local = ref false
 let must_save_global = ref false
@@ -90,7 +77,7 @@ let digest_descr =
     "modification to trigger recompilation"],
   bool_option, false
 
-
+(*
 
 let bytecode_descr =
   [ "bytecode" ], ["If set, compile in bytecode" ],
@@ -98,12 +85,13 @@ let bytecode_descr =
 let native_descr =
   [ "native" ], ["If set, compile in native code" ],
   bool_option, true
+*)
 
+let ocaml_descr =
+  [ "ocaml_config" ],  ["file describing OCaml config options"],
+  (option_option string_option), None
 
-let ocamlbin_descr =
-  [ "ocamlbin" ],  ["directory containing ocaml compilers"],
-  string_option, ""
-
+(*
 let ocamllib_descr =
   [ "ocamllib" ],  ["directory containing ocaml libraries"],
   string_option, ""
@@ -140,6 +128,8 @@ let installlib_descr =
    "the current OCaml directory.";
 ],
    option_option string_option, None
+
+*)
 
 module GlobalOptions = struct
 
@@ -240,7 +230,9 @@ module GlobalOptions = struct
   let autoscan_setter = global_bool_option autoscan_descr
   let usestdlib_setter = global_bool_option usestdlib_descr
   let digest_setter = global_bool_option digest_descr
-  let ocamlbin_setter = global_string_option ocamlbin_descr
+  let ocaml_setter = global_string_option_option ocaml_descr
+
+(*  let ocamlbin_setter = global_string_option ocamlbin_descr
   let ocamllib_setter = global_string_option ocamllib_descr
   let bytecode_setter = global_bool_option bytecode_descr
   let native_setter = global_bool_option native_descr
@@ -253,7 +245,7 @@ module GlobalOptions = struct
 
   let installbin_setter = global_string_option installbin_descr
   let installlib_setter = global_string_option_option installlib_descr
-
+*)
 
   let load_or_create () =
     if File.X.exists global_config_file then begin
@@ -324,19 +316,7 @@ module LocalOptions = struct
     let option_verbosity = local_option GlobalOptions.verbosity_setter in
     let option_usestdlib = local_option GlobalOptions.usestdlib_setter in
     let option_digest = local_option GlobalOptions.digest_setter in
-    let option_ocamlbin = local_option GlobalOptions.ocamlbin_setter in
-    let option_ocamllib = local_option GlobalOptions.ocamllib_setter in
-    let option_bytecode = local_option GlobalOptions.bytecode_setter in
-    let option_native = local_option GlobalOptions.native_setter in
-
-    let option_ocamlc = local_option GlobalOptions.ocamlc_setter in
-    let option_ocamlopt = local_option GlobalOptions.ocamlopt_setter in
-    let option_ocamldep = local_option GlobalOptions.ocamldep_setter in
-    let option_ocamllex = local_option GlobalOptions.ocamllex_setter in
-    let option_ocamlyacc = local_option GlobalOptions.ocamlyacc_setter in
-
-    let option_installbin = local_option GlobalOptions.installbin_setter in
-    let option_installlib = local_option GlobalOptions.installlib_setter in
+    let option_ocaml = local_option GlobalOptions.ocaml_setter in
 
 
     config_file,
@@ -346,17 +326,7 @@ module LocalOptions = struct
       option_verbosity;
       option_usestdlib;
       option_digest;
-      option_ocamlbin;
-      option_ocamllib;
-      option_bytecode;
-      option_native;
-      option_ocamlc;
-      option_ocamlopt;
-      option_ocamldep;
-      option_ocamllex;
-      option_ocamlyacc;
-      option_installbin;
-      option_installlib;
+      option_ocaml;
     }
 
   let save root_config =
@@ -379,6 +349,8 @@ let rec shortcut_arg new_name old_name list =
         (new_name, f,
          Printf.sprintf "%s\n    (shortcut for %s)" help old_name)
       else shortcut_arg new_name old_name list
+
+let global_config_dir = GlobalOptions.global_config_dir
 
 let load_local = LocalOptions.load
 let save_local = LocalOptions.save

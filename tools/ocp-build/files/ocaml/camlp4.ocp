@@ -92,13 +92,13 @@ begin
     requires = [ "camlp4-pa-o" ]
   end
 
+  begin program "camlp4o"
+      requires = [ "camlp4lib" "camlp4-pa-op" "Camlp4Bin" ]
+  end
+
 end
 
 (*
-begin program "camlp4o"
-      enabled = true
-      requires = [ "camlp4lib" "camlp4-pa-op" "Camlp4Bin" ]
-end
 
 begin program "x"
   requires = [ "Camlp4AutoPrinter" ]

@@ -21,14 +21,14 @@
 
 (* TODO
   We could force packages with missing dependencies to still be compiaboutled,
-  since it is still possible that these missing dependencies are not used
+  since it is still possible that these missing dependencies arbue not used
   in a particular compilation scheme.
 *)
 
 open OcpLang
 open SimpleConfig
 
-open BuildConfig.TYPES
+open BuildOCamlConfig.TYPES
 open BuildEngineTypes
 open BuildOCPTypes
 open BuildOCPTree
@@ -98,6 +98,7 @@ let add_timing msg timer f x =
     timer0 := timer1;
     raise e
 
+let tests_arg = ref false
 let save_project = ref false
 let save_arguments_arg = ref false
 let delete_orphans_arg = ref KeepOrphans
@@ -110,6 +111,7 @@ let other_dirs_arg = ref []
 type arch_arg = ArchAuto | ArchNone | Arch of string
 let arch_arg = ref ArchNone
 
+let add_external_projects_arg = ref []
 let install_arg = ref false
 let uninstall_arg = ref false
 let install_lib_arg = ref None
@@ -119,23 +121,31 @@ let meta_dirnames_arg = ref []
 let meta_verbose_arg = ref 0
 let list_installed_arg = ref false
 let install_bundle_arg = ref None
+let global_env_arg = ref false
+
+let query_something = ref false
+let query_root_dir = ref false
+let query_install_dir = ref None
+let query_include_dir = ref None
 
 let define_args = ref []
 
 let init_arg = ref false
-
-let arg_list = BuildOptions.arg_list ()
-
+let arg_config_list = BuildOCamlConfig.arg_list ()
+let arg_option_list =  BuildOptions.arg_list ()
 let arg_list = [
   "-init", Arg.Unit (fun () ->
     init_arg := true;
     save_arguments_arg := true;
-    save_project := true), " : create the ocp-build.root file";
+    save_project := true), " Create the ocp-build.root file";
+
+  "-global-env", Arg.Set global_env_arg, " ";
 
   "-version", Arg.Unit (fun () ->
     Printf.printf "%s\n%!" BuildVersion.version;
     exit 0
-  ), "Print version information";
+  ),
+  " Print version information";
 
   "-about", Arg.Unit (fun () ->
     Printf.printf "ocp-build : OCaml Project Builder\n";
@@ -146,7 +156,8 @@ let arg_list = [
     Printf.printf "\tlicense: %s\n" BuildVersion.license;
     Printf.printf "%!";
     exit 0
-  ), "Print version information";
+  ),
+  " Print version information";
 
   "-define", Arg.String (fun s ->
     define_args := s :: !define_args;
@@ -155,25 +166,49 @@ let arg_list = [
 
     ()
   ),
-  " OPTION : define an initial option";
+  "OPTION define an initial option";
+
+  "-add-external-project", Arg.String (fun dir ->
+    add_external_projects_arg := dir :: !add_external_projects_arg
+  ),
+  "DIRECTORY Add directory to scanned dirs";
 
   "-installed", Arg.Set list_installed_arg,
-  "List installed packages";
+  " List installed packages";
+
+
+
+
 
   "-meta-verbose", Arg.Int (fun n -> meta_verbose_arg := n),
-  "Set verbosity of loading META files";
+  "VERBOSITY Set verbosity of loading META files";
 
   "-meta", Arg.String (fun s -> meta_dirnames_arg := s :: !meta_dirnames_arg),
-  "Load META files from this directory";
+  "DIRECTORY Load META files from this directory";
 
   "-install", Arg.Set install_arg,
-  "Install binaries and libraries";
+  " Install binaries and libraries";
 
   "-uninstall", Arg.Set uninstall_arg,
-  "Uninstall given packages (installed by ocp-build)";
+  " Uninstall given packages (installed by ocp-build)";
 
   "-install-bundle", Arg.String (fun s -> install_bundle_arg := Some s),
-  "Install a bundle packages to uninstall all packages at once";
+  "BUNDLE Install a bundle packages to uninstall all packages at once";
+
+
+  "-query-root-dir", Arg.Unit (fun _ ->
+    query_root_dir := true; query_something := true),
+  " Return current root dir";
+
+  "-query-install-dir", Arg.String (fun s ->
+    query_something := true;
+    query_install_dir := Some s),
+  "PACKAGE print dir where installed";
+
+  "-query-include-dir", Arg.String (fun s ->
+    query_something := true;
+    query_include_dir := Some s),
+  "PACKAGE Print dir where compiled";
 
   "-install-lib", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -181,7 +216,7 @@ let arg_list = [
       exit 2
     end;
     install_lib_arg := Some s),
-  "Specify directory where libraries should be installed";
+  "DIRECTORY \nSpecify directory where libraries should be installed";
 
   "-install-bin", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -189,7 +224,7 @@ let arg_list = [
       exit 2
     end;
     install_bin_arg := Some s),
-  "Specify directory where binaries should be installed";
+  "DIRECTORY \nSpecify directory where binaries should be installed";
 
   "-install-data", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -197,66 +232,127 @@ let arg_list = [
       exit 2
     end;
     install_data_arg := Some s),
-  "Specify directory where data should be installed (if any)";
+  "DIRECTORY \nSpecify directory where data should be installed (if any)";
 
-(*
-  "-byte", Arg.Set byte_arg, " : build only bytecode version";
-  "-asm", Arg.Set asm_arg, " : build only native code version";
-*)
-  "-clean", Arg.Set clean_arg, " : clean all compiled files and exit";
-  "-distclean", Arg.Set distclean_arg, " : clean all generated files and exit";
+  (*
+    "-byte", Arg.Set byte_arg, " : build only bytecode version";
+    "-asm", Arg.Set asm_arg, " : build only native code version";
+  *)
+  "-clean", Arg.Set clean_arg, " Clean all compiled files and exit";
 
-  "-obuild", Arg.String (fun s -> build_dir_basename_arg := s), " <dir> : change _obuild directory";
-  "-arch", Arg.String (fun s -> arch_arg := Arch s), " <arch> : set arch";
-  "-auto-arch", Arg.Unit (fun () -> arch_arg := ArchAuto), ": set arch automatically";
+  "-obuild", Arg.String (fun s -> build_dir_basename_arg := s),
+  "DIRECTORY change _obuild directory";
+  "-arch", Arg.String (fun s -> arch_arg := Arch s),
+  "ARCH set arch";
+  "-auto-arch", Arg.Unit (fun () -> arch_arg := ArchAuto),
+  " Set arch automatically";
   "-I", Arg.String (fun s -> other_dirs_arg := s :: !other_dirs_arg),
-  " DIRECTORY : add DIRECTORY to project";
-  "-no-stdlib", Arg.Unit (fun _ -> no_stdlib_arg := Some true), " : do not scan standard directory";
-  "-sanitize", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFiles), " : remove orphan objects from _obuild";
-  "-sanitize-dirs", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFilesAndDirectories), " : remove orphan directories from _obuild";
+  "DIRECTORY add DIRECTORY to project";
+  "-no-stdlib", Arg.Unit (fun _ -> no_stdlib_arg := Some true),
+  " Do not scan standard directory";
+  "-sanitize", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFiles),
+  " Remove orphan objects from _obuild";
+  "-sanitize-dirs", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFilesAndDirectories),
+  " Remove orphan directories from _obuild";
 
-  "-list-ocp-files", Arg.Set list_ocp_files, " : list all .ocp files found";
-  "-cross", Arg.String (fun arch -> cross_arg := Some arch), " : use a cross-compilation directory";
-  "-k", Arg.Clear stop_on_error_arg, " : continue after errors";
-  "-fake", Arg.Set fake_arg, " : fake actions, do not execute them";
+  "-list-ocp-files", Arg.Set list_ocp_files, " List all .ocp files found";
+  "-cross", Arg.String (fun arch -> cross_arg := Some arch),
+  "BASENAME Use a cross-compilation directory";
+  "-k", Arg.Clear stop_on_error_arg,
+  " Continue after errors";
+  "-fake", Arg.Set fake_arg,
+  " Fake actions, do not execute them";
 
-  "-use-pp", Arg.Set use_pp, " : force use of -pp";
+  "-tests", Arg.Set tests_arg,
+  " Build and run tests";
 
-  "-list-projects", Arg.Set list_projects_arg, " : list projects";
+  "-use-pp", Arg.Set use_pp,
+  " Force use of -pp";
+
+  "-list-projects", Arg.Set list_projects_arg,
+  " List projects";
   "-list-targets", Arg.Unit (fun _ ->
     list_byte_targets_arg := true;
-    list_asm_targets_arg := true), " : list all targets";
-  "-list-byte-targets", Arg.Set list_byte_targets_arg, " : list bytecode targets";
-  "-list-asm-targets", Arg.Set list_asm_targets_arg, " : list native targets";
+    list_asm_targets_arg := true),
+  " List all targets";
+  "-list-byte-targets", Arg.Set list_byte_targets_arg,
+  " List bytecode targets";
+  "-list-asm-targets", Arg.Set list_asm_targets_arg,
+  " List native targets";
 
-  "-time", Arg.Set time_arg, " : print timing";
+  "-time", Arg.Set time_arg,
+  " Print timings";
 
   "-library-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name LibraryPackage
       (File.of_string "."); exit 0;
-  ), " <name> : auto-generate a .ocp file for a library";
+  ), "OCP_FILE Auto-generate a .ocp file for a library";
 
   "-program-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name ProgramPackage
       (File.of_string "."); exit 0;
-  ), " <name> : auto-generate a .ocp file for a library";
+  ),
+  "OCP_FILE Auto-generate a .ocp file for a library";
 
 ]
   @ [
     "", Arg.Unit (fun _ -> ()),
     String.concat "\n" [
-      " : useless argument";
-      "";
+      "-------------------------------------------------------------------";
+      "Options under this line are used when checking OCaml config";
+      ""
+    ]] @
+[
+    BuildOptions.shortcut_arg "-asm" "-native" arg_config_list;
+    BuildOptions.shortcut_arg "-byte" "-bytecode" arg_config_list;
+] @
+  arg_config_list
+  @ [
+    "", Arg.Unit (fun _ -> ()),
+    String.concat "\n" [
+      "-------------------------------------------------------------------";
       "Options under this line will be saved if you either use";
       "\"-save-global\" or \"-save-local\":";
       ""
     ];
-    BuildOptions.shortcut_arg "-asm" "-native" arg_list;
-    BuildOptions.shortcut_arg "-byte" "-bytecode" arg_list;
-    BuildOptions.shortcut_arg "-scan" "-autoscan" arg_list;
-    BuildOptions.shortcut_arg "-v" "-verbosity" arg_list;
+    BuildOptions.shortcut_arg "-scan" "-autoscan" arg_option_list;
+    BuildOptions.shortcut_arg "-v" "-verbosity" arg_option_list;
   ]
-  @ arg_list
+  @
+    arg_option_list
+  @ [
+    "", Arg.Unit (fun _ -> ()),
+    String.concat "\n" [
+      "-------------------------------------------------------------------";
+    ]]
+
+let best_indent = 30
+let second_indent = String.make 30 ' '
+let rec arg_align list =
+  match list with
+  [] -> []
+  | (string, arg_usage, help) :: tail ->
+    let help = String.split help '\n' in
+    let help =
+      match help with
+      [] -> []
+      | first_line :: other_lines ->
+        let first_word, next_words = String.cut_at first_line ' ' in
+        let next_words = String.capitalize next_words in
+        let len_string = String.length string in
+        let len_1 = String.length first_word in
+        if len_string + len_1 + 5 > best_indent then
+          first_word :: (second_indent ^ next_words) ::
+            List.map (fun s -> second_indent ^ s) other_lines
+
+        else
+          (first_word ^ (String.make (best_indent - len_string - len_1 - 3) ' ')
+          ^ next_words) ::
+            List.map (fun s -> second_indent ^ s) other_lines
+    in
+    (string, arg_usage, String.concat "\n" help) :: arg_align tail
+
+let arg_list = arg_align arg_list
 
 let arg_usage =
   String.concat "\n"
@@ -267,120 +363,93 @@ let arg_usage =
      "The following options are available:"
     ]
 
+let uninstall_packages install_where =
+  List.iter (BuildOCamlInstall.uninstall_by_name install_where)
+    !targets_arg
+
+let print_installed install_where =
+  let open BuildOCamlInstall in
+  Printf.printf "Installed packages:\n";
+  List.iter (fun un ->
+    Printf.printf "\t%s . %s (%s)\n%!"
+      un.un_name un.un_version un.un_type;
+    Printf.printf "\t\tin %s\n%!" un.un_directory;
+  ) (BuildOCamlInstall.list_installed install_where);
+  ()
+
+let manage_packages install_where =
+
+  if !list_installed_arg then begin
+    print_installed install_where;
+    exit 0
+  end;
+
+  if !uninstall_arg && !targets_arg <> [] then begin
+    uninstall_packages install_where;
+    exit 0
+  end;
+
+  begin match !query_install_dir with
+    None -> ()
+  | Some p ->
+    let open BuildOCamlInstall in
+    List.iter (fun un ->
+      if un.un_name = p then begin
+        Printf.printf "%s\n%!" un.un_directory;
+        exit 0
+      end
+    ) (BuildOCamlInstall.list_installed install_where);
+    Printf.eprintf "Package %S is not installed\n%!" p;
+    exit 2
+  end;
+  ()
+
 let build () =
-  targets_arg := List.rev !targets_arg;
+    targets_arg := List.rev !targets_arg;
+
+    let project_basenames = [  "ocp-build.root" ] in
+    let project =
+      (*    if !global_env_arg then
+            run_without_ocpbuild_root ()
+          else *)
+      try
+        let project_dir =
+          BuildOCP.find_root (File.X.getcwd ()) project_basenames in
+        let project_file = File.add_basenames project_dir project_basenames in
+        let project_config, pjo =
+          add_timing "load ocp-build.root" timer_load_config
+            BuildOptions.load_local project_file in
+        Some (project_config, project_dir, pjo)
+      with Not_found ->
+        None
+    in
+
+    BuildOCamlConfig.load_global_config
+      (match project  with
+        Some (_, _, { option_ocaml = Some filename}) ->
+          File.of_string filename
+        | _ ->
+          File.add_basename
+            BuildOptions.global_config_dir "ocp-build.ocaml"
+      );
 
 
-  let project_basenames = [  "ocp-build.root" ] in
-  let project_dir =
-    try
-      BuildOCP.find_root (File.X.getcwd ()) project_basenames
-    with Not_found ->
+    let cin, cout =
+      add_timing
+        "check config"
+        timer_configure BuildOCamlConfig.check_config () in
 
-            (* time "Config time: %.2fs\n%!" BuildConfig.load_config
-               local_config_file; *)
-
-      let pjo = {
-        option_njobs = 0;
-        option_autoscan = false;
-        option_verbosity = 0;
-        option_usestdlib = false;
-        option_digest = false;
-        option_native = true;
-        option_bytecode = true;
-        option_ocamlbin = "";
-        option_ocamllib = "";
-        option_ocamlc = [];
-        option_ocamlopt = [];
-        option_ocamldep = [];
-        option_ocamllex = [];
-        option_ocamlyacc = [];
-        option_installbin = ""; (* TODO not used ??? *)
-        option_installlib = None; (* TODO not used ??? *)
-      } in
-
-      let cfg = BuildConfig.check_config pjo in
-      let ocamlfind_path = MetaConfig.load_config () in
-
-      let install_where =
-              let open BuildOCamlInstall in
-
-              {
-                install_libdirs = (match !install_lib_arg with
-                  None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
-                | Some dir -> [dir]);
-                install_bindir = (match !install_bin_arg with
-                  None -> cfg.ocaml_bin
-                | Some dir -> dir);
-                install_datadir = !install_data_arg;
-
-                install_ocamllib = cfg.ocaml_ocamllib;
-                install_ocamlfind = ocamlfind_path;
-              }
-            in
-
-            if !list_installed_arg then begin
-
-              let open BuildOCamlInstall in
-              Printf.printf "Installed packages:\n";
-              List.iter (fun un ->
-                Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
-              ) (BuildOCamlInstall.list_installed install_where);
-              exit 0
-
-            end else
-
-              if !uninstall_arg && !targets_arg <> [] then begin
-
-                List.iter (BuildOCamlInstall.uninstall_by_name install_where)
-                  !targets_arg;
-                exit 0
-              end
-              else
-                begin
-
-                  Printf.fprintf stderr "Fatal error: no ocp-build.root file found.\n%!";
-                  Printf.fprintf stderr "\tYou can use the -init option at the root of the project\n";
-                  Printf.fprintf stderr "\tto create the initial file.\n%!";
-                  exit 2
-                end
-        in
-
-        Unix.chdir (File.to_string project_dir);
-        Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"  (File.to_string project_dir);
-        try
-
-          let root_file = File.add_basenames project_dir project_basenames in
-          let root_dir = File.dirname root_file in
-
-          let build_dir_basename = !build_dir_basename_arg in
+  let cfg = match cout.cout_ocaml with
+      None -> assert false (* TODO : for now *)
+    | Some cfg -> cfg
+  in
 
 
-          let build_dir_filename = (* absolute_filename *) build_dir_basename in
+        let ocamlfind_path =
+          add_timing  "check ocamlfind"
+            timer_configure MetaConfig.load_config () in
 
-          if verbose 3 then Printf.eprintf "Arguments parsed\n%!";
-
-
-          let root_config, pjo =
-            add_timing "load ocp-build.conf" timer_load_config
-            BuildOptions.load_local root_file in
-
-          if pjo.option_ocamllib <> "" then begin
-    (* do this before check_config *)
-            Unix.putenv "OCAMLLIB" pjo.option_ocamllib
-          end;
-
-  (*  time "Config time: %.2fs\n%!" BuildConfig.load_config local_config_file; *)
-          let cfg =
-            add_timing
-              "check config"
-              timer_configure BuildConfig.check_config pjo in
-
-          let ocamlfind_path =
-            add_timing  "check ocamlfind"
-              timer_configure MetaConfig.load_config () in
-
-          let install_where =
+        let install_where =
       let open BuildOCamlInstall in
 
       {
@@ -396,24 +465,50 @@ let build () =
         install_ocamlfind = ocamlfind_path;
       }
     in
+    manage_packages install_where;
 
-    if !list_installed_arg then begin
 
-      let open BuildOCamlInstall in
-      Printf.printf "Installed packages:\n";
-      List.iter (fun un ->
-        Printf.printf "\t%s . %s (%s)\n%!" un.un_name un.un_version un.un_type
-      ) (BuildOCamlInstall.list_installed install_where);
-      exit 0
+    match project with
+    | None ->
 
-    end else
+      (* if we arrive here, it means we really needed ocp-build.root *)
+      Printf.fprintf stderr "Fatal error: no ocp-build.root file found.\n%!";
+      Printf.fprintf stderr "\tYou can use the -init option at the root of the project\n";
+      Printf.fprintf stderr "\tto create the initial file.\n%!";
+      exit 2
 
-      if !uninstall_arg && !targets_arg <> [] then
+    | Some (project_config, project_dir, pjo) ->
 
-        List.iter (BuildOCamlInstall.uninstall_by_name install_where)
-          !targets_arg
+      if !query_root_dir then begin
+        Printf.printf "%s\n%!" (File.to_string project_dir);
+        exit 0
+      end;
 
-      else
+
+      Unix.chdir (File.to_string project_dir);
+      if not !query_something then
+        Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
+          (File.to_string project_dir);
+      try
+
+
+        if !clean_arg then begin
+          BuildActions.do_clean ();
+          exit 0;
+        end;
+
+(*        let root_dir = File.dirname root_file in *)
+
+        let build_dir_basename = !build_dir_basename_arg in
+
+
+        let build_dir_filename = (* absolute_filename *) build_dir_basename in
+
+        if verbose 3 then Printf.eprintf "Arguments parsed\n%!";
+
+        (*  time "Config time: %.2fs\n%!" BuildConfig.load_config local_config_file; *)
+
+        BuildOCamlConfig.set_global_config cout;
 
   let host = Printf.sprintf "%s-%s-%s"
     cfg.ocaml_system cfg.ocaml_architecture cfg.ocaml_version in
@@ -427,7 +522,7 @@ let build () =
 (*  Printf.fprintf stderr "build_dir_filename = %s\n%!" build_dir_filename; *)
   let b =
     add_timing "create context" timer_create_context
-    (BuildEngineContext.create (File.to_string root_dir))
+    (BuildEngineContext.create (File.to_string project_dir))
     build_dir_filename in
 
 
@@ -436,7 +531,7 @@ let build () =
   if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
 
 
-  let project_ocpbuild_version = create_option root_config
+  let project_ocpbuild_version = create_option project_config
     [ "ocpbuild_version" ]
     ["The version of ocp-build used to save this file"]
     SimpleConfig.string_option version
@@ -445,14 +540,24 @@ let build () =
   if !!project_ocpbuild_version != BuildVersion.version then
     project_ocpbuild_version =:= BuildVersion.version;
 
-  let _project_other_dirs_option = create_option root_config
-    [ "other_dirs" ]
-    [ "Other directories to be scanned" ]
+  let project_external_dirs_option = create_option project_config
+    [ "project_external_dirs" ]
+    [ "All external directories to be included in this project" ]
     (SimpleConfig.list_option SimpleConfig.string_option) []
   in
 
-  let force_scan = pjo.option_autoscan in
+  let force_scan = ref pjo.option_autoscan in
   let use_digests = pjo.option_digest in
+
+  if !add_external_projects_arg <> [] then begin
+    List.iter (fun dir ->
+      if not (List.mem dir !!project_external_dirs_option) then begin
+        project_external_dirs_option =:= !!project_external_dirs_option @
+          [ dir ];
+        force_scan := true;
+      end
+    ) (List.rev !add_external_projects_arg)
+  end;
 
   set_verbosity pjo.option_verbosity;
 
@@ -468,20 +573,24 @@ let build () =
 
   let _usestdlib = pjo.option_usestdlib in
 
-  let root_files = create_option root_config [ "files" ]
+  let root_files = create_option project_config [ "files" ]
    [ "List of configuration files for this project"]
     (list_option file_option) []
   in
 
   if use_digests then BuildEngineMtime.use_digests true;
-  if force_scan then begin
+  if !force_scan then begin
     save_project := true;
-
-    let files = add_timing "find project"
+    add_timing "find project"
       timer_find_project
-      BuildOCP.scan_root
-      root_dir in
-    root_files =:= files (* !!project_other_dirs *)
+      (fun () ->
+        root_files =:= [];
+        List.iter (fun dir ->
+          let files = BuildOCP.scan_root dir in
+          root_files =:= !!root_files @ files
+        ) (project_dir ::
+             (List.map File.of_string !!project_external_dirs_option));
+      ) ()
   end;
 
   if !save_project then begin
@@ -489,7 +598,7 @@ let build () =
     BuildOptions.must_save_local true
   end;
   add_timing "save local" timer_save_local
-    BuildOptions.maybe_save_local root_config;
+    BuildOptions.maybe_save_local project_config;
 
     b.cross_arg <- !cross_arg;
 
@@ -502,7 +611,7 @@ let build () =
     ] in
     let env_files = ref [] in
     List.iter (fun dir ->
-      Printf.printf "Scanning installed .ocp files in %S\n%!" dir;
+      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
       let dir = File.of_string dir in
       env_files := (add_timing "find env" timer_find_env
                       BuildOCP.scan_root dir) @ !env_files)
@@ -547,7 +656,7 @@ let build () =
       BuildOCP.verify_packages state in
 
     BuildOCP.save_project_state pj
-      (File.add_basenames root_dir ["_obuild"; "ocp.ocpx"]);
+      (File.add_basenames project_dir ["_obuild"; "ocp.ocpx"]);
 
   let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n"
     pj.package_name pj.package_dirname
@@ -600,18 +709,24 @@ let build () =
   ) pj.project_missing;
   end;
 
+  begin match !query_include_dir with
+    None -> ()
+  | Some p ->
+    Array.iter (fun pk ->
+      if pk.package_name = p then begin
+        Printf.printf "%s\n"
+          (File.to_string
+             (File.add_basenames project_dir ["_obuild"; p]));
+        exit 0
+      end
+    ) pj.project_sorted;
+    Printf.eprintf "Error: no package %S\n%!" p;
+    exit 2
+  end;
+
+
   add_timing "create rules" timer_create_rules
-    (BuildOCamlRules.create pj) b;
-
-  if !distclean_arg then begin
-    BuildActions.do_distclean ();
-    exit 0
-  end;
-
-  if !clean_arg then begin
-    BuildActions.do_clean b;
-    exit 0;
-  end;
+    (BuildOCamlRules.create b pj) !tests_arg;
 
   if !list_byte_targets_arg then begin
     Printf.eprintf "Bytecode targets:\n";
@@ -652,8 +767,6 @@ let build () =
 	    exit 2
 	) list
   end;
-
-  add_timing "B" timer_load_config (fun _ -> ()) ();
 
   if !uninstall_arg then
     List.iter (fun lib ->
@@ -742,9 +855,9 @@ let build () =
       let targets = ref [] in
       let add_project_targets lib =
         if not lib.lib_installed then begin
-          if pjo.option_bytecode then
+          if cin.cin_bytecode then
             targets := List.map fst lib.lib_byte_targets @ !targets;
-          if pjo.option_native then
+          if cin.cin_native then
             targets := List.map fst lib.lib_asm_targets @ !targets;
         end
       in
@@ -813,6 +926,23 @@ let build () =
       Printf.eprintf "%!";
       let t1 = Unix.gettimeofday () in
       Printf.printf "Successfully built in %.2fs\n%!" (t1 -. t0);
+
+      if !tests_arg then begin
+        let stats = BuildOCamlTest.init () in
+        List.iter (fun lib ->
+          match lib.lib_type with
+          | ProgramPackage
+          | TestPackage ->
+            BuildOCamlTest.test_package b stats lib
+          | LibraryPackage
+          | ObjectsPackage
+          | SyntaxPackage
+            -> ()
+        ) !projects;
+        BuildOCamlTest.finish stats
+      end;
+
+
       if !time_arg then begin
         List.iter (fun (msg, timer) ->
           if !timer > 0.009 then

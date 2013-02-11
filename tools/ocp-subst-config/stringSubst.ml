@@ -20,7 +20,9 @@
 *)
 
 
-module CharMap = Map.Make(struct type t = char let compare = compare end)
+module CharMap = Map.Make(struct
+    type t = char
+    let compare x y = Char.code x - Char.code y end)
 
 type subst = {
   mutable map : subst CharMap.t;
@@ -44,6 +46,22 @@ let empty_subst () = { map = CharMap.empty; result = None }
 
 let add_to_subst subst key v =
   add_prefix_map key 0 v subst
+
+let add_to_copy subst key v =
+  let rec add_to_copy key pos v node =
+    if pos < String.length key then
+      let c = key.[pos] in
+      let new_node =
+        try CharMap.find c node.map with Not_found ->
+          { map = CharMap.empty; result = None }
+      in
+      let new_node = add_to_copy key (pos+1) v new_node in
+      { node with
+        map = CharMap.add c new_node node.map }
+    else
+      { node with result = Some v }
+  in
+  add_to_copy key 0 v subst
 
 let subst_of_list list =
   let c = empty_subst () in

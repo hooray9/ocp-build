@@ -13,7 +13,4 @@
 
 
 (* clean all generated object files *)
-val do_clean : BuildEngineTypes.build_context -> unit
-
-(* clean all generated/modified files *)
-val do_distclean : unit -> unit
+val do_clean : unit -> unit

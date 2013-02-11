@@ -19,14 +19,15 @@ type camlpN =
   | Camlp5
 
 type package_type =
-| ProgramPackage
-(*  | ProjectToplevel *)
-| LibraryPackage
-| ObjectsPackage
-| SyntaxPackage
-(* TODO:
-| CObjectPackage (* generate with -output-obj *)
-*)
+  | ProgramPackage
+  | TestPackage
+  (*  | ProjectToplevel *)
+  | LibraryPackage
+  | ObjectsPackage
+  | SyntaxPackage
+  (* TODO:
+     | CObjectPackage (* generate with -output-obj *)
+  *)
 
 and condition =
   | IsEqualStringList of string * string list
@@ -42,6 +43,8 @@ type statement =
   | StmtDefinePackage of package_type * string * statement list
   | StmtFilesSet of string_with_attributes list
   | StmtFilesAppend of string_with_attributes list
+  | StmtTestsSet of string_with_attributes list
+  | StmtTestsAppend of string_with_attributes list
   | StmtRequiresSet of string_with_attributes list
   | StmtRequiresAppend of string_with_attributes list
   | StmtIfThenElse of condition * statement list * statement list option
@@ -71,3 +74,4 @@ let string_of_package_type kind =
   | SyntaxPackage -> "syntax"
           (*	  | ProjectToplevel -> "toplevel" *)
   | ObjectsPackage -> "objects"
+  | TestPackage -> "test"

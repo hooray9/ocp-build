@@ -15,8 +15,6 @@ begin
   version = "[distributed with Ocaml]"
   dirname = [ "%{OCAMLLIB}%" ]
 
-  begin
-
   begin library "unix"
     has_byte = true
     has_asm = true
@@ -60,38 +58,36 @@ begin
     begin library "ocamloptcomp"
       requires = [ "ocamlcommon" ]
     end
-  }
 
 (* These projects are meta-packages, they don't contain anything, they
    just add dependencies. They don't have generated=true, otherwise it
    would mean they are actually installed and not meta. *)
 
-meta = true
-begin library "ocaml-bytecomp"
-    requires = [ "ocamlbytecomp" ]
-end
+    meta = true
+    begin library "ocaml-bytecomp"
+        requires = [ "ocamlbytecomp" ]
+    end
 
-begin library "ocaml-typing"
-    requires = [ "ocamlcommon" ]
-end
+    begin library "ocaml-typing"
+        requires = [ "ocamlcommon" ]
+    end
 
-begin library "ocaml-parsing"
-    requires = [ "ocamlcommon" ]
-end
+    begin library "ocaml-parsing"
+        requires = [ "ocamlcommon" ]
+    end
 
-begin library "ocaml-utils"
-    requires = [ "ocamlcommon" ]
-end
+    begin library "ocaml-utils"
+        requires = [ "ocamlcommon" ]
+    end
 
-begin library "ocaml-driver"
-    requires = [ "ocamlbytecomp" ]
-end
+    begin library "ocaml-driver"
+        requires = [ "ocamlbytecomp" ]
+    end
 
-begin library "ocaml-asmcomp-amd64"
-    requires = [ "ocamloptcomp" ]
-end
+    begin library "ocaml-asmcomp-amd64"
+        requires = [ "ocamloptcomp" ]
+    end
 
-
-end
+  }
 
 end

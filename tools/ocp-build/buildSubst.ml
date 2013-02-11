@@ -32,9 +32,11 @@ let putenv var var_value =
   Unix.putenv var var_value;
   add_to_subst var var_value
 
-let subst s =
+let subst env_subst s =
   let ss = snd (iter_subst env_subst s) in
 (*  Printf.eprintf "BuildSubst.subst %S -> %S\n%!" s ss; *)
   ss
+
+let subst_env = subst env_subst
 
 

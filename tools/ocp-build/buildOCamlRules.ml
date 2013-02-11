@@ -30,6 +30,8 @@
    on a package, and this package depends on another syntax, it does
    not matter.
 
+  We should be able to split "syntax" into "ml_syntax" and "mli_syntax".
+  We should have "ml_gen" and "mli_gen", for file generators.
 
 
 *)
@@ -51,7 +53,7 @@ open BuildOCPTypes
 
 open BuildTypes
 open BuildGlobals
-open BuildConfig
+open BuildOCamlConfig
 
 open BuildOCamlTypes
 open BuildOCamlVariables
@@ -140,7 +142,8 @@ let command_includes lib pack_for =
 	List.iter (fun dep ->
           let lib = dep.dep_project in
           match lib.lib_type with
-              ProgramPackage (* | ProjectToplevel *) -> ()
+            | ProgramPackage (* | ProjectToplevel *) -> ()
+            | TestPackage -> assert false
             | LibraryPackage
             | ObjectsPackage ->
               if dep.dep_link then begin
@@ -148,7 +151,7 @@ let command_includes lib pack_for =
 	        add_include_dir lib.lib_src_dir;
               end
             | SyntaxPackage -> ()
-	) lib.lib_requires;
+	) (List.rev lib.lib_requires);
 
       (* we put the source dir last in case there are some remaining objects files there, since
 	 we don't do any hygienic cleaning before. We don't do it because we want to be able to
@@ -472,7 +475,7 @@ let add_cmxs2cmxa_rule b lib pj cclib cmi_files cmx_files cmxo_files =
   let dst_dir = lib.lib_dst_dir in
 
   let basename_cmxa = pj.lib_archive ^ ".cmxa" in
-  let ext_lib = string_option options BuildConfig.ocaml_config_ext_lib in
+  let ext_lib = string_option options BuildOCamlConfig.ocaml_config_ext_lib in
   let basename_a = pj.lib_archive ^ ext_lib in
 
   let cmxa_file = add_dst_file b dst_dir basename_cmxa in
@@ -582,6 +585,7 @@ let add_cmxs2asm_rule b lib linkflags cclib cmx_files cmxo_files o_files opt_fil
       if pd.dep_link then
         let pj = pd.dep_project in
 	match pj.lib_type with
+   | TestPackage -> assert false
 	  | LibraryPackage ->
             add_command_args cmd (asmlinkflags pj);
 	    List.iter (fun a_file ->
@@ -625,7 +629,7 @@ let add_os2a_rule b lib pj o_files a_file =
   *)
   if not lib.lib_installed then
     let target = a_file.file_basename in
-    let ext_lib = string_option lib.lib_options BuildConfig.ocaml_config_ext_lib in
+    let ext_lib = string_option lib.lib_options BuildOCamlConfig.ocaml_config_ext_lib in
     let target_without_ext = Filename.chop_suffix target ext_lib in
     let target_without_prefix = chop_prefix target_without_ext "lib" in
     let target = File.add_basename a_file.file_dir.dir_file target_without_prefix in
@@ -648,7 +652,7 @@ let add_c_source b lib pj c_file options =
 
   let basename = c_file.file_basename in
   let kernel_name = Filename.chop_suffix basename ".c" in
-  let ext_obj  = string_option options BuildConfig.ocaml_config_ext_obj in
+  let ext_obj  = string_option options BuildOCamlConfig.ocaml_config_ext_obj in
   let o_file = add_dst_file b dst_dir (kernel_name ^ ext_obj) in
   if not lib.lib_installed then
     add_c2o_rule b lib pj [] c_file o_file options;
@@ -973,7 +977,7 @@ let add_ml_source b lib pj ml_file options =
       let cmx_basename = kernel_name ^ ".cmx" in
       let cmx_file = add_dst_file b dst_dir cmx_basename in
 
-      let ext_obj  = string_option options BuildConfig.ocaml_config_ext_obj in
+      let ext_obj  = string_option options BuildOCamlConfig.ocaml_config_ext_obj in
       let o_basename = kernel_name ^ ext_obj in
       let o_file = add_dst_file b dst_dir o_basename in
 
@@ -1115,7 +1119,7 @@ let add_ml_source b lib pj ml_file options =
   let cmx_basename = kernel_name ^ ".cmx" in
   let cmx_file = add_dst_file b dst_dir cmx_basename in
 
-  let ext_obj  = string_option options BuildConfig.ocaml_config_ext_obj in
+  let ext_obj  = string_option options BuildOCamlConfig.ocaml_config_ext_obj in
   let o_basename = kernel_name ^ ext_obj in
   let o_file = add_dst_file b dst_dir o_basename in
 
@@ -1412,7 +1416,7 @@ let process_sources b lib =
       Printf.eprintf "   and define the syntax to require this library.\n%!";
       exit 2
     end
-
+  | TestPackage
   | LibraryPackage
   | ProgramPackage
   | ObjectsPackage ->
@@ -1452,7 +1456,7 @@ let add_library b lib =
   let cclib = string_option lib.lib_options cclib_option in
   let cclib =
     if !o_files <> [] then begin
-      let ext_lib = string_option lib.lib_options BuildConfig.ocaml_config_ext_lib in
+      let ext_lib = string_option lib.lib_options BuildOCamlConfig.ocaml_config_ext_lib in
       let a_file = add_dst_file b dst_dir (Printf.sprintf "libml%s%s" lib.lib_name ext_lib) in
       add_os2a_rule b lib lib !o_files a_file;
       if bool_option_true lib.lib_options byte_option then
@@ -1532,23 +1536,27 @@ let add_program b lib =
     let map = ref StringMap.empty in
     List.iter (fun dep ->
       let lib1 = dep.dep_project in
+      if dep.dep_link then
       match lib1.lib_type with
-          ProgramPackage
+        | TestPackage -> assert false
+        | ProgramPackage
 (*        | ProjectToplevel *)
         | ObjectsPackage
           -> ()
         | LibraryPackage ->
           let modules = lib1.lib_modules in
           let modules = !modules in
-          StringMap.iter (fun modname _ ->
+          StringMap.iter (fun modname (kind1, _) ->
             try
-              let lib2 = StringMap.find modname !map in
-              Printf.eprintf
-                "Warning: program %s, requirements %s and %s both\n" lib.lib_name lib2.lib_name lib1.lib_name;
-              Printf.eprintf "\tdefine a module name %s.\n" modname;
-              ()
+              let (kind2, lib2) = StringMap.find modname !map in
+              match kind1, kind2 with
+              | (ML | MLandMLI), (ML | MLandMLI) ->
+                Printf.eprintf
+                  "Warning: program %s, requirements %s and %s both\n" lib.lib_name lib2.lib_name lib1.lib_name;
+                Printf.eprintf "\tdefine a module name %s.\n" modname;
+              | _ -> ()
             with Not_found ->
-              map := StringMap.add modname lib1 !map
+              map := StringMap.add modname (kind1,lib1) !map
           ) modules
         | SyntaxPackage ->
 (* Nothing to do ? *)
@@ -1587,7 +1595,7 @@ let add_program b lib =
   end;
   ()
 
-let add_package b pk =
+let add_package b build_tests pk =
   try
     if verbose 7 then Printf.eprintf "Adding %s\n" pk.package_name;
 
@@ -1595,7 +1603,7 @@ let add_package b pk =
       try
 	match StringMap.find dirname_option.option_name pk.package_options with
 	  OptionList list ->
-            BuildSubst.subst (String.concat Filename.dir_sep list)
+            BuildSubst.subst_env (String.concat Filename.dir_sep list)
 	| _ -> raise Not_found
       with Not_found ->
         pk.package_dirname
@@ -1649,6 +1657,10 @@ let add_package b pk =
     match lib.lib_type with
       LibraryPackage -> add_library b  lib
     | ProgramPackage -> add_program b  lib
+    | TestPackage ->
+      if build_tests && lib.lib_sources <> [] then add_program b  lib;
+      lib.lib_options <- StringMap.add "install"
+          (OptionBool false) lib.lib_options
     | ObjectsPackage -> add_objects b  lib
     | SyntaxPackage -> ()
 (*      | _ -> Printf.eprintf "\tWarning: Don't know what to do with 'add_project %s'\n" lib.lib_name *)
@@ -1657,5 +1669,5 @@ let add_package b pk =
     Printf.eprintf "Error: %s\n%!" s;
     exit 2
 
-let create pj b =
-  Array.iter (add_package b) pj.project_sorted
+let create b pj build_tests =
+  Array.iter (add_package b build_tests) pj.project_sorted

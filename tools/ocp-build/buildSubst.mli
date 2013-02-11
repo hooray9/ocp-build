@@ -13,5 +13,8 @@
 
 
 val putenv : string -> string -> unit
-val subst : string -> string
 val add_to_subst : string -> string -> unit
+
+val env_subst : StringSubst.subst
+val subst : StringSubst.subst -> string -> string
+val subst_env : string -> string

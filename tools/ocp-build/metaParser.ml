@@ -14,6 +14,8 @@
 open MetaTypes
 open MetaLexer
 
+let verbose = DebugVerbosity.verbose ["B"] "MetaParser"
+
 let string_of_token = function
 STRING s -> Printf.sprintf "STRING %S" s
   | IDENT  s -> Printf.sprintf "IDENT %S" s
@@ -103,8 +105,9 @@ let parse_file filename =
         | "archive" ->
           MetaFile.add_archive meta [] (split_simplify str)
         | _ ->
-          Printf.fprintf stderr "MetaParser.parse_file: discarding %S\n%!"
-            name
+          if verbose 4 then
+            Printf.fprintf stderr "MetaParser.parse_file: discarding %S\n%!"
+              name
       end;
       iter meta path tokens
 
@@ -147,6 +150,7 @@ let parse_file filename =
           MetaFile.add_archive meta (List.rev preconds)
             (OcpString.split_simplify str ' ')
        | _ ->
+         if verbose 4 then
           Printf.fprintf stderr "MetaParser.parse_file: discarding %S\n%!"
             name
 

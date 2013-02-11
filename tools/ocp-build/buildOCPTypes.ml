@@ -88,9 +88,11 @@ type package = {
   mutable package_has_asm_profile : bool;  (* unused: TODO *)
 
 
-  mutable package_sources : string_with_attributes list;
+  mutable package_raw_files : string_with_attributes list;
+  mutable package_raw_tests : string_with_attributes list;
     (* the sources of the project, plus the flags to compile them. *)
   mutable package_files : (string * BuildOCPVariable.options) list;
+  mutable package_tests : (string * BuildOCPVariable.options) list;
 
 
 

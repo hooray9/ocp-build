@@ -34,6 +34,19 @@ type error =
 
 exception Error of error * int * int
 
+open Format
+
+let report_error ppf = function
+  | Illegal_character c ->
+      fprintf ppf "Illegal character (%s)" (Char.escaped c)
+  | Unterminated_comment ->
+      fprintf ppf "Comment not terminated"
+  | Unterminated_string ->
+      fprintf ppf "String literal not terminated"
+  | Unterminated_string_in_comment ->
+      fprintf ppf "This comment contains an unterminated string literal"
+;;
+
 module Make(S : sig
 
 end) = struct
@@ -92,19 +105,6 @@ let string_start_pos = ref 0;;
 let comment_start_pos = ref [];;
 
 (* Error report *)
-
-open Format
-
-let report_error ppf = function
-  | Illegal_character c ->
-      fprintf ppf "Illegal character (%s)" (Char.escaped c)
-  | Unterminated_comment ->
-      fprintf ppf "Comment not terminated"
-  | Unterminated_string ->
-      fprintf ppf "String literal not terminated"
-  | Unterminated_string_in_comment ->
-      fprintf ppf "This comment contains an unterminated string literal"
-;;
 
 }
 

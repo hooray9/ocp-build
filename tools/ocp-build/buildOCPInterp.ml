@@ -18,6 +18,7 @@ open BuildOCPTypes
 type config = {
   config_options : BuildOCPVariable.options;
   config_files : string_with_attributes list;
+  config_tests : string_with_attributes list;
   config_requires : string_with_attributes list;
   config_dirname : string;
   config_filename : string;
@@ -57,8 +58,10 @@ let new_package pj name dirname filename kind =
     package_type = kind;
 (*    package_native = true; *)
     package_validated = false;
-    package_sources = [];
+    package_raw_files = [];
+    package_raw_tests = [];
     package_files = [];
+    package_tests = [];
     package_dirname = dirname;
     package_deps_map = StringMap.empty;
 (*    package_deps_sorted = []; *)
@@ -83,6 +86,7 @@ let empty_config set_defaults =
   in
   { config_options = options;
     config_files = [];
+    config_tests = [];
     config_requires = [];
     config_dirname = "";
     config_filename = "";
@@ -332,7 +336,7 @@ let define_package pj name config kind =
     try
       match StringMap.find "dirname" config.config_options with
 	  OptionList list ->
-            BuildSubst.subst (String.concat Filename.dir_sep list)
+            BuildSubst.subst_env (String.concat Filename.dir_sep list)
 	| _ -> raise Not_found
       with Not_found ->
         config.config_dirname
@@ -342,7 +346,8 @@ let define_package pj name config kind =
     dirname config.config_filename kind
   in
   let project_options = config.config_options in
-  pk.package_sources <-  config.config_files;
+  pk.package_raw_files <-  config.config_files;
+  pk.package_raw_tests <- config.config_tests;
   pk.package_options <- project_options;
   pk.package_version <- string_option_with_default project_options "version"
     "0.1-alpha";
@@ -414,13 +419,13 @@ and translate_simple_statement pj config stmt =
     | StmtRequiresAppend requirements ->
       { config with config_requires = config.config_requires @ requirements }
     | StmtFilesSet files ->
-      (*      let files = List.map (fun (file, options) ->
-	      (file, translate_options config.config_options options)) files in *)
       { config with config_files = files }
     | StmtFilesAppend files ->
-      (*      let files = List.map (fun (file, options) ->
-	      (file, translate_options config.config_options options)) files in *)
       { config with config_files = config.config_files @ files }
+    | StmtTestsSet files ->
+      { config with config_tests = files }
+    | StmtTestsAppend files ->
+      { config with config_tests = config.config_tests @ files }
     | StmtOption option ->
       { config with config_options = translate_option config.config_options option }
     | StmtSyntax (syntax_name, camlpN, extensions) -> config
@@ -435,6 +440,7 @@ let read_ocamlconf pj config filename =
     { config
       with
 	config_files = [];
+        config_tests = [];
 	config_requires = [];
 	config_dirname = Filename.dirname filename;
 	config_filename = filename;
