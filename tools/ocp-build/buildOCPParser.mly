@@ -129,7 +129,7 @@ simple_statement:
 | TESTS PLUSEQUAL list_of_files { StmtTestsAppend $3 }
 
 | REQUIRES list_of_requires { StmtRequiresAppend $2 }
-| REQUIRES EQUAL list_of_requires { StmtRequiresAppend $3 }
+| REQUIRES EQUAL list_of_requires { StmtRequiresSet $3 }
 | REQUIRES PLUSEQUAL list_of_requires { StmtRequiresAppend $3 }
 ;
 
@@ -156,22 +156,23 @@ camlp4_or_camlp5:
 
 simple_option:
 | USE STRING { OptionConfigSet $2 }
-| rhs EQUAL string_or_list { OptionListSet ($1,$3) }
-| rhs PLUSEQUAL string_or_list { OptionListAppend ($1,$3) }
-| rhs MINUSEQUAL string_or_list { OptionListRemove ($1,$3) }
-| rhs EQUAL TRUE { OptionBoolSet ($1, true) }
-| rhs EQUAL FALSE { OptionBoolSet ($1, false) }
+| lhs EQUAL string_or_list { OptionListSet ($1,$3) }
+| lhs PLUSEQUAL string_or_list { OptionListAppend ($1,$3) }
+| lhs MINUSEQUAL string_or_list { OptionListRemove ($1,$3) }
+| lhs EQUAL TRUE { OptionBoolSet ($1, true) }
+| lhs EQUAL FALSE { OptionBoolSet ($1, false) }
 /* | SYNTAX EQUAL STRING { OptionListSet ("syntax", [$3]) } */
-| rhs { OptionBoolSet ($1, true) }
+| lhs { OptionBoolSet ($1, true) }
 ;
 
-rhs:
+lhs:
 | IDENT { $1 }
 | SYNTAX { "syntax" }
 | TEST { "test" }
 ;
 
 string_or_list:
+| INT { [ string_of_int $1 ] }
 | STRING { [$1] }
 | list_of_strings { $1 }
 ;

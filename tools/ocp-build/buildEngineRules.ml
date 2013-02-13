@@ -58,7 +58,7 @@ let add_rule_sources r files =
 
 let add_rule_target r file =
   r.rule_targets <- file :: r.rule_targets;
-  if verbose 3 && file.file_target_of <> [] then
+  if verbose 4 && file.file_target_of <> [] then
     Printf.eprintf "Warning: file %s targetted by multiple rules\n" (file_filename file);
   file.file_target_of <- r :: file.file_target_of
 
@@ -155,7 +155,8 @@ let print_indented_command cmd =
       Printf.eprintf "\tCopy %s to %s\n" (string_of_argument f1) (string_of_argument f2)
     | Move (f1, f2) ->
       Printf.eprintf "\tRename %s to %s\n" (string_of_argument f1) (string_of_argument f2)
-    | MoveIfExists (f1, f2, f3) ->
+  | MoveIfExists (f1, f2, f3) ->
+    if verbose 4 then
       Printf.eprintf "\tRename? %s to %s\n" (string_of_argument f1) (string_of_argument f2)
     | DynamicAction (s,_) ->
       Printf.eprintf "\tDynamicAction %s\n" s

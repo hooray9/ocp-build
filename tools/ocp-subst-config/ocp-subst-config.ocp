@@ -28,7 +28,7 @@ begin program "ocp-subst-config"
   test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
                   "%{tests}%/%{test}%.input"
               ]
-  test_output = [  "%{tests}%/%{test}%.output" ]
+  test_stdout = [  "%{tests}%/%{test}%.output" ]
   tests = [
         "test1"
         "test2"
@@ -44,7 +44,7 @@ begin test "ocp-subst-config.test-suite1"
   test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
                   "%{tests}%/%{test}%.input"
               ]
-  test_output = [  "%{tests}%/%{test}%.output" ]
+  test_stdout = [  "%{tests}%/%{test}%.output" ]
   tests = [
         "test1"
         "test2"
@@ -57,11 +57,12 @@ begin test "ocp-subst-config.test-suite2"
   files = [ "substMain.ml" ]
   requires = [ "ocplib-subst-worker" ]
 
+  test_exit = "0" (* expected correct exit status is 0 *)
   test_args = [ "-o" "-" "-str" "%{test}%" "SUCCESS"
                   "%{tests}%/%{test}%.input"
               ]
   tests = [
-        "test1" (  test_output = [  "%{tests}%/%{test}%.output" ] )
+        "test1" (  test_stdout = [  "%{tests}%/%{test}%.output" ] )
         "test2" (* don't check output, only status code *)
   ]
 end

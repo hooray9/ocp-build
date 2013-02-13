@@ -1,0 +1,26 @@
+\BOOKMARK [0][-]{chapter.1}{Tutorial: Building an ocp-build project}{}
+\BOOKMARK [1][-]{section.1.1}{ocp-build file hierarchy}{chapter.1}
+\BOOKMARK [1][-]{section.1.2}{Invoking ocp-build}{chapter.1}
+\BOOKMARK [1][-]{section.1.3}{Setting ocp-build default parameters}{chapter.1}
+\BOOKMARK [0][-]{chapter.2}{Tutorial: How to use ocp-build in your projects}{}
+\BOOKMARK [0][-]{chapter.3}{Building OCaml Projects with ocp-build}{}
+\BOOKMARK [1][-]{section.3.1}{Environment Variables}{chapter.3}
+\BOOKMARK [1][-]{section.3.2}{Configuration Files}{chapter.3}
+\BOOKMARK [1][-]{section.3.3}{Compilation Layout}{chapter.3}
+\BOOKMARK [1][-]{section.3.4}{Format of the package description files \(.ocp\)}{chapter.3}
+\BOOKMARK [2][-]{subsection.3.4.1}{Description of Simple Packages}{section.3.4}
+\BOOKMARK [2][-]{subsection.3.4.2}{OCaml Configuration}{section.3.4}
+\BOOKMARK [2][-]{subsection.3.4.3}{OCaml options}{section.3.4}
+\BOOKMARK [2][-]{subsection.3.4.4}{Advanced options}{section.3.4}
+\BOOKMARK [1][-]{section.3.5}{Command line options}{chapter.3}
+\BOOKMARK [0][-]{chapter.4}{Managing tests with ocp-build}{}
+\BOOKMARK [1][-]{section.4.1}{Running tests}{chapter.4}
+\BOOKMARK [1][-]{section.4.2}{Adding tests to your packages}{chapter.4}
+\BOOKMARK [2][-]{subsection.4.2.1}{Creating an independant ``test'' package}{section.4.2}
+\BOOKMARK [2][-]{subsection.4.2.2}{Including tests in a ``program'' package}{section.4.2}
+\BOOKMARK [2][-]{subsection.4.2.3}{Adding external tests to a ``program'' package}{section.4.2}
+\BOOKMARK [2][-]{subsection.4.2.4}{Complex examples}{section.4.2}
+\BOOKMARK [0][-]{chapter.5}{Managing Syntax Extensions with ocp-build}{}
+\BOOKMARK [0][-]{chapter.6}{Installation}{}
+\BOOKMARK [1][-]{section.6.1}{Installing with opam}{chapter.6}
+\BOOKMARK [1][-]{section.6.2}{Installing from GitHub}{chapter.6}

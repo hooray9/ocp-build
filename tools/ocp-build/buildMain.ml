@@ -36,6 +36,9 @@ open BuildTypes
 open BuildGlobals
 open BuildOptions
 
+exception ExitStatus of int
+let exit n = raise (ExitStatus n)
+
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
 let initial_verbosity =
@@ -127,9 +130,10 @@ let query_something = ref false
 let query_root_dir = ref false
 let query_install_dir = ref None
 let query_include_dir = ref None
+let configure_arg = ref false
+let has_package_args = ref []
 
-let define_args = ref []
-
+let local_only_arg = ref false
 let init_arg = ref false
 let arg_config_list = BuildOCamlConfig.arg_list ()
 let arg_option_list =  BuildOptions.arg_list ()
@@ -159,12 +163,47 @@ let arg_list = [
   ),
   " Print version information";
 
-  "-define", Arg.String (fun s ->
-    define_args := s :: !define_args;
-    let (_  : bool BuildOCPVariable.source_option)
-        = BuildOCPVariable.new_initial_bool_option s true in
+  "-configure", Arg.Set configure_arg,
+  " Configure";
 
-    ()
+  "-query-has", Arg.String (fun s ->
+    has_package_args := s :: !has_package_args
+  ),
+  "PACKAGE Verify that package is currently installed";
+
+  "-local-only", Arg.Set local_only_arg,
+  " Don't scan external directories";
+
+  "-query-root-dir", Arg.Unit (fun _ ->
+    query_root_dir := true; query_something := true),
+  " Return current root dir";
+
+  "-query-install-dir", Arg.String (fun s ->
+    query_something := true;
+    query_install_dir := Some s),
+  "PACKAGE print dir where installed";
+
+  "-query-include-dir", Arg.String (fun s ->
+    query_something := true;
+    query_include_dir := Some s),
+  "PACKAGE Print dir where compiled";
+
+
+  "-define", Arg.String (fun s ->
+    let (name, valeur) = String.cut_at s '=' in
+      match valeur with
+        | "true" | "" ->
+          let (_  : bool BuildOCPVariable.source_option) =
+            BuildOCPVariable.new_initial_bool_option s true in
+          ()
+        | "false" ->
+          let (_ : bool BuildOCPVariable.source_option) =
+            BuildOCPVariable.new_initial_bool_option s false in
+          ()
+        | _ ->
+          let (_  : string list BuildOCPVariable.source_option) =
+            BuildOCPVariable.new_initial_strings_option s [valeur] in
+          ()
   ),
   "OPTION define an initial option";
 
@@ -194,21 +233,6 @@ let arg_list = [
 
   "-install-bundle", Arg.String (fun s -> install_bundle_arg := Some s),
   "BUNDLE Install a bundle packages to uninstall all packages at once";
-
-
-  "-query-root-dir", Arg.Unit (fun _ ->
-    query_root_dir := true; query_something := true),
-  " Return current root dir";
-
-  "-query-install-dir", Arg.String (fun s ->
-    query_something := true;
-    query_install_dir := Some s),
-  "PACKAGE print dir where installed";
-
-  "-query-include-dir", Arg.String (fun s ->
-    query_something := true;
-    query_include_dir := Some s),
-  "PACKAGE Print dir where compiled";
 
   "-install-lib", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -485,18 +509,6 @@ let build () =
       end;
 
 
-      Unix.chdir (File.to_string project_dir);
-      if not !query_something then
-        Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
-          (File.to_string project_dir);
-      try
-
-
-        if !clean_arg then begin
-          BuildActions.do_clean ();
-          exit 0;
-        end;
-
 (*        let root_dir = File.dirname root_file in *)
 
         let build_dir_basename = !build_dir_basename_arg in
@@ -520,13 +532,6 @@ let build () =
     | ArchNone -> build_dir_filename
   in
 (*  Printf.fprintf stderr "build_dir_filename = %s\n%!" build_dir_filename; *)
-  let b =
-    add_timing "create context" timer_create_context
-    (BuildEngineContext.create (File.to_string project_dir))
-    build_dir_filename in
-
-
-  b.stop_on_error_arg <- !stop_on_error_arg;
 
   if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
 
@@ -579,6 +584,60 @@ let build () =
   in
 
   if use_digests then BuildEngineMtime.use_digests true;
+
+
+  (* Don't modify default values from now on, since they have been included
+   in the default configuration ! *)
+
+  let env_files = ref [] in
+  if not !local_only_arg then begin
+    let env_dirs = ref [] in
+    env_dirs := cfg.ocaml_ocamllib :: !env_dirs;
+    List.iter (fun dir ->
+      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
+      let dir = File.of_string dir in
+      env_files := (add_timing "find env" timer_find_env
+          BuildOCP.scan_root dir) @ !env_files)
+      !env_dirs;
+  end;
+
+    if !!root_files = [] then begin
+      Printf.eprintf "Error: no known .ocp files\n";
+      Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
+      exit 2
+    end;
+
+    let state = BuildOCP.init_packages () in
+
+    let _nerrors1 =
+      let config = BuildOCP.generated_config () in
+      add_timing "load env" timer_load_env
+      (BuildOCP.load_ocp_files config state)  !env_files
+    in
+
+    if not !local_only_arg then begin
+      add_timing "load meta" timer_load_meta
+        List.iter (fun dirname ->
+        let dirs =
+          if dirname = "" || dirname = "-" then
+            match ocamlfind_path with
+              [] -> [cfg.ocaml_ocamllib]
+            | list -> list
+          else
+            [dirname]
+        in
+        List.iter (BuildOCamlMeta.load_META_files state cfg) dirs
+      ) !meta_dirnames_arg;
+    end;
+
+    if !configure_arg then exit 0;
+
+    Unix.chdir (File.to_string project_dir);
+    if not !query_something then
+      Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
+          (File.to_string project_dir);
+      try
+
   if !force_scan then begin
     save_project := true;
     add_timing "find project"
@@ -600,49 +659,11 @@ let build () =
   add_timing "save local" timer_save_local
     BuildOptions.maybe_save_local project_config;
 
-    b.cross_arg <- !cross_arg;
+        if !clean_arg then begin
+          BuildActions.do_clean ();
+          exit 0;
+        end;
 
-
-  (* Don't modify default values from now on, since they have been included
-   in the default configuration ! *)
-
-    let env_dirs = ref [
-      cfg.ocaml_ocamllib;
-    ] in
-    let env_files = ref [] in
-    List.iter (fun dir ->
-      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
-      let dir = File.of_string dir in
-      env_files := (add_timing "find env" timer_find_env
-                      BuildOCP.scan_root dir) @ !env_files)
-      !env_dirs;
-
-    if !!root_files = [] then begin
-      Printf.eprintf "Error: no known .ocp files\n";
-      Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
-      exit 2
-    end;
-
-    let state = BuildOCP.init_packages () in
-
-    let _nerrors1 =
-      let config = BuildOCP.generated_config () in
-      add_timing "load env" timer_load_env
-      (BuildOCP.load_ocp_files config state)  !env_files
-    in
-
-    add_timing "load meta" timer_load_meta
-    List.iter (fun dirname ->
-      let dirs =
-        if dirname = "" || dirname = "-" then
-        match ocamlfind_path with
-          [] -> [cfg.ocaml_ocamllib]
-        | list -> list
-        else
-          [dirname]
-      in
-      List.iter (BuildOCamlMeta.load_META_files state cfg) dirs
-    ) !meta_dirnames_arg;
 
    let nerrors =
      let config = BuildOCP.empty_config () in
@@ -654,9 +675,6 @@ let build () =
     let pj =
       add_timing "sort packages" timer_sort_packages
       BuildOCP.verify_packages state in
-
-    BuildOCP.save_project_state pj
-      (File.add_basenames project_dir ["_obuild"; "ocp.ocpx"]);
 
   let print_package pj = Printf.eprintf "\t%s in %s (%s,%s)\n"
     pj.package_name pj.package_dirname
@@ -724,6 +742,21 @@ let build () =
     exit 2
   end;
 
+      BuildMisc.safe_mkdir build_dir_filename;
+
+    BuildOCP.save_project_state pj
+      (File.add_basenames project_dir ["_obuild"; "ocp.ocpx"]);
+
+
+  let b =
+    add_timing "create context" timer_create_context
+    (BuildEngineContext.create (File.to_string project_dir))
+    build_dir_filename in
+
+
+  b.stop_on_error_arg <- !stop_on_error_arg;
+
+    b.cross_arg <- !cross_arg;
 
   add_timing "create rules" timer_create_rules
     (BuildOCamlRules.create b pj) !tests_arg;
@@ -850,20 +883,26 @@ let build () =
 
 
     else
-
       (* build the list of targets *)
       let targets = ref [] in
-      let add_project_targets lib =
-        if not lib.lib_installed then begin
+      let map = ref StringMap.empty in
+      let rec add_project_targets lib =
+        if not lib.lib_installed &&
+           (!tests_arg || lib.lib_type <> TestPackage) &&
+           not (StringMap.mem lib.lib_name !map) then begin
           if cin.cin_bytecode then
             targets := List.map fst lib.lib_byte_targets @ !targets;
           if cin.cin_native then
             targets := List.map fst lib.lib_asm_targets @ !targets;
+          map := StringMap.add lib.lib_name lib !map;
+          List.iter (fun dep ->
+            add_project_targets dep.dep_project
+          ) lib.lib_requires
         end
       in
       List.iter add_project_targets !projects;
 
-      if !targets = [] then begin
+      if !targets = [] && not !tests_arg then begin
         Printf.eprintf "Error: project contains no targets\n%!";
         Printf.eprintf "\tAre your .ocp files empty ?\n%!";
         exit 2
@@ -906,19 +945,20 @@ let build () =
           timer_build_project (BuildEngine.parallel_loop b) ncores;
         let errors = BuildEngine.fatal_errors() @ BuildEngineDisplay.errors() in
         if verbose 2 || errors <> [] then begin
-          Printf.eprintf "%s. %d commands executed, %d files generated.\n%!"
+          let nerrors = List.length errors in
+          Printf.eprintf "Build result: %s. %d commands executed, %d files generated.\n%!"
 	    (if errors = [] then "No error" else
-	        Printf.sprintf "%d errors" (List.length errors))
+	        Printf.sprintf "%d error%s" nerrors (if nerrors > 1 then "s" else ""))
 	    !BuildEngine.stats_command_executed
 	    !BuildEngine.stats_files_generated;
         end;
         if errors <> [] then begin
+          Printf.eprintf "Error log:\n";
           List.iter (fun lines ->
 	    Printf.eprintf "Error:\n";
 	    List.iter (fun line ->
 	      Printf.eprintf "%s\n" line
 	    ) lines
-
           ) errors;
           exit 2
         end;
@@ -939,7 +979,7 @@ let build () =
           | SyntaxPackage
             -> ()
         ) !projects;
-        BuildOCamlTest.finish stats
+        BuildOCamlTest.finish stats ncores
       end;
 
 
@@ -967,22 +1007,27 @@ let build () =
 
       Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir)
 
-        with e ->
+      with
+      | ExitStatus n as e -> raise e
+      | e ->
           let backtrace = Printexc.get_backtrace () in
           Printf.fprintf stdout "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir);
           Printf.fprintf stderr "ocp-build: Fatal Exception %s\n%s\n%!" (Printexc.to_string e) backtrace;
           raise e
 
 let _ =
-  Printexc.record_backtrace true;
+  try
+    Printexc.record_backtrace true;
 
-  BuildOptions.load_global ();
-  begin match initial_verbosity with None -> () | Some v -> set_verbosity v end;
-  Arg.parse arg_list (fun s -> targets_arg := s :: !targets_arg) arg_usage;
-  BuildOptions.maybe_save_global ();
+    BuildOptions.load_global ();
+    begin match initial_verbosity with None -> () | Some v -> set_verbosity v end;
+    Arg.parse arg_list (fun s -> targets_arg := s :: !targets_arg) arg_usage;
+    BuildOptions.maybe_save_global ();
 
-  if !init_arg && not (Sys.file_exists "ocp-build.root") then begin
-    let oc = open_out "ocp-build.root" in
-    close_out oc
-  end;
-  build ()
+    if !init_arg && not (Sys.file_exists "ocp-build.root") then begin
+      let oc = open_out "ocp-build.root" in
+      close_out oc
+    end;
+    build ()
+  with ExitStatus n ->
+    Pervasives.exit n

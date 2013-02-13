@@ -1,0 +1,28 @@
+\documentclass[11pt]{book}
+
+\usepackage{enumerate}
+\usepackage{color}
+%\usepackage{a4wide}
+\usepackage[colorlinks=true,linkcolor=blue] {hyperref}
+\usepackage{url}
+
+\newcommand{\cmd}[1]{$\texttt{#1}$}
+
+\newcommand{\ocpbuild}{\cmd{ocp-build}}
+\newcommand{\typerex}{TypeRex}
+\newcommand{\opam}{\cmd{opam}}
+\newcommand{\github}{GitHub}
+
+\title{\ocpbuild{} User Manual}
+
+\author{OCamlPro \and INRIA}
+\date{Jan 26, 2013}
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\tableofcontents
+
+\input{../user-manual.tex}
+
+\end{document}

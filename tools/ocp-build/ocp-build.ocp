@@ -167,6 +167,17 @@ begin program "ocp-project"
   files = [
     "projectMain.ml"
   ]
-    requires = [ "ocplib-project" "ocplib-lang" ]
+  requires = [ "ocplib-project" "ocplib-lang" ]
+end
 
+begin test "ocp-build.test"
+  files = []
+  requires = [ "ocp-build" ]
+
+  test_dir = [ "%{tests}%/%{test}%" ]
+  test_args = [ "-init" "-scan" ]
+  test_benchmark = true
+  tests = [
+        "cycle"   (test_exit = 2) (* should raise error 2 *)
+      ]
 end

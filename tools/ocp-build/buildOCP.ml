@@ -46,7 +46,7 @@ let compare_packages pk1 pk2 =
       pk1.package_version = pk2.package_version
     (* TODO: We should also test for asm/byte... *)
     then begin
-      if verbose 3 then
+      if verbose 5 then
         Printf.eprintf "Discarding duplicated package %S\n%!" pk1.package_name;
       PackageEquality
     end
@@ -81,7 +81,7 @@ let compare_packages pk1 pk2 =
 
 
 let rec validate_project s pk =
-  if verbose 3 then
+  if verbose 5 then
     Printf.eprintf "validate_project: %s, tag=%s, id=%d\n" pk.package_name pk.package_tag pk.package_id;
   if pk.package_missing_deps = 0 then begin
     let key =  (pk.package_name, pk.package_tag) in
@@ -239,7 +239,7 @@ let new_dep pk =
 validated_projects *)
 let update_deps pj =
 
-  if verbose 3 then print_deps "BEFORE update_deps" pj;
+  if verbose 5 then print_deps "BEFORE update_deps" pj;
 
   (*
     This computation depends on what we are dealing with:
@@ -432,13 +432,13 @@ let update_deps pj =
       List.iter add_dep pj.package_requires
       ) pj.package_requires; *)
 
-  if verbose 3 then print_deps "AFTER update_deps SORT" pj;
+  if verbose 5 then print_deps "AFTER update_deps SORT" pj;
 
   (*
     (* TODO: verify this is useless ? since sorted later again *)
     pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
 
-    if verbose 3 then print_deps "AFTER update_deps SORT" pj;
+    if verbose 5 then print_deps "AFTER update_deps SORT" pj;
   *)
   ()
 
@@ -463,7 +463,7 @@ let empty_config () = BuildOCPInterp.empty_config !BuildOCPVariable.options
 let generated_config () =
   BuildOCPInterp.generated_config !BuildOCPVariable.options
 
-let load_ocp_files config packages files =
+let load_ocp_files global_config packages files =
 
 (*
   let pj =
@@ -512,7 +512,7 @@ let load_ocp_files config packages files =
 	    else
 	      iter next_parents files
   in
-  iter [ "", config ] files;
+  iter [ "", global_config ] files;
   !nerrors
 
 

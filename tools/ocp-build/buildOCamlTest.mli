@@ -14,11 +14,12 @@
 type stats = {
   mutable tests_nsuccesses : int;
   mutable tests_nfailures : int;
-  mutable tests_failures : (BuildTypes.package_info * string * string) list;
+  mutable tests_failures : (string * string) list;
+  mutable tests_timings : (string * float) list;
 }
 
 val init : unit -> stats
 val test_package :
   BuildEngineTypes.build_context ->
   stats -> BuildTypes.package_info -> unit
-val finish : stats -> unit
+val finish : stats -> int -> unit

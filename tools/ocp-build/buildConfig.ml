@@ -32,6 +32,8 @@ let sep_PATH =
       "Win32" -> ';'
     | _ -> ':'
 
+let sep_PATH_str = String.make 1 sep_PATH
+
 let get_PATH () =
   try
     let path = Sys.getenv "PATH" in
@@ -39,10 +41,13 @@ let get_PATH () =
   with Not_found ->
     failwith "Env variable PATH not defined"
 
+let set_PATH path =
+  Unix.putenv "PATH" (String.concat sep_PATH_str path)
+
 let b = Buffer.create 10000
 let get_stdout_lines cmd args =
   let temp_file = Filename.temp_file "ocp-build-" ".out" in
-  let pid = BuildMisc.create_process (cmd@args) (Some temp_file) None in
+  let pid = BuildMisc.create_process (cmd@args) None (Some temp_file) None in
   let status = BuildMisc.wait_command pid in
   let lines = ref [] in
   begin try

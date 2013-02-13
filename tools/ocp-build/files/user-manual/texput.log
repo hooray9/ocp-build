@@ -1,0 +1,21 @@
+This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.22)  26 JAN 2013 17:07
+entering extended mode
+ %&-line parsing enabled.
+**\nonstopmode\input user-manual.texpdflatex \nonstopmode\input user-manual.tex
+
+
+! Emergency stop.
+<*> \nonstopmode\input user-manual.texpdflatex 
+                                               \nonstopmode\input user-manua...
+*** (job aborted, file error in nonstop mode)
+
+ 
+Here is how much of TeX's memory you used:
+ 4 strings out of 495028
+ 124 string characters out of 1181228
+ 45133 words of memory out of 3000000
+ 3291 multiletter control sequences out of 15000+50000
+ 3640 words of font info for 14 fonts, out of 3000000 for 9000
+ 28 hyphenation exceptions out of 8191
+ 4i,0n,3p,1b,8s stack positions out of 5000i,500n,10000p,200000b,50000s
+!  ==> Fatal error occurred, no output PDF file produced!

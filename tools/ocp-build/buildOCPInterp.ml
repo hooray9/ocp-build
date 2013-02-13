@@ -439,9 +439,11 @@ let read_ocamlconf pj config filename =
   translate_toplevel_statements pj
     { config
       with
+(*
 	config_files = [];
         config_tests = [];
 	config_requires = [];
+*)
 	config_dirname = Filename.dirname filename;
 	config_filename = filename;
     } ast

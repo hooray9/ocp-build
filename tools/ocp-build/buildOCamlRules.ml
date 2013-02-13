@@ -1658,7 +1658,7 @@ let add_package b build_tests pk =
       LibraryPackage -> add_library b  lib
     | ProgramPackage -> add_program b  lib
     | TestPackage ->
-      if build_tests && lib.lib_sources <> [] then add_program b  lib;
+      if lib.lib_sources <> [] then add_program b  lib;
       lib.lib_options <- StringMap.add "install"
           (OptionBool false) lib.lib_options
     | ObjectsPackage -> add_objects b  lib

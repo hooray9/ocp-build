@@ -452,14 +452,14 @@ let print_waiting_queue q =
     IntMap.iter (fun _ r ->
       Printf.eprintf "Rule %d ready\n%!" r.rule_id;
       List.iter (fun file ->
-	Printf.eprintf "\tTARGET %s\n%!" (file_filename file))
+	Printf.eprintf "\t\tTARGET %s\n%!" (file_filename file))
 	r.rule_targets;
       List.iter BuildEngineRules.print_indented_command r.rule_commands;
       IntMap.iter (fun _ f ->
 	if not f.file_exists then
-	  Printf.eprintf "\t\t%s missing\n%!" (file_filename f)
+	  Printf.eprintf "\t\tSOURCE %s missing\n%!" (file_filename f)
 	else
-	  Printf.eprintf "\t\t%s done\n%!" (file_filename f)
+	  Printf.eprintf "\t\tSOURCE %s done\n%!" (file_filename f)
       ) r.rule_sources
     ) !queue_ready
   end;
@@ -467,12 +467,12 @@ let print_waiting_queue q =
     IntMap.iter (fun _ r ->
       Printf.eprintf "Rule %d waiting for %d sources\n%!" r.rule_id r.rule_missing_sources;
       List.iter (fun file ->
-	Printf.eprintf "\tTARGET %s\n%!" (file_filename file))
+	Printf.eprintf "\t\tTARGET %s\n%!" (file_filename file))
 	r.rule_targets;
       List.iter BuildEngineRules.print_indented_command r.rule_commands;
       IntMap.iter (fun _ f ->
 	if not f.file_exists then
-	  Printf.eprintf "\t\t%s missing\n%!" (file_filename f)
+	  Printf.eprintf "\t\tSOURCE %s missing\n%!" (file_filename f)
       ) r.rule_sources
     ) !queue_waiting
   end;
@@ -816,7 +816,7 @@ let execute_command b proc =
     (match cmd.cmd_stdout_pipe with
 	None -> ""
       | Some filename -> Printf.sprintf "> %s" filename);
-  let pid = BuildMisc.create_process cmd_args
+  let pid = BuildMisc.create_process cmd_args None
     (Some (temp_stdout b r)) (Some (temp_stderr b r))
   in
   incr stats_command_executed;
@@ -910,32 +910,37 @@ let parallel_loop b ncores =
     if nslots > 0 then begin
       if
 	!fatal_errors <> [] ||
-	  (b.stop_on_error_arg &&
-             BuildEngineDisplay.has_error()) then wait_for_end nslots else
+	(b.stop_on_error_arg &&
+         BuildEngineDisplay.has_error()) then wait_for_end nslots else
 	match next_rule b with
-	    None -> wait_for_end nslots
-	  | Some r ->
-	    if verbose 3 then Printf.eprintf "[%d.0] Examining rule\n%!" r.rule_id;
-	    if rule_need_execution b r then begin
-	      let proc = new_proc r in
-	      iter (execute_proc proc nslots)
-	    end else begin
-	      if verbose 3 then Printf.eprintf "[%d.0] Execution not needed !!!!\n%!" r.rule_id;
-	      rule_executed b r EXECUTION_AVOIDED;
-	      iter nslots
-	    end
+	  None -> wait_for_end nslots
+	| Some r ->
+	  if verbose 3 then Printf.eprintf "[%d.0] Examining rule\n%!" r.rule_id;
+	  if rule_need_execution b r then begin
+	    let proc = new_proc r in
+	    iter (execute_proc proc nslots)
+	  end else begin
+	    if verbose 3 then Printf.eprintf "[%d.0] Execution not needed !!!!\n%!" r.rule_id;
+	    rule_executed b r EXECUTION_AVOIDED;
+	    iter nslots
+	  end
     end else
       wait nslots
 
   and wait_for_end nslots =
     if !slots = IntMap.empty then begin
-      if verbose 3 then
-	print_waiting_queue ()
-      else begin
-	let len = IntMap.cardinal !queue_waiting in
-	if len > 0 then
-	  Printf.eprintf "Warning: %d rules waiting in queue !\n%!" len
-      end
+      if not (BuildEngineDisplay.has_error()) then
+        let len = IntMap.cardinal !queue_waiting in
+        if len > 0 then begin
+	  Printf.eprintf "Error: %d rules waiting in queue !\n%!" len;
+          Printf.eprintf "  This usually means that you have a cycle in module\n";
+          Printf.eprintf "  dependencies.\n";
+          if verbose 3 then
+	    print_waiting_queue ()
+          else
+            Printf.eprintf "  Use '-v 3' to display waiting rules.\n%!";
+          exit 2
+        end
     end else
       wait nslots
 
@@ -945,218 +950,218 @@ let parallel_loop b ncores =
     assert (nslots >= 0);
     let nslots =
       try
-	if verbose 3 then Printf.eprintf "Wait for %d processes\n%!" (IntMap.cardinal !slots);
-	let (pid, status) =
-           if Win32.os_type = Win32.WINDOWS then
-             let list = ref [] in
-             IntMap.iter (fun pid _ -> list := pid :: !list) !slots;
-             let pids = Array.of_list !list in
-             BuildMisc.waitpids (Array.length pids) pids
-           else Unix.wait () in
-	let status =
+        if verbose 3 then Printf.eprintf "Wait for %d processes\n%!" (IntMap.cardinal !slots);
+        let (pid, status) =
+          if Win32.os_type = Win32.WINDOWS then
+            let list = ref [] in
+            IntMap.iter (fun pid _ -> list := pid :: !list) !slots;
+            let pids = Array.of_list !list in
+            BuildMisc.waitpids (Array.length pids) pids
+          else Unix.wait () in
+        let status =
 	  match status with
-	    | Unix.WEXITED status -> Some status
-	    | Unix.WSIGNALED signal -> Some (-100-signal)
-	    | Unix.WSTOPPED _ -> None
-	in
-	match status with
-	    None -> nslots
-	  | Some status ->
-	    begin
-	      try
-		let proc = IntMap.find pid !slots in
-		slots := IntMap.remove pid !slots;
-		let status =
-		  match proc.proc_last with
-		      None -> status
-		    | Some cmd ->
-		      let status = command_executed b proc status in
-		      if verbose 3 then
-			Printf.eprintf "[%d.%d] Just finished executing\n%!"
-			  proc.proc_rule.rule_id proc.proc_step;
-		      (* if verbose 7 then print_indented_command cmd; *)
-		      status
-		in
-		proc.proc_last <- None;
-		if status <> 0 then begin
-(*
+	  | Unix.WEXITED status -> Some status
+	  | Unix.WSIGNALED signal -> Some (-100-signal)
+	  | Unix.WSTOPPED _ -> None
+        in
+        match status with
+	  None -> nslots
+        | Some status ->
+	  begin
+	    try
+	      let proc = IntMap.find pid !slots in
+	      slots := IntMap.remove pid !slots;
+	      let status =
+	        match proc.proc_last with
+		  None -> status
+	        | Some cmd ->
+		  let status = command_executed b proc status in
+		  if verbose 3 then
+		    Printf.eprintf "[%d.%d] Just finished executing\n%!"
+		      proc.proc_rule.rule_id proc.proc_step;
+		  (* if verbose 7 then print_indented_command cmd; *)
+		  status
+	      in
+	      proc.proc_last <- None;
+	      if status <> 0 then begin
+                (*
   let (rule_filename, rule_loc, _rule_name) = proc.proc_rule.rule_loc in
   print_project_location pj;
   Printf.eprintf "[%d.%d] ERROR in project %s\n%!"
   proc.proc_rule.rule_id proc.proc_step rule_name;
 *)
-		  rule_executed b proc.proc_rule EXECUTION_FAILURE;
-		  nslots + 1
-		end else
-		  execute_proc proc (nslots + 1) (* we just freeed a slot *)
-	      with Not_found -> nslots
-	    end
+	        rule_executed b proc.proc_rule EXECUTION_FAILURE;
+	        nslots + 1
+	      end else
+	        execute_proc proc (nslots + 1) (* we just freeed a slot *)
+	    with Not_found -> nslots
+	  end
       with e ->
-	  (*	if verbose 7 then *)
-	Printf.eprintf "Error in waiting loop: exception %s\n%!" (Printexc.to_string e);
-	(* nslots *)
-	exit 2
+        (*	if verbose 7 then *)
+        Printf.eprintf "Error in waiting loop: exception %s\n%!" (Printexc.to_string e);
+        (* nslots *)
+        exit 2
     in
     iter nslots
 
   and execute_proc proc nslots =
     match proc.proc_commands with
-	[] ->
-	  if verbose 3 then
-	    Printf.eprintf "[%d.%d] rule finished\n%!" proc.proc_rule.rule_id proc.proc_step;
-	  rule_executed b proc.proc_rule EXECUTION_SUCCESS;
-	  nslots
-      | cmd :: tail ->
+      [] ->
+      if verbose 3 then
+	Printf.eprintf "[%d.%d] rule finished\n%!" proc.proc_rule.rule_id proc.proc_step;
+      rule_executed b proc.proc_rule EXECUTION_SUCCESS;
+      nslots
+    | cmd :: tail ->
+      if verbose 3 then
+	Printf.eprintf "[%d.%d] command executed\n%!" proc.proc_rule.rule_id proc.proc_step;
+      proc.proc_step <- proc.proc_step + 1;
+      proc.proc_commands <- tail;
+      let r = proc.proc_rule in
+      match cmd with
+      | NeedTempDir ->
+        let temp_dir = BuildEngineRules.rule_temp_dir r in
+        if not (File.X.exists temp_dir) then
+          File.Dir.make_all temp_dir;
+        execute_proc proc nslots
+
+      | Execute cmd ->
+        let temp_dir = BuildEngineRules.rule_temp_dir r in
+        if not (File.X.exists temp_dir) then
+          File.Dir.make_all temp_dir;
+	proc.proc_last <- Some cmd;
 	if verbose 3 then
-	  Printf.eprintf "[%d.%d] command executed\n%!" proc.proc_rule.rule_id proc.proc_step;
-	proc.proc_step <- proc.proc_step + 1;
-	proc.proc_commands <- tail;
-        let r = proc.proc_rule in
-	match cmd with
-        | NeedTempDir ->
-          let temp_dir = BuildEngineRules.rule_temp_dir r in
-          if not (File.X.exists temp_dir) then
-            File.Dir.make_all temp_dir;
-          execute_proc proc nslots
+	  Printf.eprintf "[%d.%d] new exec\n%!" proc.proc_rule.rule_id proc.proc_step;
+	let pid = execute_command b proc in
+	slots := IntMap.add pid proc !slots;
+	nslots - 1
+      | LoadDeps (loader, file, r) ->
+	if verbose 7 then
+	  Printf.eprintf "[%d.%d] load deps\n%!" proc.proc_rule.rule_id proc.proc_step;
+	(*	    let loader =
+	   try
+	   find_dependency_loader loader
+	   with Not_found ->
+	   Printf.eprintf "Error: Unable to load dependencies of type '%s'\n" loader;
+	   exit 2
+	   in *)
+	load_dependency_file b loader file r;
+	execute_proc proc nslots
 
-	| Execute cmd ->
-              let temp_dir = BuildEngineRules.rule_temp_dir r in
-              if not (File.X.exists temp_dir) then
-                File.Dir.make_all temp_dir;
-	      proc.proc_last <- Some cmd;
-	      if verbose 3 then
-		Printf.eprintf "[%d.%d] new exec\n%!" proc.proc_rule.rule_id proc.proc_step;
-	      let pid = execute_command b proc in
-	      slots := IntMap.add pid proc !slots;
-	      nslots - 1
-	  | LoadDeps (loader, file, r) ->
-	    if verbose 7 then
-	      Printf.eprintf "[%d.%d] load deps\n%!" proc.proc_rule.rule_id proc.proc_step;
-	    (*	    let loader =
-		    try
-		    find_dependency_loader loader
-		    with Not_found ->
-		    Printf.eprintf "Error: Unable to load dependencies of type '%s'\n" loader;
-		    exit 2
-		    in *)
-	    load_dependency_file b loader file r;
-	    execute_proc proc nslots
+      | Copy (f1, f2) ->
+	let fa1 = BuildEngineRules.argument_of_argument r f1 in
+	let fa2 = BuildEngineRules.argument_of_argument r f2 in
+	let ff1 = BuildEngineRules.file_of_argument r f1 in
+	let ff2 = BuildEngineRules.file_of_argument r f2 in
 
-	  | Copy (f1, f2) ->
-	    let fa1 = BuildEngineRules.argument_of_argument r f1 in
-	    let fa2 = BuildEngineRules.argument_of_argument r f2 in
-	    let ff1 = BuildEngineRules.file_of_argument r f1 in
-	    let ff2 = BuildEngineRules.file_of_argument r f2 in
+	if verbose 2 then
+	  Printf.eprintf "[%d.%d] cp %s %s\n%!"
+	    proc.proc_rule.rule_id proc.proc_step
+	    fa1 fa2;
+	Printf.fprintf b.build_log "cp %s %s\n" fa1 fa2;
+	begin try
+	  File.X.copy_file ff1 ff2
+	with e ->
+	  Printf.eprintf "Error copying %s to %s: %s\n%!" fa1 fa2
+	    (Printexc.to_string e);
+	  if not (File.X.exists ff1) then
+	    Printf.eprintf "\tSource file %s does not exist\n%!" fa1;
+	  if not (File.X.exists (File.dirname ff2)) then
+	    Printf.eprintf
+	      "\tDestination directory of %s does not exist\n%!"
+              fa2;
+	  exit 2;
+	end;
+	execute_proc proc nslots
 
+      | Move (f1, f2) ->
+	let fa1 = BuildEngineRules.argument_of_argument r f1 in
+	let fa2 = BuildEngineRules.argument_of_argument r f2 in
+	let ff1 = BuildEngineRules.file_of_argument r f1 in
+	let ff2 = BuildEngineRules.file_of_argument r f2 in
+
+	if verbose 2 then
+	  Printf.eprintf "[%d.%d] mv %s %s\n%!"
+	    proc.proc_rule.rule_id proc.proc_step
+	    fa1 fa2;
+
+	Printf.fprintf b.build_log "mv %s %s\n" fa1 fa2;
+	begin try
+	  BuildMisc.rename fa1 fa2;
+	with e ->
+	  Printf.eprintf "Error moving %s to %s: %s\n%!"
+            (fa1)
+            (fa2) (Printexc.to_string e);
+	  if not (File.X.exists (ff1)) then
+	    Printf.eprintf "\tSource file %s does not exist\n%!"
+              (fa1);
+	  if not (File.X.exists (File.dirname (ff2))) then
+	    Printf.eprintf "\tDestination directory %s does not exist\n%!"
+              (fa2);
+	  exit 2;
+	end;
+	execute_proc proc nslots
+
+      | MoveIfExists (f1, f2, link) ->
+	let fa1 = BuildEngineRules.argument_of_argument r f1 in
+	let fa2 = BuildEngineRules.argument_of_argument r f2 in
+	let ff1 = BuildEngineRules.file_of_argument r f1 in
+	let ff2 = BuildEngineRules.file_of_argument r f2 in
+
+        if File.X.exists ff1 then
+	  begin try
 	    if verbose 2 then
-	      Printf.eprintf "[%d.%d] cp %s %s\n%!"
+	      Printf.eprintf "[%d.%d] mv? %s %s\n%!"
 		proc.proc_rule.rule_id proc.proc_step
 		fa1 fa2;
-	    Printf.fprintf b.build_log "cp %s %s\n" fa1 fa2;
-	    begin try
-		    File.X.copy_file ff1 ff2
-	      with e ->
-		Printf.eprintf "Error copying %s to %s: %s\n%!" fa1 fa2
-		  (Printexc.to_string e);
-		if not (File.X.exists ff1) then
-		  Printf.eprintf "\tSource file %s does not exist\n%!" fa1;
-		if not (File.X.exists (File.dirname ff2)) then
-		  Printf.eprintf
-		    "\tDestination directory of %s does not exist\n%!"
-                    fa2;
-		exit 2;
-	    end;
-	    execute_proc proc nslots
 
-	  | Move (f1, f2) ->
-	    let fa1 = BuildEngineRules.argument_of_argument r f1 in
-	    let fa2 = BuildEngineRules.argument_of_argument r f2 in
-	    let ff1 = BuildEngineRules.file_of_argument r f1 in
-	    let ff2 = BuildEngineRules.file_of_argument r f2 in
+	    Printf.fprintf b.build_log "mv? %s %s\n" fa1 fa2;
 
-	    if verbose 2 then
-	      Printf.eprintf "[%d.%d] mv %s %s\n%!"
-		proc.proc_rule.rule_id proc.proc_step
-		fa1 fa2;
-
-	    Printf.fprintf b.build_log "mv %s %s\n" fa1 fa2;
-	    begin try
-		    BuildMisc.rename fa1 fa2;
-	      with e ->
-		Printf.eprintf "Error moving %s to %s: %s\n%!"
-                  (fa1)
-                  (fa2) (Printexc.to_string e);
-		if not (File.X.exists (ff1)) then
-		  Printf.eprintf "\tSource file %s does not exist\n%!"
-                    (fa1);
-		if not (File.X.exists (File.dirname (ff2))) then
-		  Printf.eprintf "\tDestination directory %s does not exist\n%!"
-                    (fa2);
-		exit 2;
-	    end;
-	    execute_proc proc nslots
-
-	  | MoveIfExists (f1, f2, link) ->
-	    let fa1 = BuildEngineRules.argument_of_argument r f1 in
-	    let fa2 = BuildEngineRules.argument_of_argument r f2 in
-	    let ff1 = BuildEngineRules.file_of_argument r f1 in
-	    let ff2 = BuildEngineRules.file_of_argument r f2 in
-
-            if File.X.exists ff1 then
-	      begin try
-	              if verbose 2 then
-	                Printf.eprintf "[%d.%d] mv? %s %s\n%!"
-			  proc.proc_rule.rule_id proc.proc_step
-		          fa1 fa2;
-
-	              Printf.fprintf b.build_log "mv? %s %s\n" fa1 fa2;
-
-		      BuildMisc.rename fa1 fa2;
-                      match link with
-                        | None -> ()
-			| Some f3 ->
-                          let src_file = File.to_string ff2 in
-                          let dst_file =
-                            File.to_string (BuildEngineRules.file_of_argument r f3) in
-                          try
-                            if Sys.file_exists dst_file then begin
-                              let ic = open_in dst_file in
-                              try
-				let line = input_line ic in
-				close_in ic;
-				if line <> src_file then raise Not_found
-                              with e ->
-				close_in ic;
-				raise e
-			    end
-			    else raise Not_found
-                          with _ ->
-			    let oc = open_out dst_file in
-			    output_string oc src_file;
-			    close_out oc
-		with e ->
-		  Printf.eprintf "Error moving %s to %s: %s\n%!"
-		    fa1 fa2 (Printexc.to_string e);
-		  if not (File.X.exists (ff1)) then
-		    Printf.eprintf "\tSource file %s does not exist\n%!"
-		      (fa1);
-		  if not (File.X.exists (File.dirname (ff2))) then
-		    Printf.eprintf "\tDestination directory %s does not exist\n%!"
-		      (File.to_string (File.dirname (ff2)));
-		  exit 2;
-	      end;
-	    execute_proc proc nslots
-	  | DynamicAction (msg, f) ->
-	    let actions =
-	      try
-		Lazy.force f
-	      with e ->
-		Printf.eprintf "Error: exception %s with DynamicAction %s\n%!"
-		  (Printexc.to_string e) msg ;
-		exit 2
-	    in
-	    proc.proc_commands <- actions @ proc.proc_commands;
-	    execute_proc proc nslots
+	    BuildMisc.rename fa1 fa2;
+            match link with
+            | None -> ()
+	    | Some f3 ->
+              let src_file = File.to_string ff2 in
+              let dst_file =
+                File.to_string (BuildEngineRules.file_of_argument r f3) in
+              try
+                if Sys.file_exists dst_file then begin
+                  let ic = open_in dst_file in
+                  try
+		    let line = input_line ic in
+		    close_in ic;
+		    if line <> src_file then raise Not_found
+                  with e ->
+		    close_in ic;
+		    raise e
+		end
+		else raise Not_found
+              with _ ->
+		let oc = open_out dst_file in
+		output_string oc src_file;
+		close_out oc
+	  with e ->
+	    Printf.eprintf "Error moving %s to %s: %s\n%!"
+	      fa1 fa2 (Printexc.to_string e);
+	    if not (File.X.exists (ff1)) then
+	      Printf.eprintf "\tSource file %s does not exist\n%!"
+		(fa1);
+	    if not (File.X.exists (File.dirname (ff2))) then
+	      Printf.eprintf "\tDestination directory %s does not exist\n%!"
+		(File.to_string (File.dirname (ff2)));
+	    exit 2;
+	  end;
+	execute_proc proc nslots
+      | DynamicAction (msg, f) ->
+	let actions =
+	  try
+	    Lazy.force f
+	  with e ->
+	    Printf.eprintf "Error: exception %s with DynamicAction %s\n%!"
+	      (Printexc.to_string e) msg ;
+	    exit 2
+	in
+	proc.proc_commands <- actions @ proc.proc_commands;
+	execute_proc proc nslots
   in
   iter ncores
 
@@ -1172,11 +1177,11 @@ let save_cache b =
 let parallel_loop b ncores =
   try
     parallel_loop b ncores;
-    BuildEngineDisplay.finish ();
-    save_cache b
-  with e ->
-    BuildEngineDisplay.finish ();
     save_cache b;
+    BuildEngineDisplay.finish ();
+  with e ->
+    save_cache b;
+    BuildEngineDisplay.finish ();
     raise e
 
 (*let errors () = !errors *)

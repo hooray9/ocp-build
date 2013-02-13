@@ -184,7 +184,7 @@ let win_find_in_path cmd =
   try Hashtbl.find in_path cmd with Not_found ->
     let rec iter path cmd =
       match path with
-        [] -> Printf.fprintf Pervasives.stderr "File %s not found in PATH\n%!" cmd;
+        [] -> Printf.eprintf "File %s not found in PATH\n%!" cmd;
               exit 2
        | dir :: tail ->
           let test1 = Filename.concat dir cmd in
@@ -212,10 +212,16 @@ let open_for_pipe filename =
   let oc = open_out_bin filename in
   Unix.descr_of_out_channel oc
 
-let create_process list stdout stderr =
+let create_process list stdin stdout stderr =
   match list with
       [] -> assert false
     | cmd :: args ->
+      let stdin_fd = match stdin with
+	  None -> Unix.stdin
+	| Some filename ->
+           let ic = open_in_bin filename in
+           Unix.descr_of_in_channel ic
+      in
       let stdout_fd = match stdout with
 	  None -> Unix.stdout
 	| Some filename -> open_for_pipe filename
@@ -230,7 +236,8 @@ let create_process list stdout stderr =
       in
 
       let pid = Unix2.create_process error_handler cmd (Array.of_list (cmd :: args))
-	Unix.stdin stdout_fd stderr_fd in
+	stdin_fd stdout_fd stderr_fd in
+      (match stdin with None -> () | Some _ -> Unix.close stdin_fd);
       (match stdout with None -> () | Some _ -> Unix.close stdout_fd);
       (match stderr with None -> () | Some _ -> Unix.close stderr_fd);
       pid

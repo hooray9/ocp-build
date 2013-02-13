@@ -321,8 +321,6 @@ let add_filename b dir filename =
 
 let create current_dir_filename build_dir_filename =
 (*  Printf.eprintf "BuildEngineContext.create %s\n%!" build_dir_filename; *)
-  BuildMisc.safe_mkdir build_dir_filename;
-
   let (build_rules : (int, build_rule) Hashtbl.t) = Hashtbl.create 1111 in
   let (build_files : (int, build_file) Hashtbl.t) = Hashtbl.create 1111 in
   let (build_directories : (int * int64,   build_directory) Hashtbl.t) = Hashtbl.create 1111 in
