@@ -99,11 +99,30 @@ let rec validate_project s pk =
           true
 
         | PackageConflict ->
-          Printf.eprintf "Error: two projects called %s\n" pk.package_name;
-          Printf.eprintf "  One is defined in %s\n" pk.package_dirname;
-          Printf.eprintf "  and one is defined in %s\n" pk2.package_dirname;
-          Printf.eprintf "%!";
-          exit 2
+
+          Printf.eprintf "Warning: two projects called %S\n" pk.package_name;
+          let print_package msg pk =
+            let msg_len = String.length msg in
+            let dirname_len = String.length pk.package_dirname in
+            let filename_len = String.length pk.package_filename in
+            if msg_len + dirname_len + filename_len > 70 then
+              Printf.eprintf "  %s %s\n     (%s)\n" msg
+                pk.package_dirname pk.package_filename
+            else
+            Printf.eprintf "  %s %s (%s)\n" msg
+              pk.package_dirname pk.package_filename;
+          in
+          print_package "In" pk;
+          print_package "In" pk2;
+          if pk.package_id > pk2.package_id then begin
+            print_package "Keeping" pk;
+            Hashtbl.remove s.validated key;
+            true
+          end else begin
+            print_package "Keeping" pk2;
+            false
+          end
+
       with Not_found -> true
     in
 

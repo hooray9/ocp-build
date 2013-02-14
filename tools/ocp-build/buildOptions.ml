@@ -45,14 +45,15 @@ let must_save_local = ref false
 let must_save_global = ref false
 let arg_list = ref [
   "-save-global", Arg.Set must_save_global,
-  " : save arguments in global config";
+  " Save arguments in global config";
   "-save-local", Arg.Set must_save_local,
-  " : save arguments in local (project) config";
+  " Save arguments in local (project) config";
 ]
 
 let njobs_descr =
   [ "njobs" ],
-  ["Number of jobs to use in parallel on this computer"],
+  [
+    "Number of jobs to use in parallel on this"; "computer"],
   int_option, 0
 
 let verbosity_descr =
@@ -73,8 +74,8 @@ let usestdlib_descr =
 
 let digest_descr =
   [ "digest" ],
-  [ "If set, use content digest change instead of";
-    "modification to trigger recompilation"],
+  [ "If set, use content digest change";
+    "instead of modification to trigger recompilation"],
   bool_option, false
 
 (*
@@ -162,7 +163,7 @@ module GlobalOptions = struct
        Arg.Int (fun n ->
          option =:= n;
          arg_set := true),
-       Printf.sprintf " NUM : %s" (String.concat "\n     " option_help)) ::
+       Printf.sprintf "NUM %s" (String.concat "\n  " option_help)) ::
       !arg_list;
     (arg_set, option, option_descr)
 
@@ -175,7 +176,7 @@ module GlobalOptions = struct
        Arg.String (fun n ->
          option =:= Some n;
          arg_set := true),
-       Printf.sprintf " STRING : %s" (String.concat "\n     " option_help)) ::
+       Printf.sprintf "STRING %s" (String.concat "\n  " option_help)) ::
       !arg_list;
     (arg_set, option, option_descr)
 
@@ -188,7 +189,7 @@ module GlobalOptions = struct
        Arg.String (fun n ->
          option =:= n;
          arg_set := true),
-       Printf.sprintf " STRING : %s" (String.concat "\n     " option_help)) ::
+       Printf.sprintf "STRING %s" (String.concat "\n  " option_help)) ::
       !arg_list;
     (arg_set, option, option_descr)
 
@@ -201,7 +202,7 @@ module GlobalOptions = struct
        Arg.String (fun n ->
          option =:= OcpString.split_simplify n ':';
          arg_set := true),
-       Printf.sprintf " LIST_OF_STRINGS : %s\n     (LIST_OF_STRINGS is a set of strings separated by :)" (String.concat "\n     " option_help)) ::
+       Printf.sprintf " LIST_OF_STRINGS : %s\n     (LIST_OF_STRINGS is a set of strings separated by :)" (String.concat "\n  " option_help)) ::
       !arg_list;
     (arg_set, option, option_descr)
 
@@ -214,14 +215,14 @@ module GlobalOptions = struct
        Arg.Unit (fun n ->
          option =:= false;
          arg_set := true),
-       Printf.sprintf " : clear option, %s"
-         (String.concat "\n     " option_help)) ::
+       Printf.sprintf " Clear option, %s"
+         (String.concat "\n  " option_help)) ::
       (Printf.sprintf "-%s" (String.concat ":" option_names),
        Arg.Unit (fun n ->
          option =:= true;
          arg_set := true),
-       Printf.sprintf " : set option, %s"
-         (String.concat "\n     " option_help)) ::
+       Printf.sprintf " Set option, %s"
+         (String.concat "\n  " option_help)) ::
       !arg_list;
     (arg_set, option, option_descr)
 

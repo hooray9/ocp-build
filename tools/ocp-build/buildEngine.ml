@@ -1188,6 +1188,7 @@ let parallel_loop b ncores =
 let fatal_errors () = !fatal_errors
 
 let sanitize b delete_orphans =
+  let has_orphan_directories = ref false in
 (*  Printf.fprintf stderr "BuildEngine.sanitize %s\n%!" b.build_dir_filename; *)
   let dir = File.of_string b.build_dir_filename in
   let cdir = BuildEngineContext.add_directory b b.build_dir_filename in
@@ -1200,8 +1201,10 @@ let sanitize b delete_orphans =
           let cdir = BuildEngineContext.find_dir cdir basename in
           iter filename cdir
         with Not_found ->
-          Printf.eprintf "Warning: orphan directory %s/%s\n%!"
-            cdir.dir_fullname basename;
+          if verbose 3 then
+            Printf.eprintf "Warning: orphan directory %s/%s\n%!"
+              cdir.dir_fullname basename;
+          has_orphan_directories := true;
           match delete_orphans with
               KeepOrphans
             | DeleteOrphanFiles -> ()
@@ -1230,6 +1233,7 @@ let sanitize b delete_orphans =
       with Not_found ->
         Printf.eprintf "Warning: orphan directory %s/%s\n%!"
           cdir.dir_fullname basename;
+        has_orphan_directories := true;
         match delete_orphans with
             KeepOrphans
           | DeleteOrphanFiles -> ()
@@ -1237,6 +1241,10 @@ let sanitize b delete_orphans =
             File.Dir.remove_all filename
 
   ) dir;
+  if !has_orphan_directories then begin
+    Printf.eprintf "\tYou can use -sanitize-dirs to remove \
+                    orphan directories\n%!";
+  end;
   !orphan_files
 
 

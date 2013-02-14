@@ -102,6 +102,7 @@ let add_timing msg timer f x =
     raise e
 
 let tests_arg = ref false
+let benchmarks_arg = ref false
 let save_project = ref false
 let save_arguments_arg = ref false
 let delete_orphans_arg = ref KeepOrphans
@@ -232,7 +233,7 @@ let arg_list = [
   " Uninstall given packages (installed by ocp-build)";
 
   "-install-bundle", Arg.String (fun s -> install_bundle_arg := Some s),
-  "BUNDLE Install a bundle packages to uninstall all packages at once";
+  "BUNDLE Install a bundle packages to uninstall all\n  packages at once";
 
   "-install-lib", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -240,7 +241,7 @@ let arg_list = [
       exit 2
     end;
     install_lib_arg := Some s),
-  "DIRECTORY \nSpecify directory where libraries should be installed";
+  "DIRECTORY \nSpecify directory where libraries should be\n  installed";
 
   "-install-bin", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -248,7 +249,7 @@ let arg_list = [
       exit 2
     end;
     install_bin_arg := Some s),
-  "DIRECTORY \nSpecify directory where binaries should be installed";
+  "DIRECTORY \nSpecify directory where binaries should be\n  installed";
 
   "-install-data", Arg.String (fun s ->
     if Filename.is_relative s then begin
@@ -256,7 +257,7 @@ let arg_list = [
       exit 2
     end;
     install_data_arg := Some s),
-  "DIRECTORY \nSpecify directory where data should be installed (if any)";
+  "DIRECTORY \nSpecify directory where data should be\n  installed (if any)";
 
   (*
     "-byte", Arg.Set byte_arg, " : build only bytecode version";
@@ -289,6 +290,8 @@ let arg_list = [
 
   "-tests", Arg.Set tests_arg,
   " Build and run tests";
+  "-benchmarks", Arg.Unit (fun () -> tests_arg := true; benchmarks_arg := true),
+  " Build and run benchmarks";
 
   "-use-pp", Arg.Set use_pp,
   " Force use of -pp";
@@ -323,7 +326,8 @@ let arg_list = [
     "", Arg.Unit (fun _ -> ()),
     String.concat "\n" [
       "-------------------------------------------------------------------";
-      "Options under this line are used when checking OCaml config";
+      "Options under this line are used when checking";
+      "OCaml config";
       ""
     ]] @
 [
@@ -335,8 +339,8 @@ let arg_list = [
     "", Arg.Unit (fun _ -> ()),
     String.concat "\n" [
       "-------------------------------------------------------------------";
-      "Options under this line will be saved if you either use";
-      "\"-save-global\" or \"-save-local\":";
+      "Options under this line will be saved if you";
+      "either use \"-save-global\" or \"-save-local\":";
       ""
     ];
     BuildOptions.shortcut_arg "-scan" "-autoscan" arg_option_list;
@@ -973,7 +977,7 @@ let build () =
           match lib.lib_type with
           | ProgramPackage
           | TestPackage ->
-            BuildOCamlTest.test_package b stats lib
+            BuildOCamlTest.test_package b stats lib !benchmarks_arg
           | LibraryPackage
           | ObjectsPackage
           | SyntaxPackage

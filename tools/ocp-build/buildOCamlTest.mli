@@ -21,5 +21,7 @@ type stats = {
 val init : unit -> stats
 val test_package :
   BuildEngineTypes.build_context ->
-  stats -> BuildTypes.package_info -> unit
+  stats -> BuildTypes.package_info ->
+  bool -> (* benchmarks only ? *)
+  unit
 val finish : stats -> int -> unit

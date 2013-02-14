@@ -106,7 +106,7 @@ let find_binaries b cwd lib =
   | false, false ->
     []
 
-let test_package b stats lib =
+let test_package b stats lib only_benchmarks =
   let cwd = Unix.getcwd () in
   let binaries, tests =
     match lib.lib_type, lib.lib_tests with
@@ -144,7 +144,7 @@ let test_package b stats lib =
       in
       let tests =
         match lib.lib_tests with
-          [] -> [ "default", lib.lib_options ]
+          [] -> [ lib.lib_name, lib.lib_options ]
         | tests -> tests
       in
       binaries, tests
@@ -157,9 +157,7 @@ let test_package b stats lib =
       -> assert false
   in
   if tests <> [] then begin
-      if verbose 1 then
-        Printf.eprintf "%d tests to run for test %S...\n%!"
-          (List.length tests) lib.lib_name;
+  let ntests = ref 0 in
 
     List.iter (fun (kind, binary) ->
       let tests_dir = File.add_basenames b.build_dir
@@ -184,6 +182,7 @@ let test_package b stats lib =
         in
         let subst = BuildSubst.env_subst in
         let subst = StringSubst.add_to_copy subst "%{variant}%" variant in
+        let subst = StringSubst.add_to_copy subst "%{kind}%" kind in
         let subst = StringSubst.add_to_copy subst "%{test}%" test in
         let subst = StringSubst.add_to_copy subst "%{binary}%" binary in
         let subst = StringSubst.add_to_copy subst "%{tests}%"
@@ -230,8 +229,19 @@ let test_package b stats lib =
             lib.lib_name test expected_status;
           exit 2
         in
-        let benchmark = bool_option_with_default options
-            "test_benchmark" false in
+        let benchmark =
+          try
+            match StringMap.find "test_benchmark" options with
+              OptionBool bool -> bool
+            | OptionList list ->
+              let test_name =
+                string_option_with_default options "test_benchmarked"
+                  test_name
+              in
+              let test_name = BuildSubst.subst subst test_name in
+              List.mem test_name list
+          with Not_found -> false
+        in
         let serialized = bool_option_with_default options
             "test_serialized" false in
         let start_test () =
@@ -272,15 +282,21 @@ let test_package b stats lib =
                  else "")
             ) :: stats.tests_failures
           end
-        in
-        Queue.push (test_name, start_test, check_test)
-          (if benchmark || serialized then serial_workqueue
-           else parallel_workqueue)
+            in
+            if not only_benchmarks || benchmark then begin
+              incr ntests;
+              Queue.push (test_name, start_test, check_test)
+                (if benchmark || serialized then serial_workqueue
+                 else parallel_workqueue)
+            end
           )
             (list_option_with_default options
             "test_variants" [ "" ])
       ) tests
-    ) binaries
+    ) binaries;
+    if verbose 1 && !ntests > 0 then
+      Printf.eprintf "%d tests to run for test %S...\n%!"
+        !ntests lib.lib_name;
   end
 
 
