@@ -605,12 +605,6 @@ let build () =
       !env_dirs;
   end;
 
-    if !!root_files = [] then begin
-      Printf.eprintf "Error: no known .ocp files\n";
-      Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
-      exit 2
-    end;
-
     let state = BuildOCP.init_packages () in
 
     let _nerrors1 =
@@ -668,6 +662,12 @@ let build () =
           exit 0;
         end;
 
+
+    if !!root_files = [] then begin
+      Printf.eprintf "Error: no known .ocp files\n";
+      Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
+      exit 2
+    end;
 
    let nerrors =
      let config = BuildOCP.empty_config () in
