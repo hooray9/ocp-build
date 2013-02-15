@@ -161,7 +161,7 @@ let test_package b stats lib only_benchmarks =
 
     List.iter (fun (kind, binary) ->
       let tests_dir = File.add_basenames b.build_dir
-          [ lib.lib_name; "tests" ]
+          [ "_tests"; lib.lib_name; "tests" ]
       in
       let tests_result_dir = Filename.concat cwd (File.to_string tests_dir) in
       List.iter (fun (test, options) ->

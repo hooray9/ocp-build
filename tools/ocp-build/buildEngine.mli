@@ -30,7 +30,11 @@ val fatal_errors : unit -> string list list
 
 (* [parallel_loop ncores] Start the build process on [ncores] cores. *)
 val parallel_loop :
-  BuildEngineTypes.build_context -> int -> unit
+  BuildEngineTypes.build_context -> int -> int
 
 
-val sanitize : BuildEngineTypes.build_context -> BuildEngineTypes.delete_orphans -> int
+val sanitize :
+  BuildEngineTypes.build_context ->
+  BuildEngineTypes.delete_orphans ->
+  (string -> bool) -> (* return false on basename if topdir is orphan *)
+  int

@@ -38,8 +38,8 @@ open SimpleConfig
     mutable option_verbosity : int;
     mutable option_usestdlib : bool;
     mutable option_digest : bool;
-
-    mutable option_ocaml : string option;  }
+    mutable option_ocaml : string option;
+  }
 
 let must_save_local = ref false
 let must_save_global = ref false
@@ -78,59 +78,9 @@ let digest_descr =
     "instead of modification to trigger recompilation"],
   bool_option, false
 
-(*
-
-let bytecode_descr =
-  [ "bytecode" ], ["If set, compile in bytecode" ],
-  bool_option, true
-let native_descr =
-  [ "native" ], ["If set, compile in native code" ],
-  bool_option, true
-*)
-
 let ocaml_descr =
   [ "ocaml_config" ],  ["file describing OCaml config options"],
   (option_option string_option), None
-
-(*
-let ocamllib_descr =
-  [ "ocamllib" ],  ["directory containing ocaml libraries"],
-  string_option, ""
-
-let ocamlc_descr =
-  [ "ocamlc" ],  ["executable names to use in preference order"],
-  list_option string_option, [ "ocamlc.opt"; "ocamlc" ]
-
-let ocamlopt_descr =
-  [ "ocamlopt" ],  ["executable names to use in preference order"],
-  list_option string_option, [ "ocamlopt.opt"; "ocamlopt" ]
-
-let ocamldep_descr =
-  [ "ocamldep" ],  ["executable names to use in preference order"],
-  list_option string_option, [ "ocamldep.opt"; "ocamldep" ]
-
-let ocamllex_descr =
-  [ "ocamllex" ],  ["executable names to use in preference order"],
-  list_option string_option, [ "ocamllex.opt"; "ocamllex" ]
-
-let ocamlyacc_descr =
-  [ "ocamlyacc" ],  ["executable names to use in preference order"],
-  list_option string_option, [ "ocamlyacc" ]
-
-let installbin_descr =
-  [ "installbin" ],  ["where programs should be installed"],
-  string_option, "/usr/local/bin"
-
-let installlib_descr =
-  [ "installlib" ],
-  ["where OCaml libraries should be installed";
-   "Files are installed in a subdirectory with the version of OCaml";
-   "and a sub-directory (as in the _obuild directory). By default,";
-   "the current OCaml directory.";
-],
-   option_option string_option, None
-
-*)
 
 module GlobalOptions = struct
 
@@ -232,21 +182,6 @@ module GlobalOptions = struct
   let usestdlib_setter = global_bool_option usestdlib_descr
   let digest_setter = global_bool_option digest_descr
   let ocaml_setter = global_string_option_option ocaml_descr
-
-(*  let ocamlbin_setter = global_string_option ocamlbin_descr
-  let ocamllib_setter = global_string_option ocamllib_descr
-  let bytecode_setter = global_bool_option bytecode_descr
-  let native_setter = global_bool_option native_descr
-
-  let ocamlc_setter = global_stringlist_option ocamlc_descr
-  let ocamlopt_setter = global_stringlist_option ocamlopt_descr
-  let ocamldep_setter = global_stringlist_option ocamldep_descr
-  let ocamllex_setter = global_stringlist_option ocamllex_descr
-  let ocamlyacc_setter = global_stringlist_option ocamlyacc_descr
-
-  let installbin_setter = global_string_option installbin_descr
-  let installlib_setter = global_string_option_option installlib_descr
-*)
 
   let load_or_create () =
     if File.X.exists global_config_file then begin

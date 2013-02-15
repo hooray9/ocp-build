@@ -145,35 +145,35 @@ let find_directory b dirname =
 let rec add_directory b filename =
   if verbose 5 then
     Printf.fprintf stderr
-       "BuildEngineContext.add_directory %s\n"
-       filename;
+      "BuildEngineContext.add_directory %s\n"
+      filename;
   let st, key = get_file_uid filename in
   if verbose 5 then
     Printf.fprintf stderr
-       "BuildEngineContext.add_directory |%s| (%d,%Ld)\n"
-       filename (fst key) (snd key);
+      "BuildEngineContext.add_directory |%s| (%d,%Ld)\n"
+      filename (fst key) (snd key);
   try
     let dir = Hashtbl.find b.build_directories key in
     if verbose 5 then
-       Printf.fprintf stderr "Found\n";
+      Printf.fprintf stderr "Found\n";
     dir
   with Not_found ->
     if verbose 5 then
-       Printf.fprintf stderr "Not found\n";
+      Printf.fprintf stderr "Not found\n";
     let dir =
-    let dirname = Filename.dirname filename in
+      let dirname = Filename.dirname filename in
       if verbose 5 then
-         Printf.fprintf stderr "\tdirname = %s\n" filename;
+        Printf.fprintf stderr "\tdirname = %s\n" filename;
       match st.Unix.st_kind with
-	  Unix.S_LNK ->
-	    let link = Unix.readlink filename in
-	    let filename =
-	      if Filename.is_relative link then
-		Filename.concat dirname link
-	      else link
-	    in
-	    add_directory b filename
-	| Unix.S_DIR -> begin
+	Unix.S_LNK ->
+	let link = Unix.readlink filename in
+	let filename =
+	  if Filename.is_relative link then
+	    Filename.concat dirname link
+	  else link
+	in
+	add_directory b filename
+      | Unix.S_DIR -> begin
 	  let basename = Filename.basename filename in
           if verbose 5 then
             Printf.fprintf stderr "\tfilename = %s\n" filename;
@@ -192,53 +192,53 @@ let rec add_directory b filename =
 	  else
 	    let parent_dir = add_directory b dirname in
 	    match basename with
-		"." -> parent_dir
-	      | ".." -> parent_dir.dir_parent
-	      | _ ->
-(* educated guess : this does not really make sense on Windows,
-   as inode numbers are generated and not read from the file-system. *)
-		let dirname = parent_dir.dir_fullname in
-		let basename =
-		  try
-									     let _, key2 = get_file_uid (Filename.concat dirname basename) in
-		    if key = key2
-	               then
-		      basename
-		    else raise Not_found
-		  with _ ->
-		    let files = Sys.readdir dirname in
-		    let nfiles = Array.length files in
-		    let rec iter i =
-		      assert (i < nfiles);
-									   let file = files.(i) in
-									   let _, key2 =           get_file_uid  (Filename.concat dirname file) in
-		      if key = key2 then
-			file
-		      else
-			iter (i+1)
-		    in
-		    iter 0
-		in
-		let dir =
-		  try
-		    StringMap.find basename parent_dir.dir_dirs
-		  with Not_found ->
-		    let dir = {
-		      dir_basename = basename;
-		      dir_parent = parent_dir;
-                      dir_file = File.add_basename parent_dir.dir_file basename;
-		      dir_key = key;
-		      dir_id = new_dir_id b;
-		      dir_files = StringMap.empty;
-		      dir_dirs = StringMap.empty;
-		      dir_fullname = Filename.concat parent_dir.dir_fullname basename;
-		    } in
-		    parent_dir.dir_dirs <- StringMap.add basename dir parent_dir.dir_dirs;
-		    dir
-		in
-		dir
+	      "." -> parent_dir
+	    | ".." -> parent_dir.dir_parent
+	    | _ ->
+              (* educated guess : this does not really make sense on Windows,
+                 as inode numbers are generated and not read from the file-system. *)
+	      let dirname = parent_dir.dir_fullname in
+	      let basename =
+		try
+                  let _, key2 = get_file_uid (Filename.concat dirname basename) in
+		  if key = key2
+	          then
+		    basename
+		  else raise Not_found
+		with _ ->
+		  let files = Sys.readdir dirname in
+		  let nfiles = Array.length files in
+		  let rec iter i =
+		    assert (i < nfiles);
+		    let file = files.(i) in
+		    let _, key2 =           get_file_uid  (Filename.concat dirname file) in
+		    if key = key2 then
+		      file
+		    else
+		      iter (i+1)
+		  in
+		  iter 0
+	      in
+	      let dir =
+		try
+		  StringMap.find basename parent_dir.dir_dirs
+		with Not_found ->
+		  let dir = {
+		    dir_basename = basename;
+		    dir_parent = parent_dir;
+                    dir_file = File.add_basename parent_dir.dir_file basename;
+		    dir_key = key;
+		    dir_id = new_dir_id b;
+		    dir_files = StringMap.empty;
+		    dir_dirs = StringMap.empty;
+		    dir_fullname = Filename.concat parent_dir.dir_fullname basename;
+		  } in
+		  parent_dir.dir_dirs <- StringMap.add basename dir parent_dir.dir_dirs;
+		  dir
+	      in
+	      dir
 	end
-	| _ -> assert false
+      | _ -> assert false
     in
     Hashtbl.add b.build_directories key dir;
     dir
@@ -355,7 +355,8 @@ let create current_dir_filename build_dir_filename =
   let build_cache_log = open_out (build_cache_filename ^ ".log") in
   let build_log = open_out
     (Filename.concat build_dir_filename "build.log") in
-  Printf.eprintf "Cache: %d digests loaded\n" !build_cache_content;
+  if verbose 5 then
+    Printf.eprintf "Cache: %d digests loaded\n" !build_cache_content;
   let b =
     {
       build_directories;

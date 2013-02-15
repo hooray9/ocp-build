@@ -191,6 +191,12 @@ to rebuild to get compilation information ?
     assert (!missing_sources = 0);
     command_need_execution
 
+let experimental =
+  try
+    ignore (Sys.getenv "OCPBUILD_SAFE_MODE");
+    false
+  with Not_found -> true
+
 let init b targets =
   if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 1: init\n";
@@ -253,7 +259,10 @@ let init b targets =
 	  r.rule_state <- RULE_ACTIVE;
 	  if verbose 9 then
 	    Printf.eprintf "rule %d <- STATE ACTIVE\n" r.rule_id;
-	  IntMap.iter (fun _ file -> activate_source file) r.rule_sources
+	  IntMap.iter (fun _ f ->
+        if not f.file_exists && f.file_target_of = [] && experimental then
+          raise (MissingSourceWithNoBuildingRule (r, file_filename f));
+        activate_source f) r.rule_sources
       | RULE_ACTIVE -> () (* already active *)
       | _ -> assert false
 
@@ -262,16 +271,19 @@ let init b targets =
       Printf.eprintf "activate_source [%s]\n" (file_filename f);
     match f.file_target_of with
 	[] ->
-	  if verbose 9 then
-	    Printf.eprintf "no rule to build target [%s]\n" (file_filename f);
-
+      if verbose 9 then
+	Printf.eprintf "no rule to build target [%s]\n" (file_filename f);
       | [r] -> activate_rule r
       | _ -> delayed_rules := f.file_target_of :: !delayed_rules
   in
   if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 3: activating rules\n";
 
-  List.iter activate_source targets;
+  List.iter (fun f ->
+    if verbose 5 then
+      Printf.eprintf "BuildEngine.init: activate main target %S\n"
+        (file_filename f);
+    activate_source f) targets;
   if verbose 3 then
     Printf.eprintf "%d targets waiting for active rule\n" (List.length !delayed_rules);
 
@@ -343,7 +355,9 @@ let init b targets =
 	  incr missing_sources;
 	  if verbose 7 then Printf.eprintf "Missing %s\n%!" (file_filename f);
 	  match f.file_target_of with
-	      [] -> raise (MissingSourceWithNoBuildingRule (r, file_filename f))
+	      [] ->
+       if not experimental then
+         raise (MissingSourceWithNoBuildingRule (r, file_filename f))
 	    | _ -> ()
 	end
       ) r.rule_sources;
@@ -902,6 +916,7 @@ let print_project_location pj =
 *)
 
 let parallel_loop b ncores =
+  let max_nslots = ref 0 in
   let slots = ref IntMap.empty in
 
   (* [iter freeslots] tries to associate a waiting action to a free slot, if one
@@ -1005,6 +1020,7 @@ let parallel_loop b ncores =
     iter nslots
 
   and execute_proc proc nslots =
+    if nslots > !max_nslots then max_nslots := nslots;
     match proc.proc_commands with
       [] ->
       if verbose 3 then
@@ -1163,7 +1179,8 @@ let parallel_loop b ncores =
 	proc.proc_commands <- actions @ proc.proc_commands;
 	execute_proc proc nslots
   in
-  iter ncores
+  iter ncores;
+  !max_nslots
 
 let save_cache b =
   let oc = open_out b.build_cache_filename in
@@ -1176,9 +1193,10 @@ let save_cache b =
 
 let parallel_loop b ncores =
   try
-    parallel_loop b ncores;
+    let max_nslots = parallel_loop b ncores in
     save_cache b;
     BuildEngineDisplay.finish ();
+    max_nslots
   with e ->
     save_cache b;
     BuildEngineDisplay.finish ();
@@ -1187,7 +1205,7 @@ let parallel_loop b ncores =
 (*let errors () = !errors *)
 let fatal_errors () = !fatal_errors
 
-let sanitize b delete_orphans =
+let sanitize b delete_orphans is_ok =
   let has_orphan_directories = ref false in
 (*  Printf.fprintf stderr "BuildEngine.sanitize %s\n%!" b.build_dir_filename; *)
   let dir = File.of_string b.build_dir_filename in
@@ -1231,15 +1249,16 @@ let sanitize b delete_orphans =
         let cdir = BuildEngineContext.find_dir cdir basename in
         iter filename cdir
       with Not_found ->
-        Printf.eprintf "Warning: orphan directory %s/%s\n%!"
-          cdir.dir_fullname basename;
-        has_orphan_directories := true;
-        match delete_orphans with
+        if not (is_ok basename) then begin
+          Printf.eprintf "Warning: orphan directory %s/%s\n%!"
+            cdir.dir_fullname basename;
+          has_orphan_directories := true;
+          match delete_orphans with
             KeepOrphans
           | DeleteOrphanFiles -> ()
           | DeleteOrphanFilesAndDirectories ->
             File.Dir.remove_all filename
-
+        end
   ) dir;
   if !has_orphan_directories then begin
     Printf.eprintf "\tYou can use -sanitize-dirs to remove \

@@ -47,3 +47,5 @@ val find_obuild : (string -> unit) -> string -> unit
 val empty_config : unit -> BuildOCPInterp.config
 val generated_config : unit -> BuildOCPInterp.config
 
+val print_conflicts : bool -> unit
+

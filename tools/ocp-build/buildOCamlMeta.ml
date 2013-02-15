@@ -24,54 +24,51 @@ open BuildOCPVariable
 open BuildOCamlConfig.TYPES
 
 let load_META_files pj cfg top_dirname =
-  if verbose 4 then
-    Printf.eprintf "Loading METAs from %S\n%!" top_dirname;
-  BuildScanner.scan_directory (fun meta_dirname basename meta_filename ->
+  let add_META meta_dirname basename meta_filename =
     (*
       Printf.eprintf "dirname=%S\n%!" dirname;
       Printf.eprintf "basename=%S\n%!" basename;
       Printf.eprintf "filename=%S\n%!" filename;
     *)
-    if basename = "META" || OcpString.starts_with basename "META." then
-      try
-        let meta = MetaParser.parse_file meta_filename in
+    try
+      let meta = MetaParser.parse_file meta_filename in
+      if verbose 4 then
+        Printf.eprintf "Loaded %S\n%!" meta_filename;
+
+      let rec add_meta meta_dirname pj path name meta =
         if verbose 4 then
-          Printf.eprintf "Loaded %S\n%!" meta_filename;
+          Printf.eprintf "add_meta %S %S\n%!" path name;
 
-        let rec add_meta meta_dirname pj path name meta =
-          if verbose 4 then
-            Printf.eprintf "add_meta %S %S\n%!" path name;
+        let dirname = match meta.meta_directory with
+          | Some dirname when dirname <> "" ->
+            if dirname.[0] = '^' || dirname.[0] = '+' then
+              Filename.concat cfg.ocaml_ocamllib
+                (String.sub dirname 1 (String.length dirname-1))
+            else
+            if Filename.is_relative dirname then
+              Filename.concat meta_dirname dirname
+            else
+              dirname
+          | _ -> meta_dirname
+        in
 
-          let dirname = match meta.meta_directory with
-            | Some dirname when dirname <> "" ->
-              if dirname.[0] = '^' || dirname.[0] = '+' then
-                Filename.concat cfg.ocaml_ocamllib
-                  (String.sub dirname 1 (String.length dirname-1))
-              else
-                if Filename.is_relative dirname then
-                  Filename.concat meta_dirname dirname
-                else
-                  dirname
-            | _ -> meta_dirname
-          in
-
-          if verbose 4 then
-            Printf.eprintf "dirname=%S\n%!" dirname;
-          let exists =
-            match meta.meta_exists_if with
-              [] -> true
-            | list ->
-              List.for_all (fun filename ->
+        if verbose 4 then
+          Printf.eprintf "dirname=%S\n%!" dirname;
+        let exists =
+          match meta.meta_exists_if with
+            [] -> true
+          | list ->
+            List.for_all (fun filename ->
                 let proof_filename = Filename.concat dirname filename in
                 if not (Sys.file_exists proof_filename) then begin
                   if verbose 4 then
                     Printf.eprintf
                       "Warning: proof of package %S does not exist\n%!"
-                    proof_filename;
+                      proof_filename;
                   false
                 end else true) list
-          in
-          if exists then
+        in
+        if exists then
           (*
             let name =
             match meta.meta_name with
@@ -89,15 +86,15 @@ let load_META_files pj cfg top_dirname =
             match var.metavar_preds, var.metavar_value with
               (* TODO: handle multiple files (objects) *)
               [ "byte", true ], [ archive ]
-                when Filename.check_suffix archive ".cma"
-                  ->
-                    has_byte := true;
-                    byte_archive := Filename.chop_suffix archive ".cma"
+              when Filename.check_suffix archive ".cma"
+              ->
+              has_byte := true;
+              byte_archive := Filename.chop_suffix archive ".cma"
             | [ "native", true ], [ archive ]
               when Filename.check_suffix archive ".cmxa"
-                ->
+              ->
               has_asm := true;
-                  asm_archive := Filename.chop_suffix archive ".cmxa"
+              asm_archive := Filename.chop_suffix archive ".cmxa"
 
             | _ -> ()
           ) meta.meta_archive;
@@ -120,7 +117,7 @@ let load_META_files pj cfg top_dirname =
             match var.metavar_preds with
             | [] -> requires := var.metavar_value
 
-                (*
+            (*
                   | [ "byte", true ] ->
                   has_byte := Some var.metavar_value
                   | [ "native", true ] ->
@@ -129,10 +126,10 @@ let load_META_files pj cfg top_dirname =
             | _ -> ()
           ) meta.meta_requires;
 
-              (* for objects, we should set   pk.package_sources <- source_files; *)
+          (* for objects, we should set   pk.package_sources <- source_files; *)
 
           let pk = BuildOCPInterp.new_package pj fullname dirname
-            meta_filename BuildOCPTree.LibraryPackage in
+              meta_filename BuildOCPTree.LibraryPackage in
 
           pk.package_source_kind <- "meta";
           List.iter (fun s ->
@@ -141,9 +138,9 @@ let load_META_files pj cfg top_dirname =
             dep.dep_link <- true
           ) !requires;
 
-              (* this package has already been generated *)
+          (* this package has already been generated *)
           pk.package_options <- StringMap.add "generated"
-            (OptionBool true) pk.package_options;
+              (OptionBool true) pk.package_options;
 
           begin
             match meta.meta_version with
@@ -154,23 +151,38 @@ let load_META_files pj cfg top_dirname =
           begin
             match archive with
               None ->
-                pk.package_options <- StringMap.add "meta"
+              pk.package_options <- StringMap.add "meta"
                   (OptionBool true) pk.package_options;
-                if verbose 4 then
-                  Printf.eprintf "Warning: package %S is meta\n%!" fullname
+              if verbose 4 then
+                Printf.eprintf "Warning: package %S is meta\n%!" fullname
             | Some archive ->
               pk.package_options <- StringMap.add "archive"
-                (OptionList [archive]) pk.package_options;
+                  (OptionList [archive]) pk.package_options;
           end;
           List.iter (fun (name, meta) ->
             add_meta dirname pj (fullname ^ ".") name meta) meta.meta_package;
 
-        in
-        let name = MetaParser.name_of_META meta_filename in
-        add_meta meta_dirname pj "" name meta
+      in
+      let name = MetaParser.name_of_META meta_filename in
+      add_meta meta_dirname pj "" name meta
 
-      with e ->
-        Printf.eprintf "Warning: exception %S while loading %S\n%!"
-          (Printexc.to_string e) meta_filename
+    with e ->
+      Printf.eprintf "Warning: exception %S while loading %S\n%!"
+        (Printexc.to_string e) meta_filename
 
-  ) top_dirname
+
+  in
+  if verbose 4 then
+    Printf.eprintf "Loading METAs from %S\n%!" top_dirname;
+  let files = Sys.readdir top_dirname in
+  Array.iter (fun basename ->
+    let filename = Filename.concat top_dirname basename in
+    if OcpString.starts_with basename "META." then
+      add_META top_dirname basename filename
+    else
+    if Sys.is_directory filename then
+      let meta_filename = Filename.concat filename "META" in
+      if Sys.file_exists meta_filename then
+        add_META filename "META" meta_filename
+  ) files
+

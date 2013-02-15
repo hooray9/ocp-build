@@ -79,6 +79,32 @@ let compare_packages pk1 pk2 =
   | true, false -> PackageConflict
   | false, true -> PackageConflict
 
+let conflicts = ref []
+
+let print_conflicts verbose_conflicts =
+  if !conflicts <> [] then
+  if verbose_conflicts then
+    List.iter (fun (pk, pk2, pk3) ->
+      Printf.eprintf "Warning: two projects called %S\n" pk.package_name;
+      let print_package msg pk =
+        let msg_len = String.length msg in
+        let dirname_len = String.length pk.package_dirname in
+        let filename_len = String.length pk.package_filename in
+        if msg_len + dirname_len + filename_len > 70 then
+          Printf.eprintf "  %s %s\n     (%s)\n" msg
+            pk.package_dirname pk.package_filename
+        else
+          Printf.eprintf "  %s %s (%s)\n" msg
+            pk.package_dirname pk.package_filename;
+      in
+      print_package "In" pk;
+      print_package "In" pk2;
+      print_package "Keeping" pk3;
+    ) !conflicts
+  else
+    Printf.eprintf
+      "Warning: %d package conflicts solved (use -print-conflicts)\n%!"
+      ( List.length !conflicts )
 
 let rec validate_project s pk =
   if verbose 5 then
@@ -94,35 +120,24 @@ let rec validate_project s pk =
         | PackageEquality ->
           (* same package, no need to add *)
           false
-        | PackageUpgrade ->
+        | PackageUpgrade -> (* NOT YET DONE *)
           Hashtbl.remove s.validated key;
           true
 
         | PackageConflict ->
 
-          Printf.eprintf "Warning: two projects called %S\n" pk.package_name;
-          let print_package msg pk =
-            let msg_len = String.length msg in
-            let dirname_len = String.length pk.package_dirname in
-            let filename_len = String.length pk.package_filename in
-            if msg_len + dirname_len + filename_len > 70 then
-              Printf.eprintf "  %s %s\n     (%s)\n" msg
-                pk.package_dirname pk.package_filename
-            else
-            Printf.eprintf "  %s %s (%s)\n" msg
-              pk.package_dirname pk.package_filename;
+          let add_new =
+            if pk.package_id > pk2.package_id then begin
+              Hashtbl.remove s.validated key;
+              true
+            end else begin
+              false
+            end
           in
-          print_package "In" pk;
-          print_package "In" pk2;
-          if pk.package_id > pk2.package_id then begin
-            print_package "Keeping" pk;
-            Hashtbl.remove s.validated key;
-            true
-          end else begin
-            print_package "Keeping" pk2;
-            false
-          end
-
+          conflicts := (pk, pk2,
+            if add_new then pk else pk2
+          ) :: !conflicts;
+          add_new
       with Not_found -> true
     in
 
