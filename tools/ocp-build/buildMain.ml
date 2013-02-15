@@ -132,7 +132,7 @@ let query_root_dir = ref false
 let query_install_dir = ref None
 let query_include_dir = ref None
 let configure_arg = ref false
-let has_package_args = ref []
+let query_has_package_args = ref []
 
 let init_arg = ref false
 let arg_config_list = BuildOCamlConfig.arg_list ()
@@ -167,7 +167,7 @@ let arg_list = [
   " Configure";
 
   "-query-has", Arg.String (fun s ->
-    has_package_args := s :: !has_package_args
+    query_has_package_args := s :: !query_has_package_args
   ),
   "PACKAGE Verify that package is currently installed";
 
@@ -600,7 +600,8 @@ let build () =
     env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
 
   List.iter (fun dir ->
-    Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
+    if verbose 3 then
+      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
     let dir = File.of_string dir in
     env_ocp_files := (add_timing "find env" timer_find_env
         BuildOCP.scan_root dir) @ !env_ocp_files)
@@ -632,7 +633,39 @@ let build () =
     in
 
 
-    if !configure_arg then exit 0;
+    if !configure_arg then begin
+
+      let pj =
+        add_timing "sort packages" timer_sort_packages
+          BuildOCP.verify_packages state in
+
+      begin match !query_include_dir with
+          None -> ()
+        | Some p ->
+          Array.iter (fun pk ->
+              if pk.package_name = p then begin
+                Printf.printf "%s\n" pk.package_dirname;
+                exit 0
+              end
+            ) pj.project_sorted;
+          Printf.eprintf "Error: no package %S\n%!" p;
+          exit 2
+      end;
+
+      List.iter (fun p ->
+        try
+        let has = ref false in
+        Array.iter (fun pk ->
+          if pk.package_name = p then raise Exit
+        ) pj.project_sorted;
+          Printf.eprintf "Error: no package %S\n%!" p;
+          exit 2
+        with Exit ->
+          Printf.printf "Package %S is present\n%!" p
+      ) !query_has_package_args;
+
+       exit 0;
+    end;
 
     Unix.chdir (File.to_string project_dir);
     if not !query_something then
