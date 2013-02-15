@@ -71,6 +71,10 @@ module TYPES : sig
     mutable cin_native : bool;
     mutable cin_ocamlbin : string option;
     mutable cin_ocamllib : string option;
+    mutable cin_use_ocamlfind : bool;
+    mutable cin_ocps_in_ocamllib : bool;
+    mutable cin_meta_dirnames : string list;
+    mutable cin_ocps_dirnames : string list;
   }
 
   type config_output = {

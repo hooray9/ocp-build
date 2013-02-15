@@ -125,7 +125,7 @@ let meta_dirnames_arg = ref []
 let meta_verbose_arg = ref 0
 let list_installed_arg = ref false
 let install_bundle_arg = ref None
-let global_env_arg = ref false
+(* let global_env_arg = ref false *)
 
 let query_something = ref false
 let query_root_dir = ref false
@@ -134,7 +134,6 @@ let query_include_dir = ref None
 let configure_arg = ref false
 let has_package_args = ref []
 
-let local_only_arg = ref false
 let init_arg = ref false
 let arg_config_list = BuildOCamlConfig.arg_list ()
 let arg_option_list =  BuildOptions.arg_list ()
@@ -144,7 +143,7 @@ let arg_list = [
     save_arguments_arg := true;
     save_project := true), " Create the ocp-build.root file";
 
-  "-global-env", Arg.Set global_env_arg, " ";
+(*  "-global-env", Arg.Set global_env_arg, " "; *)
 
   "-version", Arg.Unit (fun () ->
     Printf.printf "%s\n%!" BuildVersion.version;
@@ -172,8 +171,10 @@ let arg_list = [
   ),
   "PACKAGE Verify that package is currently installed";
 
+(*
   "-local-only", Arg.Set local_only_arg,
   " Don't scan external directories";
+*)
 
   "-query-root-dir", Arg.Unit (fun _ ->
     query_root_dir := true; query_something := true),
@@ -593,40 +594,43 @@ let build () =
   (* Don't modify default values from now on, since they have been included
    in the default configuration ! *)
 
-  let env_files = ref [] in
-  if not !local_only_arg then begin
-    let env_dirs = ref [] in
-    env_dirs := cfg.ocaml_ocamllib :: !env_dirs;
-    List.iter (fun dir ->
-      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
-      let dir = File.of_string dir in
-      env_files := (add_timing "find env" timer_find_env
-          BuildOCP.scan_root dir) @ !env_files)
-      !env_dirs;
+  let env_ocp_dirs = ref cin.cin_ocps_dirnames in
+  let env_ocp_files = ref [] in
+  if cin.cin_ocps_in_ocamllib then
+    env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
+
+  List.iter (fun dir ->
+    Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
+    let dir = File.of_string dir in
+    env_ocp_files := (add_timing "find env" timer_find_env
+        BuildOCP.scan_root dir) @ !env_ocp_files)
+    !env_ocp_dirs;
+
+  let state = BuildOCP.init_packages () in
+
+  let env_meta_dirs = ref cin.cin_meta_dirnames in
+
+  if cin.cin_use_ocamlfind then begin
+    let more_meta_dirs =
+      match ocamlfind_path with
+        [] -> [cfg.ocaml_ocamllib]
+      | list -> list
+    in
+    env_meta_dirs := !env_meta_dirs @ more_meta_dirs;
   end;
 
-    let state = BuildOCP.init_packages () in
+  add_timing "load meta" timer_load_meta
+        List.iter (fun dirname ->
+          BuildOCamlMeta.load_META_files state cfg dirname
+      ) !env_meta_dirs;
+
 
     let _nerrors1 =
       let config = BuildOCP.generated_config () in
       add_timing "load env" timer_load_env
-      (BuildOCP.load_ocp_files config state)  !env_files
+      (BuildOCP.load_ocp_files config state)  !env_ocp_files
     in
 
-    if not !local_only_arg then begin
-      add_timing "load meta" timer_load_meta
-        List.iter (fun dirname ->
-        let dirs =
-          if dirname = "" || dirname = "-" then
-            match ocamlfind_path with
-              [] -> [cfg.ocaml_ocamllib]
-            | list -> list
-          else
-            [dirname]
-        in
-        List.iter (BuildOCamlMeta.load_META_files state cfg) dirs
-      ) !meta_dirnames_arg;
-    end;
 
     if !configure_arg then exit 0;
 

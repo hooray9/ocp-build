@@ -45,6 +45,10 @@ type config_input = {
   mutable cin_native : bool;
   mutable cin_ocamlbin : string option;
   mutable cin_ocamllib : string option;
+  mutable cin_use_ocamlfind : bool;
+  mutable cin_ocps_in_ocamllib : bool;
+  mutable cin_meta_dirnames : string list;
+  mutable cin_ocps_dirnames : string list;
 }
 
 type config_output = {
@@ -205,11 +209,32 @@ let installbin_option =
   [ "installbin" ]  ["where programs should be installed"]
   string_option "/usr/local/bin"
 
+let meta_dirnames_option =
+  SimpleConfig.create_option cin_options
+  [ "meta_dirnames" ] ["List of directories where to\n  look for META files" ]
+  (list_option string_option) []
+
+let use_ocamlfind_option =
+  SimpleConfig.create_option cin_options
+  [ "use_ocamlfind" ] ["If set, use ocamlfind to locate\n  META files" ]
+  bool_option true
+
+let ocps_in_ocamllib_option =
+  SimpleConfig.create_option cin_options
+  [ "ocps_in_ocamllib" ] ["If set, load .ocp files from\n  OCAMLLIB" ]
+  bool_option true
+
+let ocps_dirnames_option =
+  SimpleConfig.create_option cin_options
+  [ "ocps_dirnames" ] ["List of directories where to\n  look for .ocp files" ]
+  (list_option string_option) []
+
 
 
 type arg_action =
   | LoadFile of string
   | SetTrue of bool SimpleConfig.config_option
+  | SetFalse of bool SimpleConfig.config_option
   | SetString of string SimpleConfig.config_option * string
   | SetStrings of string list SimpleConfig.config_option * string
   | SetStringOption of string option SimpleConfig.config_option * string
@@ -218,11 +243,26 @@ type arg_action =
 let arg_save_ocaml_config = ref None
 let arguments = ref []
 
+let argumentize s =
+  let s = String.copy s in
+  for i = 0 to String.length s - 1 do
+    match s.[i] with
+    | '_' -> s.[i] <- '-'
+    | _ -> ()
+  done;
+  s
+
 let arg_set_true bool_option =
-  ("-" ^ LowLevel.shortname bool_option,
+  ("-" ^ argumentize (LowLevel.shortname bool_option),
     Arg.Unit (fun () ->
       arguments := (SetTrue bool_option) :: !arguments;
-    ), "BOOL " ^ LowLevel.get_help bool_option)
+    ), " " ^LowLevel.get_help bool_option)
+
+let arg_set_false bool_option =
+  ("-no-" ^ argumentize (LowLevel.shortname bool_option),
+    Arg.Unit (fun () ->
+      arguments := (SetFalse bool_option) :: !arguments;
+    ), " Unset option. " ^ LowLevel.get_help bool_option)
 
 let arg_set_strings option =
   ("-" ^ LowLevel.shortname option,
@@ -235,7 +275,6 @@ let arg_set_string_option option =
     Arg.String (fun s ->
       arguments := (SetStringOption (option,s)) :: !arguments;
     ), "STRING " ^ LowLevel.get_help option)
-
 
 let arg_list () =
   [
@@ -252,7 +291,14 @@ let arg_list () =
     "FILENAME Save ocaml config from FILENAME";
 
     arg_set_true bytecode_option;
+    arg_set_false bytecode_option;
     arg_set_true native_option;
+    arg_set_false native_option;
+    arg_set_true use_ocamlfind_option;
+    arg_set_false use_ocamlfind_option;
+    arg_set_true ocps_in_ocamllib_option;
+    arg_set_false ocps_in_ocamllib_option;
+    arg_set_strings ocamlc_option;
     arg_set_strings ocamlc_option;
     arg_set_strings ocamlopt_option;
     arg_set_strings ocamldep_option;
@@ -281,6 +327,7 @@ let apply_arguments () =
     match arg_action with
     | LoadFile filename -> load_config_options (File.of_string filename)
     | SetTrue option -> option =:= true
+    | SetFalse option -> option =:= false
     | SetString (option, s) -> option =:= s
     | SetStrings (option, s) -> option =:= [s]
     | SetStringOption (option, s) -> option =:= Some s
@@ -307,6 +354,10 @@ let check_config () =
     cin_native = !!native_option;
     cin_ocamlbin = !!ocamlbin_option;
     cin_ocamllib = !!ocamllib_option;
+    cin_use_ocamlfind = !!use_ocamlfind_option;
+    cin_ocps_in_ocamllib = !!ocps_in_ocamllib_option;
+    cin_meta_dirnames = !!meta_dirnames_option;
+    cin_ocps_dirnames = !!ocps_dirnames_option;
   }
   in
 

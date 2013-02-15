@@ -344,7 +344,10 @@ end
 let arg_list () = List.rev !arg_list
 let rec shortcut_arg new_name old_name list =
   match list with
-      [] -> assert false
+      [] ->
+    Printf.eprintf "Could not find old option %S for new option %S\n%!"
+      old_name new_name;
+    assert false
     | (name, f, help) :: list ->
       if name = old_name then
         (new_name, f,
