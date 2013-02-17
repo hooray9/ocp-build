@@ -1,7 +1,7 @@
-This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.22)  13 FEB 2013 23:10
+This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.22)  18 FEB 2013 00:09
 entering extended mode
  %&-line parsing enabled.
-**user-manual.tex
+**user-manual
 (./user-manual.tex
 LaTeX2e <2009/09/24>
 Babel <v3.8l> and hyphenation patterns for english, usenglishmax, dumylang, noh
@@ -219,194 +219,219 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 
 ] (./user-manual.toc
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <10.95> on input line 1.
+(Font)              <10.95> on input line 2.
 LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 1.
-)
+(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 4.
+ [3])
 \tf@toc=\write4
 \openout4 = `user-manual.toc'.
 
- (../user-manual.tex [3] [4
-
-]
+ (./content.tex [4]
 Chapter 1.
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 18.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 18.
-
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <24.88> on input line 18.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <20.74> on input line 18.
-LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <24.88> not available
-(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 18.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <14.4> on input line 24.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 24.
-LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <14.4> not available
-(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 24.
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 24.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 24.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 26.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 26.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 28.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 28.
-
-[5] [6
-
-]
-Chapter 2.
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 30.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 30.
-
-[7]
-Overfull \hbox (19.67488pt too wide) has occurred while \output is active
-\OT1/cmr/m/n/10.95 8 \OT1/cmr/m/sl/10.95 CHAPTER 2.  TUTORIAL: HOW TO USE $[]$ 
-IN YOUR PROJECTS
- []
-
-[8
-
-]
-Chapter 3.
-LaTeX Font Info:    Try loading font information for OMS+cmr on input line 42.
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 28.
 (/usr/share/texmf-texlive/tex/latex/base/omscmr.fd
 File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
 )
 LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <10.95> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 42.
- [9]
-Overfull \hbox (0.22635pt too wide) in paragraph at lines 65--66
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 28.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <14.4> on input line 39.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 39.
+LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <14.4> not available
+(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 39.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 39.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 39.
+
+
+Overfull \hbox (18.03844pt too wide) in paragraph at lines 45--50
+\OT1/cmr/m/n/10.95 pow-er-ful be-cause of its spe-cial-iza-tion for OCaml proje
+cts. Also, $[]$
+ []
+
+[5
+
+]
+Overfull \hbox (10.67763pt too wide) in paragraph at lines 63--69
+\OT1/cmr/m/n/10.95 Ca-bal. Con-fig-u-ra-tion files are sim-ple declar-a-tive fi
+les, as with $[]$,
+ []
+
+[6]
+Chapter 2.
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 76.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 76.
+
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <24.88> on input line 76.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <20.74> on input line 76.
+LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <24.88> not available
+(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 76.
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 82.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 82.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 84.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 84.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 86.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 86.
+
+[7
+
+] [8
+
+]
+Chapter 3.
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 88.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 88.
+
+[9]
+Overfull \hbox (25.14989pt too wide) has occurred while \output is active
+\OT1/cmr/m/n/10.95 10 \OT1/cmr/m/sl/10.95 CHAPTER 3.  TUTORIAL: HOW TO USE $[]$
+ IN YOUR PROJECTS
+ []
+
+[10]
+Chapter 4.
+[11
+
+]
+Overfull \hbox (0.22635pt too wide) in paragraph at lines 184--185
 []\OT1/cmr/m/n/10.95 : which mod-ules to de-bug (need more info...) 
  []
 
-[10] [11] [12] [13] [14]
-Chapter 4.
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 238.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 238.
-
-[15
-
-] [16]
-LaTeX Font Info:    Font shape `OMS/cmr/bx/n' in size <10.95> not available
-(Font)              Font shape `OMS/cmsy/b/n' tried instead on input line 319.
-
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 349--349
-[]  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
-st name[] 
- []
-
-
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 349--349
-[]     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
-be 2 *)[] 
- []
-
-[17]
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 372--372
-[]  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
-st name[] 
- []
-
-
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 372--372
-[]     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
-be 2 *)[] 
- []
-
-[18] [19] [20
-
-]
+[12] [13] [14] [15] [16]
 Chapter 5.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 404.
+(hyperref)                removing `math shift' on input line 357.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 404.
+(hyperref)                removing `math shift' on input line 357.
 
-[21] [22
+[17
+
+] [18]
+LaTeX Font Info:    Font shape `OMS/cmr/bx/n' in size <10.95> not available
+(Font)              Font shape `OMS/cmsy/b/n' tried instead on input line 438.
+
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 468--468
+[]  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
+st name[] 
+ []
+
+
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 468--468
+[]     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
+be 2 *)[] 
+ []
+
+[19]
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 491--491
+[]  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
+st name[] 
+ []
+
+
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 491--491
+[]     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
+be 2 *)[] 
+ []
+
+[20] [21] [22
 
 ]
 Chapter 6.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <9> on input line 409.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <5> on input line 409.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 414.
+(hyperref)                removing `math shift' on input line 523.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 414.
+(hyperref)                removing `math shift' on input line 523.
+
+[23] [24
+
+]
+Chapter 7.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <9> on input line 528.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 528.
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 533.
 
 
-Overfull \hbox (71.15158pt too wide) in paragraph at lines 440--440
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 533.
+
+
+Overfull \hbox (71.15158pt too wide) in paragraph at lines 559--559
 []\OT1/cmtt/m/n/10.95 0 to install | 0 to reinstall | 0 to upgrade | 0 to downg
 rade | 1 to remove[] 
  []
 
-[23]
-Overfull \hbox (71.15158pt too wide) in paragraph at lines 457--457
+[25]
+Overfull \hbox (71.15158pt too wide) in paragraph at lines 576--576
 []\OT1/cmtt/m/n/10.95 2 to install | 0 to reinstall | 0 to upgrade | 0 to downg
 rade | 0 to remove[] 
  []
 
 
-Overfull \hbox (65.4029pt too wide) in paragraph at lines 484--484
+Overfull \hbox (65.4029pt too wide) in paragraph at lines 603--603
 [] \OT1/cmtt/m/n/10.95 peerocaml:~%  sudo ./_obuild/ocp-build/ocp-build.asm -in
 stall ocp-build \[] 
  []
 
 
-Overfull \hbox (13.6647pt too wide) in paragraph at lines 484--484
+Overfull \hbox (13.6647pt too wide) in paragraph at lines 603--603
 []    \OT1/cmtt/m/n/10.95 -install-bin /usr/local/bin -install-lib /usr/local/l
 ib/ocaml[] 
  []
 
-[24]) [25] (./user-manual.aux) ) 
+[26]) [27] (./user-manual.aux) ) 
 Here is how much of TeX's memory you used:
- 4218 strings out of 495028
- 61357 string characters out of 1181228
- 129800 words of memory out of 3000000
- 7302 multiletter control sequences out of 15000+50000
+ 4229 strings out of 495028
+ 61473 string characters out of 1181228
+ 130800 words of memory out of 3000000
+ 7307 multiletter control sequences out of 15000+50000
  15360 words of font info for 55 fonts, out of 3000000 for 9000
  28 hyphenation exceptions out of 8191
- 38i,8n,39p,272b,414s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 38i,8n,39p,268b,414s stack positions out of 5000i,500n,10000p,200000b,50000s
 </usr/share/texmf-texlive/fonts/type1/public/am
 sfonts/cm/cmbsy10.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/
 cmbx10.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
@@ -421,9 +446,9 @@ xmf-texlive/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texmf-texlive
 /fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texmf-texlive/fonts/type
 1/public/amsfonts/cm/cmtt12.pfb></usr/share/texmf-texlive/fonts/type1/public/am
 sfonts/cm/cmtt9.pfb>
-Output written on user-manual.pdf (25 pages, 232960 bytes).
+Output written on user-manual.pdf (27 pages, 242277 bytes).
 PDF statistics:
- 320 PDF objects out of 1000 (max. 8388607)
- 59 named destinations out of 1000 (max. 500000)
- 201 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 353 PDF objects out of 1000 (max. 8388607)
+ 65 named destinations out of 1000 (max. 500000)
+ 241 words of extra memory for PDF output out of 10000 (max. 10000000)
 

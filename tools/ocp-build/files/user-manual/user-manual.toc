@@ -1,31 +1,35 @@
-\contentsline {chapter}{\numberline {1}Tutorial: Building an $\texttt {ocp-build}${} project}{5}{chapter.1}
-\contentsline {section}{\numberline {1.1}$\texttt {ocp-build}${} file hierarchy}{5}{section.1.1}
-\contentsline {section}{\numberline {1.2}Invoking $\texttt {ocp-build}${}}{5}{section.1.2}
-\contentsline {section}{\numberline {1.3}Setting $\texttt {ocp-build}${} default parameters}{5}{section.1.3}
-\contentsline {chapter}{\numberline {2}Tutorial: How to use $\texttt {ocp-build}${} in your projects}{7}{chapter.2}
-\contentsline {chapter}{\numberline {3}Building OCaml Projects with {\tt ocp-build}}{9}{chapter.3}
-\contentsline {section}{\numberline {3.1}Environment Variables}{9}{section.3.1}
-\contentsline {section}{\numberline {3.2}Configuration Files}{10}{section.3.2}
-\contentsline {section}{\numberline {3.3}Compilation Layout}{10}{section.3.3}
-\contentsline {section}{\numberline {3.4}Format of the package description files ({\tt .ocp})}{11}{section.3.4}
-\contentsline {subsection}{\numberline {3.4.1}Description of Simple Packages}{11}{subsection.3.4.1}
-\contentsline {subsection}{\numberline {3.4.2}OCaml Configuration}{11}{subsection.3.4.2}
-\contentsline {subsection}{\numberline {3.4.3}OCaml options}{11}{subsection.3.4.3}
-\contentsline {subsubsection}{Per-package options}{11}{section*.2}
-\contentsline {subsubsection}{Per-file options}{12}{section*.3}
-\contentsline {subsection}{\numberline {3.4.4}Advanced options}{13}{subsection.3.4.4}
-\contentsline {subsubsection}{Per-file options}{13}{section*.4}
-\contentsline {subsubsection}{Configurations}{13}{section*.5}
-\contentsline {subsubsection}{Preprocessor requirements: {\tt pp\_requires}}{13}{section*.6}
-\contentsline {section}{\numberline {3.5}Command line options}{14}{section.3.5}
-\contentsline {chapter}{\numberline {4}Managing tests with $\texttt {ocp-build}${}}{15}{chapter.4}
-\contentsline {section}{\numberline {4.1}Running tests}{15}{section.4.1}
-\contentsline {section}{\numberline {4.2}Adding tests to your packages}{16}{section.4.2}
-\contentsline {subsection}{\numberline {4.2.1}Creating an independant ``test'' package}{16}{subsection.4.2.1}
-\contentsline {subsection}{\numberline {4.2.2}Including tests in a ``program'' package}{17}{subsection.4.2.2}
-\contentsline {subsection}{\numberline {4.2.3}Adding external tests to a ``program'' package}{18}{subsection.4.2.3}
-\contentsline {subsection}{\numberline {4.2.4}Complex examples}{18}{subsection.4.2.4}
-\contentsline {chapter}{\numberline {5}Managing Syntax Extensions with $\texttt {ocp-build}${}}{21}{chapter.5}
-\contentsline {chapter}{\numberline {6}Installation}{23}{chapter.6}
-\contentsline {section}{\numberline {6.1}Installing with $\texttt {opam}${}}{23}{section.6.1}
-\contentsline {section}{\numberline {6.2}Installing from GitHub{}}{24}{section.6.2}
+\contentsline {chapter}{\numberline {1}Introduction}{5}{chapter.1}
+\contentsline {section}{\numberline {1.1}Main Features}{5}{section.1.1}
+\contentsline {section}{\numberline {1.2}Comparing $\texttt {ocp-build}${} to others}{5}{section.1.2}
+\contentsline {chapter}{\numberline {2}Tutorial: Building an $\texttt {ocp-build}${} project}{7}{chapter.2}
+\contentsline {section}{\numberline {2.1}$\texttt {ocp-build}${} file hierarchy}{7}{section.2.1}
+\contentsline {section}{\numberline {2.2}Invoking $\texttt {ocp-build}${}}{7}{section.2.2}
+\contentsline {section}{\numberline {2.3}Setting $\texttt {ocp-build}${} default parameters}{7}{section.2.3}
+\contentsline {chapter}{\numberline {3}Tutorial: How to use $\texttt {ocp-build}${} in your projects}{9}{chapter.3}
+\contentsline {section}{\numberline {3.1}Building a simple program}{9}{section.3.1}
+\contentsline {chapter}{\numberline {4}Building OCaml Projects with {\tt ocp-build}}{11}{chapter.4}
+\contentsline {section}{\numberline {4.1}Environment Variables}{11}{section.4.1}
+\contentsline {section}{\numberline {4.2}Configuration Files}{12}{section.4.2}
+\contentsline {section}{\numberline {4.3}Compilation Layout}{12}{section.4.3}
+\contentsline {section}{\numberline {4.4}Format of the package description files ({\tt .ocp})}{13}{section.4.4}
+\contentsline {subsection}{\numberline {4.4.1}Description of Simple Packages}{13}{subsection.4.4.1}
+\contentsline {subsection}{\numberline {4.4.2}OCaml Configuration}{13}{subsection.4.4.2}
+\contentsline {subsection}{\numberline {4.4.3}OCaml options}{13}{subsection.4.4.3}
+\contentsline {subsubsection}{Per-package options}{13}{section*.2}
+\contentsline {subsubsection}{Per-file options}{14}{section*.3}
+\contentsline {subsection}{\numberline {4.4.4}Advanced options}{15}{subsection.4.4.4}
+\contentsline {subsubsection}{Per-file options}{15}{section*.4}
+\contentsline {subsubsection}{Configurations}{15}{section*.5}
+\contentsline {subsubsection}{Preprocessor requirements: {\tt pp\_requires}}{15}{section*.6}
+\contentsline {section}{\numberline {4.5}Command line options}{16}{section.4.5}
+\contentsline {chapter}{\numberline {5}Managing tests with $\texttt {ocp-build}${}}{17}{chapter.5}
+\contentsline {section}{\numberline {5.1}Running tests}{17}{section.5.1}
+\contentsline {section}{\numberline {5.2}Adding tests to your packages}{18}{section.5.2}
+\contentsline {subsection}{\numberline {5.2.1}Creating an independant ``test'' package}{18}{subsection.5.2.1}
+\contentsline {subsection}{\numberline {5.2.2}Including tests in a ``program'' package}{19}{subsection.5.2.2}
+\contentsline {subsection}{\numberline {5.2.3}Adding external tests to a ``program'' package}{20}{subsection.5.2.3}
+\contentsline {subsection}{\numberline {5.2.4}Complex examples}{20}{subsection.5.2.4}
+\contentsline {chapter}{\numberline {6}Managing Syntax Extensions with $\texttt {ocp-build}${}}{23}{chapter.6}
+\contentsline {chapter}{\numberline {7}Installation}{25}{chapter.7}
+\contentsline {section}{\numberline {7.1}Installing with $\texttt {opam}${}}{25}{section.7.1}
+\contentsline {section}{\numberline {7.2}Installing from GitHub{}}{26}{section.7.2}
