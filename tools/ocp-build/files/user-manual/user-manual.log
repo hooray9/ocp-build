@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.22)  18 FEB 2013 00:09
+This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.22)  18 FEB 2013 21:10
 entering extended mode
  %&-line parsing enabled.
 **user-manual
@@ -297,11 +297,11 @@ Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 86.
+(hyperref)                removing `math shift' on input line 99.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 86.
+(hyperref)                removing `math shift' on input line 99.
 
 [7
 
@@ -311,11 +311,11 @@ Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
 Chapter 3.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 88.
+(hyperref)                removing `math shift' on input line 101.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 88.
+(hyperref)                removing `math shift' on input line 101.
 
 [9]
 Overfull \hbox (25.14989pt too wide) has occurred while \output is active
@@ -328,7 +328,7 @@ Chapter 4.
 [11
 
 ]
-Overfull \hbox (0.22635pt too wide) in paragraph at lines 184--185
+Overfull \hbox (0.22635pt too wide) in paragraph at lines 200--201
 []\OT1/cmr/m/n/10.95 : which mod-ules to de-bug (need more info...) 
  []
 
@@ -336,37 +336,37 @@ Overfull \hbox (0.22635pt too wide) in paragraph at lines 184--185
 Chapter 5.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 357.
+(hyperref)                removing `math shift' on input line 373.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 357.
+(hyperref)                removing `math shift' on input line 373.
 
 [17
 
 ] [18]
 LaTeX Font Info:    Font shape `OMS/cmr/bx/n' in size <10.95> not available
-(Font)              Font shape `OMS/cmsy/b/n' tried instead on input line 438.
+(Font)              Font shape `OMS/cmsy/b/n' tried instead on input line 454.
 
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 468--468
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 484--484
 []  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
 st name[] 
  []
 
 
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 468--468
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 484--484
 []     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
 be 2 *)[] 
  []
 
 [19]
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 491--491
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 507--507
 []  \OT1/cmtt/m/n/10.95 (* for all the tests, the program should receive the te
 st name[] 
  []
 
 
-Overfull \hbox (7.91602pt too wide) in paragraph at lines 491--491
+Overfull \hbox (7.91602pt too wide) in paragraph at lines 507--507
 []     \OT1/cmtt/m/n/10.95 (* in the test "3", the expected exit status should 
 be 2 *)[] 
  []
@@ -377,58 +377,58 @@ be 2 *)[]
 Chapter 6.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 523.
+(hyperref)                removing `math shift' on input line 539.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 523.
+(hyperref)                removing `math shift' on input line 539.
 
 [23] [24
 
 ]
 Chapter 7.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <9> on input line 528.
+(Font)              <9> on input line 544.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <5> on input line 528.
+(Font)              <5> on input line 544.
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 533.
+(hyperref)                removing `math shift' on input line 549.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 533.
+(hyperref)                removing `math shift' on input line 549.
 
 
-Overfull \hbox (71.15158pt too wide) in paragraph at lines 559--559
+Overfull \hbox (71.15158pt too wide) in paragraph at lines 575--575
 []\OT1/cmtt/m/n/10.95 0 to install | 0 to reinstall | 0 to upgrade | 0 to downg
 rade | 1 to remove[] 
  []
 
 [25]
-Overfull \hbox (71.15158pt too wide) in paragraph at lines 576--576
+Overfull \hbox (71.15158pt too wide) in paragraph at lines 592--592
 []\OT1/cmtt/m/n/10.95 2 to install | 0 to reinstall | 0 to upgrade | 0 to downg
 rade | 0 to remove[] 
  []
 
 
-Overfull \hbox (65.4029pt too wide) in paragraph at lines 603--603
+Overfull \hbox (65.4029pt too wide) in paragraph at lines 619--619
 [] \OT1/cmtt/m/n/10.95 peerocaml:~%  sudo ./_obuild/ocp-build/ocp-build.asm -in
 stall ocp-build \[] 
  []
 
 
-Overfull \hbox (13.6647pt too wide) in paragraph at lines 603--603
+Overfull \hbox (13.6647pt too wide) in paragraph at lines 619--619
 []    \OT1/cmtt/m/n/10.95 -install-bin /usr/local/bin -install-lib /usr/local/l
 ib/ocaml[] 
  []
 
 [26]) [27] (./user-manual.aux) ) 
 Here is how much of TeX's memory you used:
- 4229 strings out of 495028
- 61473 string characters out of 1181228
+ 4233 strings out of 495028
+ 61521 string characters out of 1181228
  130800 words of memory out of 3000000
- 7307 multiletter control sequences out of 15000+50000
+ 7309 multiletter control sequences out of 15000+50000
  15360 words of font info for 55 fonts, out of 3000000 for 9000
  28 hyphenation exceptions out of 8191
  38i,8n,39p,268b,414s stack positions out of 5000i,500n,10000p,200000b,50000s
@@ -446,9 +446,9 @@ xmf-texlive/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texmf-texlive
 /fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texmf-texlive/fonts/type
 1/public/amsfonts/cm/cmtt12.pfb></usr/share/texmf-texlive/fonts/type1/public/am
 sfonts/cm/cmtt9.pfb>
-Output written on user-manual.pdf (27 pages, 242277 bytes).
+Output written on user-manual.pdf (27 pages, 244327 bytes).
 PDF statistics:
- 353 PDF objects out of 1000 (max. 8388607)
- 65 named destinations out of 1000 (max. 500000)
- 241 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 364 PDF objects out of 1000 (max. 8388607)
+ 67 named destinations out of 1000 (max. 500000)
+ 257 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -99,6 +99,16 @@ let rec find_in_PATH command path =
 	else
 	  find_in_PATH command path
 
+let rec find_first_in_path path filter list =
+  match list with
+      [] -> None
+    | basename :: others ->
+      try
+        let binary = find_in_PATH basename path in
+        if filter binary then Some binary else raise Not_found
+      with Not_found ->
+        find_first_in_path path filter others
+
 let split_version version =
   let version = String.copy version in
   for i = 0 to String.length version - 1 do

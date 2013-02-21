@@ -24,3 +24,5 @@ val find_in_PATH : string -> string list -> string
 val get_PATH : unit -> string list
 val set_PATH : string list -> unit
 
+val find_first_in_path :
+  string list -> (string -> bool) -> string list -> string option

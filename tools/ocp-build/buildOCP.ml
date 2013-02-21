@@ -156,8 +156,17 @@ let rec validate_project s pk =
     end
   end
 
+let is_enabled options =
+  try
+    match StringMap.find "enabled" options with
+    | OptionBool bool -> bool
+    | OptionList list ->
+      (* TODO: find if one of the tags is enabled *)
+      assert false
+  with Not_found -> true
+
 let check_project s pk =
-  if bool_option_true pk.package_options enabled_option then begin
+  if is_enabled pk.package_options then begin
 
     pk.package_missing_deps <- 0;
     StringMap.iter (fun name pkdep ->
@@ -565,7 +574,7 @@ let verify_packages packages =
   let project_disabled = ref [] in
 
   Array.iter (fun pk ->
-    if bool_option_true pk.package_options enabled_option then begin
+    if is_enabled pk.package_options then begin
       if pk.package_missing_deps > 0 then
 	project_incomplete := pk :: !project_incomplete
     end else

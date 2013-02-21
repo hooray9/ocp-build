@@ -10,17 +10,18 @@ OCPBUILD=./ocp-build/ocp-build
 OCPBUILD_FLAGS=
 
 all: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS) -scan
+	$(OCPBUILD) build $(OCPBUILD_FLAGS) -scan
 init: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS) -init -scan
+	$(OCPBUILD) root
+	$(OCPBUILD_FLAGS) configure -scan
 verbose: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS) -v 5
+	$(OCPBUILD) build $(OCPBUILD_FLAGS) -v 5
 byte: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS) -byte
+	$(OCPBUILD) build $(OCPBUILD_FLAGS) -byte
 opt: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS) -asm
+	$(OCPBUILD) build $(OCPBUILD_FLAGS) -asm
 noscan: $(OCPBUILD)
-	$(OCPBUILD) $(OCPBUILD_FLAGS)
+	$(OCPBUILD) build $(OCPBUILD_FLAGS) -no-scan
 
 ocp-build/ocp-build.boot: boot/ocp-build.boot
 	cp -f boot/ocp-build.boot ocp-build/ocp-build.boot
@@ -36,7 +37,7 @@ ocp-build/ocp-build: ocp-build/ocp-build.boot ocp-build/win32_c.c
 	$(MAKE) -C ocp-build
 
 scan: $(OCPBUILD)
-	$(OCPBUILD) -scan
+	$(OCPBUILD) build -scan
 sanitize: $(OCPBUILD)
 	$(OCPBUILD) -sanitize
 ocpbuild: $(OCPBUILD)

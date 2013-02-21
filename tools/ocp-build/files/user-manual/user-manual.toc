@@ -7,6 +7,8 @@
 \contentsline {section}{\numberline {2.3}Setting $\texttt {ocp-build}${} default parameters}{7}{section.2.3}
 \contentsline {chapter}{\numberline {3}Tutorial: How to use $\texttt {ocp-build}${} in your projects}{9}{chapter.3}
 \contentsline {section}{\numberline {3.1}Building a simple program}{9}{section.3.1}
+\contentsline {section}{\numberline {3.2}Building libraries}{10}{section.3.2}
+\contentsline {section}{\numberline {3.3}Customization of per-file options}{10}{section.3.3}
 \contentsline {chapter}{\numberline {4}Building OCaml Projects with {\tt ocp-build}}{11}{chapter.4}
 \contentsline {section}{\numberline {4.1}Environment Variables}{11}{section.4.1}
 \contentsline {section}{\numberline {4.2}Configuration Files}{12}{section.4.2}

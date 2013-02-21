@@ -61,22 +61,6 @@ module TYPES : sig
     ocaml_bin : string;
   }
 
-  type config_input = {
-    mutable cin_ocamlc : string list;
-    mutable cin_ocamlopt : string list;
-    mutable cin_ocamldep : string list;
-    mutable cin_ocamllex : string list;
-    mutable cin_ocamlyacc : string list;
-    mutable cin_bytecode : bool;
-    mutable cin_native : bool;
-    mutable cin_ocamlbin : string option;
-    mutable cin_ocamllib : string option;
-    mutable cin_use_ocamlfind : bool;
-    mutable cin_ocps_in_ocamllib : bool;
-    mutable cin_meta_dirnames : string list;
-    mutable cin_ocps_dirnames : string list;
-  }
-
   type config_output = {
     mutable cout_ocaml : ocaml_config option;
     mutable cout_ocamlc : string list option;
@@ -91,8 +75,10 @@ end
 
 open TYPES
 
+(*
 val arg_list : unit -> (string * Arg.spec * string) list
 val load_global_config : File.t -> unit
+*)
 
-val check_config : unit -> config_input * config_output
+val check_config : BuildOptions.config_input -> config_output
 val set_global_config : config_output -> unit

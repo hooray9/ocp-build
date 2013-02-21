@@ -119,6 +119,7 @@ let bool_option_with_default options name default =
     | OptionList _ -> raise Not_found
   with Not_found -> default
 
-let enabled_option = new_bool_option "enabled" true
+(* let enabled_option = new_bool_option "enabled" true *)
+let install_option = new_bool_option "install" true
 let generated_option = new_bool_option "generated" false
 let requires_keep_order_option = new_bool_option "requires_keep_order" false

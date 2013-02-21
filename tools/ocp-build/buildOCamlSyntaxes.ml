@@ -242,7 +242,7 @@ let get_pp lib basename options =
         let pp_option = ref [] in
         let pp_requires = ref [] in
 
-        if bool_option_true pp.lib_options generated_option then
+        if pp.lib_installed then
           pp_option := [ pp.lib_name ]
         else begin
           pp_requires := [ find_dst_file lib.lib_dst_dir (pp.lib_name ^ ".byte") ];

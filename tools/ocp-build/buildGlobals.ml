@@ -31,7 +31,6 @@ let distclean_arg = ref false
 let fake_arg = ref false
 let save_config_arg = ref false
 
-let use_pp = ref false
 let stop_on_error_arg = ref true
 let cross_arg = ref (Some "X" : string option)
 let verbosity_arg = ref (None : int option)
@@ -75,6 +74,18 @@ let get_project name = StringMap.find name !projects
 
 let new_library b pk package_dirname src_dir dst_dir mut_dir =
 
+  let lib_installed = bool_option_true pk.package_options generated_option in
+  let lib_install =
+    not lib_installed &&
+    (match pk.package_type with
+      TestPackage -> false
+      | ProgramPackage
+      | LibraryPackage
+      | ObjectsPackage
+      | SyntaxPackage -> true
+    ) &&
+    bool_option_with_default pk.package_options "install" true in
+
   let lib =
     {
       lib_context = b;
@@ -97,7 +108,6 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       ) pk.package_requires;
       lib_added = pk.package_added;
       lib_options = pk.package_options;
-      lib_installed = bool_option_true pk.package_options generated_option;
 
     (* lib_package = pj; *)
       lib_loc = (pk.package_filename, pk.package_loc, pk.package_name);
@@ -120,6 +130,11 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_includes = None;
       lib_sources = pk.package_files;
       lib_tests = pk.package_tests;
+
+      lib_installed;
+      lib_install;
+
+      lib_bundles = [];
     }
   in
   Hashtbl.add all_projects lib.lib_id lib;

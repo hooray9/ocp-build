@@ -24,6 +24,12 @@ authors = [
 license = [ "GPLv3" ]
 datadir = [ "@datadir@" ]
 
+begin library "typerex"
+  meta = true
+end
+
+bundle = [ "typerex" ]
+
 (* We don't need to do that ... as ocp-build does it for us. It is
 better to use ocp-build, as this way, any tool using .ocp files
 as a description of the project has a similar view of the project,

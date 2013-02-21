@@ -78,6 +78,7 @@ end
 begin library "ocp-build-lib"
 
   files = [
+    "buildVersion.ml" (ocp2ml = true env_strings = [ "datadir" ])
     "buildTypes.ml";            (* All interesting types *)
     "buildOptions.ml"
     "buildGlobals.ml";          (* All global variables and tables *)
@@ -148,7 +149,7 @@ begin program "ocp-build"
   ]
   install = true
   files = [
-    "buildVersion.ml" (ocp2ml = true env_strings = [ "datadir" ])
+    "buildArgs.ml"
     "buildMain.ml" (* Driver of program *)
   ]
   requires = [ "ocp-build-lib" "ocp-build-ocaml-plugin"  "ocplib-ocamlfind"]

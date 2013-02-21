@@ -27,6 +27,8 @@ type install_what = {
   install_asm_lib : bool;
 }
 
+type uninstall_state
+
 val install :
   install_where ->
   install_what ->
@@ -41,8 +43,9 @@ val find_installdir :
   install_what ->
   string -> string option
 
-val uninstall_by_name : install_where ->  string -> unit
-val uninstall : install_where -> BuildTypes.package_info -> unit
+val uninstall_init : install_where -> uninstall_state
+val uninstall_by_name : uninstall_state ->  string -> unit
+val uninstall : uninstall_state -> BuildTypes.package_info -> unit
 
 type package_uninstaller = {
   mutable un_nfiles : int;

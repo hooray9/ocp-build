@@ -167,7 +167,7 @@ let rec copy_rec log src dst =
 
 let install_or_uninstall log src_file dst_file =
   if not !fake_install then begin
-    Printf.fprintf stderr " %s%!" (Filename.basename dst_file);
+    Printf.eprintf " %s%!" (Filename.basename dst_file);
     copy_rec log src_file dst_file
   end
 
@@ -232,6 +232,9 @@ let install install_where install_what lib installdir =
         safe_mkdir log installdir;
       add_log log FILE uninstall_file;
     end;
+
+    let bundle = lib.lib_bundles in
+    List.iter (fun pk -> add_log log PACK pk.lib_name) bundle;
 
   (* Do the installation *)
     let meta = MetaFile.empty () in
@@ -316,7 +319,6 @@ let install install_where install_what lib installdir =
     List.iter (fun (file, kind) ->
       install_file file kind
     ) lib.lib_asm_targets;
-    Printf.fprintf stderr "\n%!";
 
     begin match  install_where.install_datadir with
       None -> ()
@@ -357,6 +359,7 @@ let install install_where install_what lib installdir =
     let topdir_list = split_dir (Filename.dirname installdir) in
     let ocamlfind_path = List.map split_dir install_where.install_ocamlfind in
 
+    Printf.fprintf stderr "\n%!";
     let meta_files =
       if List.mem topdir_list ocamlfind_path then
         [Filename.concat installdir "META"]
@@ -381,11 +384,11 @@ let install install_where install_what lib installdir =
       | meta_file :: meta_files ->
         try
           if !fake_install then
-            Printf.fprintf stderr "Generating META file %s\n%!" meta_file
+            Printf.eprintf "Generating META file %s\n%!" meta_file
           else begin
             MetaFile.create_meta_file meta_file meta;
             add_log log FILE meta_file;
-            Printf.fprintf stderr "Generated META file %s\n%!" meta_file;
+            Printf.eprintf "Generated META file %s\n%!" meta_file;
           end
         with _ -> iter meta_files
     in
@@ -442,8 +445,12 @@ let find_installdir install_where install_what lib_name =
             then begin
               Unix.rmdir installdir;
               iter (Some installdir) libdirs
-            end else
+            end else begin
+              Printf.eprintf
+                "Warning: skipping install dir %S, not writable.\n%!"
+                libdir;
               iter None libdirs
+            end
           | Some _ ->
             iter possible libdirs
         end
@@ -480,21 +487,22 @@ let find_uninstaller install_where lib_name =
     Some (StringMap.find lib_name uninstallers)
   with Not_found -> None
 
-(*
-  let uninstaller = Printf.sprintf "%s.uninstall" lib_name in
-  let rec iter files =
-    match files with
-      [] -> None
-    | uninstall_file :: files ->
-      (*      Printf.eprintf "CHECK %S\n%!" uninstall_file; *)
-      if Filename.basename uninstall_file = uninstaller then
-        Some uninstall_file
-      else iter files
-  in
-  StringMap.iter uninstallers
-*)
+type uninstall_state = {
+  uninstall_where : install_where;
+  mutable uninstall_done : StringSet.t;
+  mutable uninstall_scheduled : string list;
+  mutable uninstall_errors : int;
+}
 
-let rec uninstall_by_uninstaller uninstall_file =
+let uninstall_init install_where =
+  {
+    uninstall_where = install_where;
+    uninstall_done = StringSet.empty;
+    uninstall_scheduled = [];
+    uninstall_errors = 0;
+  }
+
+let rec uninstall_by_uninstaller state uninstall_file =
   let lib_name = Filename.chop_suffix (Filename.basename uninstall_file)
     ".uninstall"
   in
@@ -503,38 +511,64 @@ let rec uninstall_by_uninstaller uninstall_file =
       match OcpString.cut_at line ' ' with
       | "OCP", _ -> ()
       | "REG", file ->
-        if Sys.file_exists file then
+        if Sys.file_exists file then begin try
           Sys.remove file
+        with e ->
+          Printf.eprintf
+            "Warning: exception %S while removing regular file %S\n%!"
+            (Printexc.to_string e) file
+        end
       | "DIR", file ->
-        if Sys.file_exists file then
+        if Sys.file_exists file then begin try
           Unix.rmdir file
+        with e ->
+          Printf.eprintf
+            "Warning: exception %S while removing directory %S\n%!"
+            (Printexc.to_string e) file
+        end
       | "VER", version -> ()
       | "WAR", warning -> ()
       | "LOG", log -> ()
       | "TYP", kind -> ()
-      | "PCK", filename ->
-        if Sys.file_exists filename then
-          uninstall_by_uninstaller filename
+      | "PCK", name ->
+        schedule_uninstall state name
       | _ ->
         Printf.eprintf "Bad line [%S] in file %S\n%!" line uninstall_file;
     ) list;
     Printf.printf "Package %s uninstalled\n%!" lib_name
 
-let rec uninstall_by_name install_where lib_name =
-  match find_uninstaller install_where lib_name with
-    None ->
-      Printf.eprintf
-        "Warning, uninstall of %s failed: could not find uninstaller file %S\n%!"
-        lib_name (lib_name ^ ".uninstall");
-  | Some uninstall_file ->
-    uninstall_by_uninstaller uninstall_file
+and schedule_uninstall state lib_name =
+  if not (StringSet.mem lib_name state.uninstall_done) then begin
+    state.uninstall_done <- StringSet.add lib_name state.uninstall_done;
+    state.uninstall_scheduled <- lib_name :: state.uninstall_scheduled
+  end
 
-let uninstall install_where lib =
-  if not lib.lib_installed
-    && bool_option_with_default lib.lib_options
-      "install" true
-  then
-    uninstall_by_name install_where lib.lib_name
+let rec uninstall_all state =
+  match state.uninstall_scheduled with
+    [] -> ()
+  | lib_name :: others ->
+    state.uninstall_scheduled <- others;
+    begin
+      match find_uninstaller state.uninstall_where lib_name with
+        None ->
+        Printf.eprintf
+          "Warning, uninstall of %S failed:\n" lib_name;
+        Printf.eprintf "   could not find uninstaller file %S\n%!"
+          (lib_name ^ ".uninstall");
+        state.uninstall_errors <- state.uninstall_errors + 1
+    | Some uninstall_file ->
+      uninstall_by_uninstaller state uninstall_file
+    end;
+    uninstall_all state
+
+let uninstall_by_name state lib_name =
+ begin
+    schedule_uninstall state lib_name;
+    uninstall_all state
+ end
+
+let uninstall state lib =
+  if lib.lib_install then uninstall_by_name state lib.lib_name
 
 let load_uninstaller filename =
     let list = File.lines_of_file filename in

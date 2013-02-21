@@ -83,6 +83,19 @@ features when compiling other projects.
 
 \section{Invoking \ocpbuild{}}
 
+\begin{description}
+\item[{\tt ocp-build -root}:] defines the root of the project (the
+  {\tt ocp-build.root} file).
+\item[{\tt ocp-build -configure}:] configure before compiling
+\item[{\tt ocp-build}:] build packages
+\item[{\tt ocp-build -install}:] install the specified packages
+\item[{\tt ocp-build -tests}:] run tests
+\item[{\tt ocp-build -clean}:] remove the {\tt \_obuild} directory
+  containing all build artefacts.
+\item[{\tt ocp-build -distclean}] clean and remove the {\tt
+  ocp-build.root} file.
+\end{description}
+
 \section{Setting \ocpbuild{} default parameters}
 
 \chapter{Tutorial: How to use \ocpbuild{} in your projects}
@@ -147,6 +160,9 @@ be seen in the directory {\tt
   \_obuild/\_mutable\_tree/SUBDIR/version.ml}, where {\tt SUBDIR} is
 the subdirectory of your sources in the compiled project.
 
+\section{Building libraries}
+
+\section{Customization of per-file options}
 
 \chapter{Building OCaml Projects with {\tt ocp-build}}
 

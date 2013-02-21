@@ -287,9 +287,11 @@ let subcmd_main args =
         let pos = String.index prefix '.' in
         let prefix_prefix = String.sub prefix 0 (pos+1) in
         List.map (fun s -> prefix_prefix ^ s)
-          (find_labels (String.sub prefix (pos+1) (String.length prefix - pos -1)))
+          (find_labels (String.sub prefix (pos+1)
+               (String.length prefix - pos -1)))
       | 'a'..'z'
       | 'A'..'Z' -> find_candidates prefix
+        | _ -> []
     in
 
     let b = Buffer.create 1000 in

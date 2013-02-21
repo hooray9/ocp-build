@@ -61,8 +61,6 @@ and package_info = {
   mutable lib_requires : package_info package_dependency list;
   mutable lib_added : bool;
   mutable lib_options : BuildOCPVariable.options;
-  mutable lib_installed : bool;
-
 
   lib_loc : string * int * string;
   lib_src_dir : build_directory;
@@ -87,4 +85,16 @@ and package_info = {
   mutable lib_sources : (string * BuildOCPVariable.options) list;
   mutable lib_tests : (string * BuildOCPVariable.options) list;
   mutable lib_archive : string;
+
+  mutable lib_installed : bool;
+  mutable lib_install : bool;
+
+  (* [lib_bundles] specifies the other packages that should be
+     uninstalled when this package is uninstalled.
+
+     The field is initialized when installing packages, from the
+      "bundle" variables of packages being installed.
+  *)
+  mutable lib_bundles : package_info list;
+
 }
