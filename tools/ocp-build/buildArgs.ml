@@ -20,8 +20,8 @@
 *)
 
 (* TODO
-  We could force packages with missing dependencies to still be compiaboutled,
-  since it is still possible that these missing dependencies arbue not used
+  We could force packages with missing dependencies to still be computed,
+  since it is still possible that these missing dependencies are not used
   in a particular compilation scheme.
 *)
 
@@ -71,42 +71,6 @@ let time_steps = ref []
 let time_step (msg : string) =
   time_steps := (msg , Unix.gettimeofday()) :: !time_steps
 
-let time_initial = Unix.gettimeofday ()
-let timer_find_project = ref 0.
-let timer_load_config = ref 0.
-let timer_create_context = ref 0.
-let timer_configure = ref 0.
-let timer_save_local = ref 0.
-let timer_find_env = ref 0.
-let timer_load_env = ref 0.
-let timer_load_meta = ref 0.
-let timer_load_project = ref 0.
-let timer_sort_packages = ref 0.
-let timer_create_rules = ref 0.
-let timer_init_build = ref 0.
-let timer_check_sanitize = ref 0.
-let timer_build_project = ref 0.
-
-let timer0 = ref time_initial
-
-(*
-let add_timing msg timer f x =
-  let t0 = Unix.gettimeofday () in
-(*  Printf.eprintf "discarded before %s: %.2f\n%!" msg (t0 -. !timer0); *)
-  timer0 := t0;
-  try
-    let y = f x in
-    let timer1 = Unix.gettimeofday () in
-    timer := (timer1 -. !timer0) +. !timer;
-    timer0 := timer1;
-    y
-  with e ->
-    let timer1 = Unix.gettimeofday () in
-    timer := (timer1 -. !timer0) +. !timer;
-    timer0 := timer1;
-    raise e
-*)
-
 let tests_arg = ref false
 let benchmarks_arg = ref false
 let save_project = ref false
@@ -141,6 +105,7 @@ let options_arg_list = BuildOptions.arg_list ()
 
 let init_arg = ref false
 let root_arg = ref false
+let project_arg = ref false
 
 let root_action () =
   root_arg := true;
@@ -152,7 +117,7 @@ let configure_action () =
   configure_arg := true
 
 let project_action () =
-  ()
+  project_arg := true
 
 let build_action () =
   ()
@@ -172,8 +137,18 @@ let query_action () =
 let uninstall_action () =
   uninstall_arg := true
 
+exception PrintShortArgList
+exception PrintLongArgList
 
-let arg_list = [
+let short_arg_list = [
+  "-h", Arg.Unit (fun _ -> raise PrintShortArgList),
+  " Print short help";
+  "-help", Arg.Unit (fun _ -> raise PrintShortArgList),
+  " Print short help";
+  "--help", Arg.Unit (fun _ -> raise PrintLongArgList),
+  " Print long help (with compatibility options)";
+  "-long-help", Arg.Unit (fun _ -> raise PrintLongArgList),
+  " Print long help (with compatibility options)";
 
   "-version", Arg.Unit (fun () ->
     Printf.printf "%s\n%!" BuildVersion.version;
@@ -192,6 +167,11 @@ let arg_list = [
     exit 0
   ),
   " Print version information";
+
+]
+
+
+let arg_list = short_arg_list @ [
 
   "-init", Arg.Unit (fun () ->
     init_arg := true;
@@ -508,11 +488,12 @@ let _ =
 
   add_sub_command "project" "Query project information"
     project_action [
+      dup "-print-conflicts";
+      dup "-print-incomplete-meta";
   ] arg_anon_none
     [ "     ocp-build project [OPTIONS]";
       "";
       "Query information on this project (nothing interesting yet)";
-
     ];
 
   add_sub_command "build" "Build project"
@@ -532,6 +513,8 @@ let _ =
     dup "-no-scan";
     "-no-ocamlfind", "-no-use-ocamlfind";
     dup "-time";
+    dup "-print-conflicts";
+    dup "-print-incomplete-meta";
   ] arg_anon
     [ "     ocp-build build [OPTIONS] [PACKAGES]";
       "";
@@ -612,7 +595,6 @@ let arg_usage =
             ]
     )
 
-
 exception SubCommandNotFound
 let parse_args () =
   let (arg_list, arg_anon, arg_usage) =
@@ -628,8 +610,16 @@ let parse_args () =
         with Not_found -> raise SubCommandNotFound
       else raise SubCommandNotFound
     with SubCommandNotFound ->
-      (arg_list, arg_anon, arg_usage)
+      (arg_list
+       @ [
+       ], arg_anon, arg_usage)
   in
   let arg_list = arg_align arg_list in
-  Arg.parse arg_list (fun s -> targets_arg := s :: !targets_arg) arg_usage;
-  List.rev !targets_arg
+  try
+    Arg.parse arg_list (fun s -> targets_arg := s :: !targets_arg) arg_usage;
+    List.rev !targets_arg
+  with
+  | PrintShortArgList ->
+    Arg.usage short_arg_list arg_usage; exit 0
+  | PrintLongArgList ->
+    Arg.usage arg_list arg_usage; exit 0
