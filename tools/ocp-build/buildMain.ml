@@ -240,6 +240,9 @@ let build targets =
 
         let force_scan = ref cin.cin_autoscan in
 
+        (* if we didn't find any .ocp files before, we should retry ! *)
+        if !!root_files = [] then force_scan := true;
+
         if ! add_external_projects_arg <> [] then begin
           List.iter (fun dir ->
             if not (List.mem dir !!project_external_dirs_option) then begin
@@ -287,6 +290,11 @@ let build targets =
 
 
     end;
+    (* [ocp-build configure] stops here, so it will not scan
+    for .ocp files at this point. Instead, it will be done the
+    first time the project is compiled, because [root_files] is
+       empty. *)
+
     if !configure_arg then save_project := true;
 
     if !save_project then begin

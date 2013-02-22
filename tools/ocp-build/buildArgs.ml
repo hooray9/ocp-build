@@ -316,6 +316,10 @@ let arg_list = short_arg_list @ [
       ""
     ]]
   @ options_arg_list
+    @
+[
+    BuildOptions.shortcut_arg "-v" "-verbosity" options_arg_list ;
+]
 
 (* @
 
@@ -341,7 +345,6 @@ let arg_list = short_arg_list @ [
       ""
     ];
     BuildOptions.shortcut_arg "-scan" "-autoscan" user_arg_list;
-    BuildOptions.shortcut_arg "-v" "-verbosity" user_arg_list;
   ]
   @
     user_arg_list
