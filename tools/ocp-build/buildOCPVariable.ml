@@ -121,5 +121,11 @@ let bool_option_with_default options name default =
 
 (* let enabled_option = new_bool_option "enabled" true *)
 let install_option = new_bool_option "install" true
-let generated_option = new_bool_option "generated" false
 let requires_keep_order_option = new_bool_option "requires_keep_order" false
+
+let generated_option = new_bool_option "generated" false
+let installed_option = new_bool_option "installed" false
+
+let is_already_installed options =
+  bool_option_true options generated_option
+  || bool_option_true options installed_option

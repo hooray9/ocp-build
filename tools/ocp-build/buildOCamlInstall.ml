@@ -427,6 +427,10 @@ let find_installdir install_where install_what lib_name =
       let installdir = Filename.concat libdir lib_name in
       if Sys.file_exists installdir then (* Found ! *)
         begin
+(*
+          TODO: we should copy all files from this directory to a
+          sub-directory "_attic". Can we disable .ocp files within them ?
+*)
             (* TODO: shouldn't we check for an .uninstall file ? *)
           Printf.eprintf "Error: package %S seems already installed in\n"
             lib_name;

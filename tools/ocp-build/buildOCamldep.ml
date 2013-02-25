@@ -218,17 +218,18 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
 
   let deps = lib.lib_requires in
   let deps = List.map (fun dep ->
-    let lib = dep.dep_project in
-    (lib.lib_dst_dir, lib.lib_modules)
-  ) deps in
+      let lib = dep.dep_project in
+      (lib.lib_dst_dir, lib.lib_modules)
+    ) deps in
   let rec add_internal_deps pack_for deps =
     match pack_for with
-	[] ->
-	  let deps = (lib.lib_dst_dir, lib.lib_modules) :: deps in
-	  deps
-      | _ :: tail ->
-	let deps = add_internal_deps tail deps in
-	let (dst_dir, map) = StringsMap.find pack_for lib.lib_internal_modules in
+    | [] ->
+      let deps = (lib.lib_dst_dir, lib.lib_modules) :: deps in
+      deps
+    | _ :: tail ->
+      let deps = add_internal_deps tail deps in
+      let (dst_dir, map) =
+        StringsMap.find pack_for lib.lib_internal_modules in
 	let deps = (dst_dir, map) :: deps in
 	deps
   in
@@ -258,7 +259,9 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
           match deps with
 	      [] ->
 	        if verbose 5 then
-	          Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
+	          Printf.eprintf
+                "Warning: could not solve dependency %s for %s\n"
+                depname filename;
 	        ()
 	    | (dst_dir, lib_modules) :: deps ->
 	      try
@@ -291,7 +294,9 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
           match deps with
 	      [] ->
 	        if verbose 5 then
-	          Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
+	          Printf.eprintf
+                "Warning: could not solve dependency %s for %s\n"
+                depname filename;
 	        ()
 	    | (dst_dir, lib_modules) :: deps ->
 	      try

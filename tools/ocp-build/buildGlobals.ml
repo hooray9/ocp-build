@@ -74,7 +74,7 @@ let get_project name = StringMap.find name !projects
 
 let new_library b pk package_dirname src_dir dst_dir mut_dir =
 
-  let lib_installed = bool_option_true pk.package_options generated_option in
+  let lib_installed = is_already_installed pk.package_options in
   let lib_install =
     not lib_installed &&
     (match pk.package_type with

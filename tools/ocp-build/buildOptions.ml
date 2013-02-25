@@ -494,11 +494,11 @@ let arg_list () =
     "-project-asm", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.native_option =:= Some true),
-    " Compile native code version of the project (project option)";
+    " Compile native code version of the project\n  (project option)";
     "-project-no-asm", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.native_option =:= Some false),
-    " Do not compile native code version of the project (project option)";
+    " Do not compile native code version of the project\n  (project option)";
 
 (**** byte option ****)
 
@@ -509,11 +509,11 @@ let arg_list () =
     "-project-byte", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.bytecode_option =:= Some true),
-    " Compile bytecode code version of the project (project option)";
+    " Compile bytecode code version of the project\n  (project option)";
     "-project-no-byte", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.bytecode_option =:= Some false),
-    " Do not compile bytecode code version of the project (project option)";
+    " Do not compile this project in bytecode\n  (project option)";
 
 (**** autoscan option ****)
 
@@ -524,11 +524,11 @@ let arg_list () =
     "-project-autoscan", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.autoscan_option =:= Some true),
-    " Always scan project for new package (project option)";
+    " Always scan project for new package\n  (project option)";
     "-project-no-autoscan", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.autoscan_option =:= Some false),
-    " Do not scan directory by default (project option)";
+    " Do not scan directory by default\n  (project option)";
 
 (**** digest option ****)
 
@@ -555,7 +555,7 @@ let arg_list () =
     "-project-njobs", Arg.Int (fun n ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.njobs_option =:= Some n),
-    "NUM Number of processes to start in parallel (project option)";
+    "NUM Number of processes to start in parallel\n  (project option)";
 
 (**** verbosity option ****)
 
@@ -578,11 +578,11 @@ let arg_list () =
     "-project-use-ocamlfind", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.use_ocamlfind_option =:= true),
-    " Try to Use ocamlfind to locate META files (project option)";
+    " Try to Use ocamlfind to locate META files\n  (project option)";
     "-project-no-use-ocamlfind", Arg.Unit (fun () ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.use_ocamlfind_option =:= false),
-    " Don't try to use ocamlfind to locate META files (project option)";
+    " Don't try to use ocamlfind to locate META files\n  (project option)";
 
 
 (**** install-bin option ****)
@@ -593,7 +593,7 @@ let arg_list () =
     "-project-install-bin", Arg.String (fun s ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.install_bin_option =:= Some s),
-    "FILENAME Directory where binaries should be installed (project option)";
+    "FILENAME Directory where binaries should be installed\n  (project option)";
 
 (**** install-lib option ****)
 
@@ -603,7 +603,7 @@ let arg_list () =
     "-project-install-lib", Arg.String (fun s ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.install_lib_option =:= Some s),
-    "FILENAME Directory where libraries should be installed (project option)";
+    "FILENAME Directory where libraries should be installed\n  (project option)";
 
 (**** install-doc option ****)
 
@@ -613,7 +613,7 @@ let arg_list () =
     "-project-install-doc", Arg.String (fun s ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.install_doc_option =:= Some s),
-    "FILENAME Directory where documentation should be installed (project option)";
+    "FILENAME Directory where documentation should be installed\n  (project option)";
 
 (**** install-data option ****)
 
@@ -623,7 +623,7 @@ let arg_list () =
     "-project-install-data", Arg.String (fun s ->
       ProjectOptions.must_save_config := true;
       ProjectOptions.install_data_option =:= Some s),
-    "FILENAME Directory where data files should be installed (project option)";
+    "FILENAME Directory where data files should be installed\n  (project option)";
 
     arg_set_true            OCamlOptions.ocps_in_ocamllib_option;
     arg_set_false           OCamlOptions.ocps_in_ocamllib_option;
@@ -668,17 +668,23 @@ let load project_dir =
       some_or_default ProjectOptions.autoscan_option UserOptions.autoscan_option
     | Some arg -> arg
   in
-  let cin_native =
-    match !scan_arg with
-    None ->
-      some_or_default ProjectOptions.native_option UserOptions.native_option
-    | Some arg -> arg
-  in
-  let cin_bytecode =
-    match !scan_arg with
-    None ->
+  let cin_native, cin_bytecode =
+    match !asm_arg, !byte_arg with
+
+    | Some true, Some true -> (true, true)
+    | Some true, None -> (true, false)
+    | None, Some true -> (false, true)
+
+    | Some false, Some false -> (* weird ! assert false ? *) (false, false)
+    | Some false, None -> (false, true)
+    | None, Some false -> (true, false)
+
+    | Some true, Some false -> (true, false)
+    | Some false, Some true -> (false, true)
+
+    | None, None ->
+      some_or_default ProjectOptions.native_option UserOptions.native_option,
       some_or_default ProjectOptions.bytecode_option UserOptions.bytecode_option
-    | Some arg -> arg
   in
   let cin_digest =
     match !digest_arg with

@@ -1174,7 +1174,8 @@ let add_ml_source b lib pj ml_file options =
 			(T cmi_basename, BF cmi_file) :: moves
 		    | _ -> moves);
 
-    move_compilation_garbage r mut_dir (BuildEngineRules.rule_temp_dir r) kernel_name lib;
+    move_compilation_garbage r mut_dir
+      (BuildEngineRules.rule_temp_dir r) kernel_name lib;
 
     add_rule_sources r seq_order;
     List.iter (fun pd ->
@@ -1237,12 +1238,13 @@ let add_ml_source b lib pj ml_file options =
 
     begin match needs_cmi with
         None ->
-	(* If both ocamlc and ocamlopt build the cmi file, they should not execute
-	   concurrently. For that, we create an artificial ordering between them, by
-	   requesting the cmo file before the cmx file, if both have to be generated. *)
+      (* If both ocamlc and ocamlopt build the cmi file, they should
+	 not execute concurrently. For that, we create an artificial
+	 ordering between them, by requesting the cmo file before
+	 the cmx file, if both have to be generated. *)
 
-          (* TODO: is this still useful ? Now that we build in a
-             temporary directory, there is no need for that, no ? *)
+        (* TODO: is this still useful ? Now that we build in a
+           temporary directory, there is no need for that, no ? *)
 	  add_rule_time_dependency r cmo_file
       | _ -> ()
     end;
@@ -1354,8 +1356,10 @@ let rec process_source b lib src_dir (basename, options) =
           add_mli_source b lib lib src_file options
         else begin
 
-	  Printf.eprintf "Don't know what to do with [%s]\n%!" (String.escaped basename);
-	  Printf.eprintf "\tfrom project %s in dir %s\n%!" lib.lib_name src_dir.dir_fullname;
+	  Printf.eprintf "Don't know what to do with [%s]\n%!"
+            (String.escaped basename);
+	  Printf.eprintf "\tfrom project %s in dir %s\n%!"
+            lib.lib_name src_dir.dir_fullname;
 	  exit 2;
         end
 
@@ -1613,8 +1617,7 @@ let add_package b build_tests pk =
     let src_dir = add_directory b (absolute_filename package_dirname) in
     if verbose 7 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
 
-    let already_installed =
-      bool_option_true pk.package_options generated_option
+    let already_installed = is_already_installed pk.package_options
     in
 
     let dst_dir =
@@ -1647,27 +1650,40 @@ let add_package b build_tests pk =
 
     let lib = BuildGlobals.new_library b pk
       package_dirname src_dir dst_dir mut_dir in
-    BuildSubst.putenv (Printf.sprintf "%s_SRC_DIR" pk.package_name) src_dir.dir_fullname;
-    BuildSubst.putenv (Printf.sprintf "%s_DST_DIR" pk.package_name) dst_dir.dir_fullname;
 
-    (match !cross_arg with
-      None -> ()
-    | Some _ ->
-      safe_mkdir dst_dir.dir_fullname);
-    match lib.lib_type with
-      LibraryPackage -> add_library b  lib
-    | ProgramPackage -> add_program b  lib
-    | TestPackage ->
-      if lib.lib_sources <> [] then add_program b  lib;
-      lib.lib_options <- StringMap.add "install"
-          (OptionBool false) lib.lib_options
-    | ObjectsPackage -> add_objects b  lib
-    | SyntaxPackage -> ()
-(*      | _ -> Printf.eprintf "\tWarning: Don't know what to do with 'add_project %s'\n" lib.lib_name *)
+(* TOOD: we should do that in one pass before *)
+    BuildSubst.putenv
+      (Printf.sprintf "%s_SRC_DIR" pk.package_name) src_dir.dir_fullname;
+    BuildSubst.putenv
+      (Printf.sprintf "%s_DST_DIR" pk.package_name) dst_dir.dir_fullname;
+
+    lib
   with Failure s ->
     Printf.eprintf "While preparing package %S:\n%!" pk.package_name;
     Printf.eprintf "Error: %s\n%!" s;
     exit 2
 
 let create b pj build_tests =
-  Array.iter (add_package b build_tests) pj.project_sorted
+  let libs =
+    Array.map (add_package b build_tests) pj.project_sorted
+  in
+  Array.iter (fun lib ->
+    try
+      (match !cross_arg with
+          None -> ()
+        | Some _ ->
+          safe_mkdir lib.lib_dst_dir.dir_fullname);
+      match lib.lib_type with
+        LibraryPackage -> add_library b  lib
+      | ProgramPackage -> add_program b  lib
+      | TestPackage ->
+        if lib.lib_sources <> [] then add_program b  lib;
+        lib.lib_options <- StringMap.add "install"
+            (OptionBool false) lib.lib_options
+      | ObjectsPackage -> add_objects b  lib
+      | SyntaxPackage -> ()
+    with Failure s ->
+      Printf.eprintf "While preparing package %S:\n%!" lib.lib_name;
+      Printf.eprintf "Error: %s\n%!" s;
+      exit 2
+  ) libs

@@ -56,9 +56,6 @@ let print_deleted () =
     deleted_files := [];
   end
 
-let do_clean () =
-  delete_file_or_directory "_obuild"
-
 
 (*
   init_deleted ();

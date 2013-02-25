@@ -282,8 +282,8 @@ let arg_list = short_arg_list @ [
   "-benchmarks", Arg.Unit (fun () -> tests_arg := true; benchmarks_arg := true),
   " Build and run benchmarks";
 
-  "-list-projects", Arg.Set list_projects_arg,
-  " List projects";
+  "-list-all-packages", Arg.Set list_projects_arg,
+  " List all packages";
   "-list-targets", Arg.Unit (fun _ ->
     list_byte_targets_arg := true;
     list_asm_targets_arg := true),
@@ -491,8 +491,12 @@ let _ =
 
   add_sub_command "project" "Query project information"
     project_action [
+    dup "-sanitize";
+    dup "-sanitize-dirs";
       dup "-print-conflicts";
       dup "-print-incomplete-meta";
+    dup "-list-all-packages";
+    "-v", "-verbosity";
   ] arg_anon_none
     [ "     ocp-build project [OPTIONS]";
       "";
@@ -502,6 +506,8 @@ let _ =
   add_sub_command "build" "Build project"
     build_action [
     dup "-k";
+    dup "-sanitize";
+    dup "-sanitize-dirs";
     "", " \nYou can override the configuration also:";
     "", " ";
     "-njobs", "-njobs";

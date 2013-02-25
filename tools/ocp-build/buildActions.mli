@@ -13,4 +13,4 @@
 
 
 (* clean all generated object files *)
-val do_clean : unit -> unit
+val delete_file_or_directory : string -> unit

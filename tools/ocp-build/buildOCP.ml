@@ -710,7 +710,10 @@ let scan_root root_dir =
   let files = ref [] in
   BuildScanner.scan_directory_for_suffix
     (File.to_string root_dir) ".ocp" (fun filename ->
-    files := File.of_string filename :: !files);
+    match (Filename.basename filename).[0] with
+    'a'..'z' | 'A'..'Z' | '0'..'9' ->
+      files := File.of_string filename :: !files
+    | _ -> ());
   List.rev !files
 (* files are reverted, so that the first in breadth are used first
 (this is expected from [load_project] *)

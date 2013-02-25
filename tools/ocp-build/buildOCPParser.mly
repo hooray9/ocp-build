@@ -286,13 +286,13 @@ files:
   let modnames = ref [] in
   let packed_files =
     List.map (fun (file, file_options) ->
-      begin
-        match file_options with
-            OptionListAppend ( "packed", _ ) :: _ -> ()
-          | _ ->
-            modnames := Filename.basename file :: !modnames
-      end;
-      (file, OptionListAppend ("packed", [packmodname]) :: pack_options @ file_options)
+      if not (List.exists (function
+            OptionListAppend ( "packed", _ )  -> true
+          | _ -> false
+          ) file_options) then
+        modnames := Filename.basename file :: !modnames;
+      (file, OptionListAppend ("packed", [packmodname]) ::
+         pack_options @ file_options)
   ) files;
   in
   packed_files @

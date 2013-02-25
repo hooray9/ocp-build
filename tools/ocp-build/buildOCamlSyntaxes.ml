@@ -75,6 +75,7 @@ open BuildOCamlMisc
 
 
 let execution_dependencies pk kind =
+  if pk.lib_installed then [] else
   let pk_name = pk.lib_name in
   try
     match pk.lib_type with
@@ -160,6 +161,8 @@ let add_pp_requires r pp =
 
 let get_pp lib basename options =
 (*  Printf.eprintf "get_pp %S\n%!" lib.lib_name; *)
+  let pp_flags =
+    List.map (fun s -> S s) (strings_option options ppflags_option) in
   match strings_option options syntax_option with
   |  [] ->
     let pp_requires = strings_option options pp_requires_option in
@@ -168,40 +171,42 @@ let get_pp lib basename options =
       List.map (add_pp_require lib) pp_requires
     in
     {
-      pp_flags = [];
+      pp_flags = pp_flags;
       pp_option = pp_option;
       pp_requires = List.flatten pp_requires;
     }
 
-  | _:: _ :: _ ->
-      Printf.eprintf "Error with package %S, filw %S:\n"
-        lib.lib_name basename;
-      Printf.eprintf "   Only one syntax can be specified.\n%!";
-      exit 2
+  | syntaxes ->
 
-  | [ s ] ->
-    let pksy =
+    let syntaxes = List.map (fun s ->
+        let pksy =
       try
         StringMap.find s !packages_by_name
       with Not_found ->
-        Printf.eprintf "Error with package %S, filw %S:\n"
-          lib.lib_name basename;
-        Printf.eprintf
-            "   Syntax %S could not be found among packages\n%!" s;
-        exit 2
-    in
-
-    let found = ref false in
-    List.iter (fun dep ->
-      if dep.dep_syntax && dep.dep_project == pksy then
-        found := true
-    ) lib.lib_requires;
-    if not !found then begin
         Printf.eprintf "Error with package %S, file %S:\n"
           lib.lib_name basename;
         Printf.eprintf
-            "   Syntax %S was not required by package.\n%!" pksy.lib_name;
-    end;
+            "   Syntax %S could not be found among existing packages\n%!" s;
+        exit 2
+        in
+        let found = ref false in
+        List.iter (fun dep ->
+          if dep.dep_syntax && dep.dep_project == pksy then
+            found := true
+        ) lib.lib_requires;
+        if not !found then begin
+          Printf.eprintf "Error with package %S, file %S:\n"
+            lib.lib_name basename;
+          Printf.eprintf
+            "   Syntax %S was not in 'requires' of package.\n%!" pksy.lib_name;
+        end;
+        pksy
+      ) syntaxes in
+    let (pp, lib_requires) =
+      match syntaxes with
+      | [] -> assert false
+  | [ { lib_type = ProgramPackage } as pp ] -> (pp, [])
+  | [ pksy ] ->
 
     if verbose 3 then begin
       Printf.eprintf "Package %S, file %S, syntax %S:\n"
@@ -223,22 +228,52 @@ let get_pp lib basename options =
       | ObjectsPackage
       | SyntaxPackage -> ()
     ) pksy.lib_requires;
-
+    begin
       match !preprocessor with
       | [] ->
         Printf.eprintf "Error with package %S, file %S:\n"
           lib.lib_name basename;
-        Printf.eprintf "   One of the syntax must specify the preprocessor to use.\n%!";
+        Printf.eprintf
+          "   One of the syntax must specify the preprocessor to use.\n%!";
       exit 2
       | _ :: _ :: _ ->
         Printf.eprintf "Error with package %S, file %S:\n"
           lib.lib_name basename;
-        Printf.eprintf "   Only one preprocessor should be specified within syntaxes.\n%!";
+        Printf.eprintf
+          "   Only one preprocessor should be specified within syntaxes.\n%!";
         exit 2
 
       | [ pp ] ->
+        (pp, pksy.lib_requires)
+    end
 
-        let pp_flags = ref [] in
+      | [s1;s2] ->
+        begin
+          match s1, s1.lib_type, s2, s2.lib_type with
+          | _, ProgramPackage, pksy, ProgramPackage ->
+            Printf.eprintf "Error with package %S, filw %S:\n"
+              lib.lib_name basename;
+            Printf.eprintf "   Only one preprocessor can be specified.\n%!";
+            exit 2
+
+          | pp, ProgramPackage, pksy, _
+          | pksy, _, pp, ProgramPackage ->
+            (pp, pksy.lib_requires)
+
+          | _ ->
+            Printf.eprintf "Error with package %S, filw %S:\n"
+              lib.lib_name basename;
+            Printf.eprintf "   Only one syntax can be specified.\n%!";
+            exit 2
+        end
+      | _:: _ :: _ ->
+        Printf.eprintf "Error with package %S, filw %S:\n"
+          lib.lib_name basename;
+        Printf.eprintf "   Only one syntax can be specified.\n%!";
+        exit 2
+
+    in
+        let pp_args = ref [] in
         let pp_option = ref [] in
         let pp_requires = ref [] in
 
@@ -264,9 +299,11 @@ let get_pp lib basename options =
           if p != pp
             && dep.dep_link
             && not (StringSet.mem p.lib_name !already_linked_map)
-            && p.lib_sources <> [] then begin
+            && (p.lib_sources <> [] || p.lib_installed)
+            (* && not p.lib_meta *) (* TODO *)
+          then begin
             pp_requires := (execution_dependencies p "byte") @ !pp_requires;
-            pp_flags := !pp_flags @
+            pp_args := !pp_args @
               [ S "-I"; BD p.lib_dst_dir ] @
               (match p.lib_type with
               | ProgramPackage -> assert false
@@ -278,10 +315,10 @@ let get_pp lib basename options =
               | SyntaxPackage -> []
               )
             end
-        ) pksy.lib_requires;
+        ) lib_requires;
 
     {
-      pp_flags = !pp_flags;
+      pp_flags = !pp_args @ pp_flags;
       pp_option = !pp_option;
       pp_requires = !pp_requires;
     }
