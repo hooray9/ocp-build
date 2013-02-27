@@ -80,31 +80,38 @@ let do_load_project_files cin project_dir state =
     project_ocpbuild_version =:= BuildVersion.version;
   end;
 
-  if !force_scan then begin
-    save_project := true;
-    time_step "Scanning project for .ocp files ...";
-    root_files =:= [];
-    List.iter (fun dir ->
-      let files = BuildOCP.scan_root dir in
-      root_files =:= !!root_files @ files
-    ) (project_dir ::
-        (List.map File.of_string !!project_external_dirs_option));
-    time_step "   Done scanning project for .ocp files";
-  end;
-
-  if !!root_files = [] then begin
-    Printf.eprintf "Error: no known .ocp files\n";
-    Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
-    exit 2
-  end;
-
-  time_step "Loading project .ocp files...";
   let nerrors =
-    let config = BuildOCP.empty_config () in
-    BuildOCP.load_ocp_files config state !!root_files
-  in
-  time_step "   Done loading project .ocp files";
+    if !oasis_arg then
+      BuildOasis.load_project state "_oasis"
+    else
+      begin
+      if !force_scan then begin
+        save_project := true;
+        time_step "Scanning project for .ocp files ...";
+        root_files =:= [];
+        List.iter (fun dir ->
+          let files = BuildOCP.scan_root dir in
+          root_files =:= !!root_files @ files
+        ) (project_dir ::
+            (List.map File.of_string !!project_external_dirs_option));
+        time_step "   Done scanning project for .ocp files";
+      end;
 
+      if !!root_files = [] then begin
+        Printf.eprintf "Error: no known .ocp files\n";
+        Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
+        exit 2
+      end;
+
+      time_step "Loading project .ocp files...";
+      let nerrors =
+        let config = BuildOCP.empty_config () in
+        BuildOCP.load_ocp_files config state !!root_files
+      in
+      time_step "   Done loading project .ocp files";
+      nerrors
+      end
+  in
   if nerrors > 0 then exit 2
 
 let do_install install_where install_what projects =
@@ -590,6 +597,7 @@ let build targets =
     env_ocp_files := ( BuildOCP.scan_root dir) @ !env_ocp_files
   ) !env_ocp_dirs;
   time_step "   Done scanning env for .ocp files";
+
   let state = BuildOCP.init_packages () in
   time_step "Loading METAs...";
   List.iter (fun dirname ->

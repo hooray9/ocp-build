@@ -840,7 +840,7 @@ let rec find_capital s len =
 let invert_capital s =
   let len = String.length s in
   let pos = find_capital s len in
-  Printf.eprintf "invert_capital %S at pos %d\n%!" s pos;
+(*  Printf.eprintf "invert_capital %S at pos %d\n%!" s pos; *)
   if pos < len then
     let c = s.[pos] in
     match c with
@@ -870,28 +870,27 @@ let rec find_source_with_extension b lib src_dir kernel_name exts =
     else
       find_source_with_extension b lib src_dir kernel_name rem_exts
 
+let standard_source_exts =        [ "mly"; "mll"; "ml"; "mli"; "c" ]
 
-let standard_exts =        [ "mly"; "mll"; "ml"; "mli"; "c" ]
-
-let get_packed_objects lib r src_dir pack_of cmx_ext =
+let get_packed_objects lib r src_dir pack_of obj_ext =
   let packed_cmx_files = ref [] in
   let b = r.rule_context in
   List.iter (fun basename ->
-    let name, extension = File.cut_last_extension basename in
-    let (basename, extension) =
+    let basename, extension = File.cut_last_extension basename in
+    let (filename, obj_extension) =
       if extension = "" then
-        find_source_with_extension b lib src_dir name standard_exts
+        find_source_with_extension b lib src_dir basename
+          [ obj_ext; "cmi" ]
       else
-        (basename, extension)
+        let obj_extension = match String.lowercase extension with
+	    "ml" | "mll" | "mly" -> obj_ext
+          | "mli" -> "cmi"
+          | _ ->
+            Printf.ksprintf failwith
+              "Bad extension [%s] for filename [%s]" extension basename
+        in
+        (basename ^ "." ^  obj_extension, obj_extension)
     in
-    let obj_extension = match String.lowercase extension with
-	"ml" | "mll" | "mly" -> cmx_ext
-      | "mli" -> ".cmi"
-      | _ ->
-        Printf.ksprintf failwith
-          "Bad extension [%s] for filename [%s]" extension basename
-    in
-    let filename = name ^ obj_extension in
     let object_file = add_file b src_dir filename in
     packed_cmx_files := object_file :: !packed_cmx_files;
 
@@ -1214,7 +1213,7 @@ let add_ml_source b lib pj ml_file options =
       let src_dir = Filename.concat dst_dir.dir_fullname modname in
       (*      Printf.eprintf "Pack in %s [%s]\n" src_dir modname; *)
       let src_dir = add_directory b src_dir in
-      let cmo_files = get_packed_objects lib r src_dir pack_of ".cmo" in
+      let cmo_files = get_packed_objects lib r src_dir pack_of "cmo" in
       let cmd = add_files_to_link_to_command cmd options cmo_files in
       add_rule_command r cmd
     end;
@@ -1267,7 +1266,7 @@ let add_ml_source b lib pj ml_file options =
       add_command_pack_args cmd pack_for;
 
       let src_dir = add_directory b (Filename.concat dst_dir.dir_fullname modname) in
-      let cmx_files = get_packed_objects lib r src_dir pack_of ".cmx" in
+      let cmx_files = get_packed_objects lib r src_dir pack_of "cmx" in
       let cmd = add_files_to_link_to_command cmd options cmx_files in
       add_rule_command r cmd
     end;
@@ -1363,7 +1362,7 @@ let rec process_source b lib src_dir (basename, options) =
   let (basename, last_extension) =
     if last_extension = "" then
       find_source_with_extension b lib src_dir kernel_name
-standard_exts
+        standard_source_exts
     else
       (basename, last_extension)
   in

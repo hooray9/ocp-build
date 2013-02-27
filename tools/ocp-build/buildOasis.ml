@@ -11,6 +11,9 @@
 (*                                                                            *)
 (******************************************************************************)
 
+open BuildOCPTree
+open BuildOCPVariable
+
 let find_indent line =
   let rec find_indent line i len =
     if i < len then
@@ -90,60 +93,238 @@ let merge_line content lines =
   let lines = content :: (List.map (function Line (s, _) -> s) (List.rev !lines)) in
   String.concat " " lines
 
-let parse_package kind name lines =
-  Printf.fprintf stderr "parse_package %s\n%!" name;
+
+let split_words s =
+  let orig = String.copy s in
+  for i = 0 to String.length s - 1 do
+    match s.[i] with
+    | '\r' | '\n' | '\t' | ';' | ',' ->
+      s.[i] <- ' '
+    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_'
+    | ' ' | '.'
+      ->
+      ()
+    | _ ->
+      Printf.kprintf failwith "Illegal word in %S\n%!" orig
+  done;
+  OcpString.split_simplify s ' '
+
+let split_words_lowercase s =
+  let orig = String.copy s in
+  for i = 0 to String.length s - 1 do
+    match s.[i] with
+    | '\r' | '\n' | '\t' | ';' | ',' ->
+      s.[i] <- ' '
+    | 'A'..'Z' -> s.[i] <- Char.lowercase s.[i]
+    | 'a'..'z' | '0'..'9' | '_'
+    | ' ' | '.'
+      ->
+      ()
+    | _ ->
+      Printf.kprintf failwith "Illegal word in %S\n%!" orig
+  done;
+  OcpString.split_simplify s ' '
+
+type oasis_package = {
+  opk_filename : string;
+  opk_name : string;
+  opk_type : BuildOCPTree.package_type;
+  opk_dirname : string;
+  opk_modules : string list;
+  opk_internal_modules : string list;
+  opk_build_depends : string list;
+  opk_main_is : string list;
+  opk_install : bool;
+}
+
+let parse_package opk lines =
+  Printf.fprintf stderr "parse_package %s\n%!" opk.opk_name;
   let open Genlex in
-  List.iter (fun line ->
-    let Line (s, lines) = line in
-    let (header, content) = OcpString.cut_at s ':' in
-    match String.lowercase header with
-      | "modules" | "internalmodules" ->
-          let line = merge_line content lines in
-          Printf.fprintf stderr "[%s] FILES = %s\n%!" name line;
-          ()
+  try
+    let opk_modules = ref [] in
+    let opk_internal_modules = ref [] in
+    let opk_build_depends = ref [] in
+    let opk_dirname = ref opk.opk_dirname in
+    let opk_main_is = ref [] in
+    let opk_install = ref true in
+    List.iter (fun line ->
+      let Line (s, lines) = line in
+      let (header, content) = OcpString.cut_at s ':' in
+      match String.lowercase header with
+
+      | "mainis" ->
+        let line = merge_line content lines in
+        Printf.eprintf  "[%s] MainIs = %S\n%!" opk.opk_name line;
+        let modules = split_words line in
+        List.iter (fun s -> Printf.eprintf "MODULE %S\n" s) modules;
+        Printf.eprintf "\n%!";
+        opk_main_is := !opk_main_is @ modules
+
+      | "modules" ->
+        let line = merge_line content lines in
+        Printf.eprintf  "[%s] FILES = %S\n%!" opk.opk_name line;
+        let modules = split_words line in
+        List.iter (fun s -> Printf.eprintf "MODULE %S\n" s) modules;
+        Printf.eprintf "\n%!";
+        opk_modules := !opk_modules @ modules
+
+      | "internalmodules" ->
+        let line = merge_line content lines in
+        Printf.fprintf stderr "[%s] FILES = %s\n%!" opk.opk_name line;
+        let modules = split_words line in
+        opk_internal_modules := !opk_internal_modules @ modules
+
       | "path" ->
         let line = merge_line content lines in
-        Printf.fprintf stderr "[%s] DIRNAME = %s\n%!" name line;
-        ()
+        Printf.fprintf stderr "[%s] DIRNAME = %s\n%!" opk.opk_name line;
+        begin match split_words line with
+          [ subdir ] -> opk_dirname := Filename.concat !opk_dirname subdir
+          | _ ->
+            failwith "Error 'path'\n%!";
+        end
+
+      | "install" ->
+        let line = merge_line content lines in
+        Printf.fprintf stderr "[%s] Install = %s\n%!" opk.opk_name line;
+        begin match split_words_lowercase line with
+          [ "true" ] -> opk_install := true
+          | [ "false" ] -> opk_install := false
+          | _ ->
+            failwith "Error 'install'\n%!";
+        end
+
       | "builddepends" ->
         let line = merge_line content lines in
-        Printf.fprintf stderr "[%s] REQUIRES = %s\n%!" name line;
-        ()
+        Printf.fprintf stderr "[%s] REQUIRES = %s\n%!" opk.opk_name line;
+        opk_build_depends := !opk_build_depends @ split_words line
+
       | _ ->
-          Printf.fprintf stderr "[%s]Discarding line [%s]\n%!" name s
-  ) (List.rev lines)
+        Printf.fprintf stderr "[%s]Discarding line [%s]\n%!" opk.opk_name s
+    ) (List.rev lines);
+    List.iter (fun s -> Printf.eprintf "MODULE1 %S\n" s) !opk_modules;
+    let opk = {
+      opk with
+      opk_modules = !opk_modules;
+      opk_internal_modules = !opk_internal_modules;
+      opk_build_depends = !opk_build_depends;
+      opk_dirname = !opk_dirname;
+      opk_main_is = !opk_main_is;
+      opk_install = !opk_install;
+    }
+    in
+    List.iter (fun s -> Printf.eprintf "MODULE2 %S\n" s) opk.opk_modules;
+    Some opk
+  with Failure s ->
+    Printf.eprintf "Warning: in package %S, error:\n" opk.opk_name;
+    Printf.eprintf "  %s\n%!" s;
+    None
 
+let empty_opk = {
+  opk_filename = "";
+  opk_name = "";
+  opk_dirname = "";
+  opk_type = LibraryPackage;
+  opk_modules = [];
+  opk_internal_modules = [];
+  opk_build_depends = [];
+  opk_main_is = [];
+  opk_install = true;
+}
 
-let parse_oasis lines =
+let parse_oasis opk_filename lines =
   let open Genlex in
+  let empty_opk = {
+    empty_opk with
+    opk_filename;
+    opk_dirname = Filename.dirname opk_filename;
+  } in
   let project_name = ref "" in
+  let opks = ref [] in
   List.iter (fun line ->
     let Line (s, lines) = line in
     try
       let tokens = OcpGenlex.tokens_of_string oasis_lexer s in
-      match tokens with
+      let opk =
+        match tokens with
           [ Ident "Name" ; Kwd ":" ; (String name | Ident name) ] ->
-            project_name := name
+          project_name := name;
+          None
         | [ Kwd "Library"; (String name | Ident name) ] ->
-          let name = if name = !project_name then name else Printf.sprintf "%s.%s" !project_name name in
-          parse_package "library" name !lines
+          let opk_name =
+            if name = !project_name then name
+            else Printf.sprintf "%s.%s" !project_name name in
+          let opk = {
+            empty_opk with
+            opk_name;
+            opk_type = LibraryPackage;
+          } in
+          parse_package opk !lines
         | [ Kwd "Executable"; (String name | Ident name) ] ->
-          let name = if name = !project_name then name else Printf.sprintf "%s.%s" !project_name name in
-          parse_package "program" (name ^ "-command") !lines
-        | _ -> ()
+          let opk_name =
+            if name = !project_name then name
+            else Printf.sprintf "%s.%s" !project_name name in
+          let opk_name = opk_name ^ "-command" in
+          let opk = {
+            empty_opk with
+            opk_name;
+            opk_type = ProgramPackage;
+          } in
+          parse_package opk !lines
+        | _ -> None
+      in
+      match opk with
+        None -> ()
+      | Some opk ->
+        opks := opk :: !opks
     with _ ->
       Printf.fprintf stderr "Discarding line [%s]\n%!" s
-  ) (List.rev lines)
+  ) (List.rev lines);
+  !opks
 
+open BuildOCPTypes
 
-let translate filename =
+let load_project pj filename =
   let lines = read_oasis filename in
   print_oasis lines;
-  parse_oasis lines
+  let opks = parse_oasis filename lines in
 
-let _ =
-  for i = 1 to Array.length Sys.argv - 1 do
-    translate Sys.argv.(i)
-  done
+  let package_options =
+    List.fold_left (fun vars f -> f vars)
+      StringMap.empty !BuildOCPVariable.options
+  in
+  let package_options = StringMap.add "sort" (OptionBool true)
+      package_options in
+
+  List.iter (fun opk ->
+    Printf.eprintf "opk_name = %S\n%!" opk.opk_name;
+    List.iter (fun s -> Printf.eprintf "  module: %S\n%!" s) opk.opk_modules;
+    if opk.opk_modules <> [] || opk.opk_internal_modules <> [] ||
+    opk.opk_main_is <> [] then
+    let pk = BuildOCPInterp.new_package pj opk.opk_name opk.opk_dirname
+        opk.opk_filename opk.opk_type in
+    pk.package_source_kind <- "oasis";
+    List.iter (fun s ->
+      let ( dep :  'a package_dependency) =
+        BuildOCPInterp.new_package_dep pk s in
+      dep.dep_link <- true
+    ) opk.opk_build_depends;
+
+    let external_options = [] in
+    let internal_options =
+      (OptionBoolSet ("install", false)) ::
+        external_options in
+    pk.package_raw_files <-
+      List.map (fun s -> (s, external_options)) opk.opk_modules @
+      List.map (fun s -> (s, internal_options)) opk.opk_internal_modules @
+      List.map (fun s -> (s, external_options)) opk.opk_main_is;
+      List.iter (fun (s, _) ->
+        Printf.eprintf "SOURCE %S\n%!" s) pk.package_raw_files;
+
+  let package_options = StringMap.add "install" (OptionBool opk.opk_install)
+      package_options in
+
+    pk.package_options <- package_options
+  ) opks;
+  0
 
 

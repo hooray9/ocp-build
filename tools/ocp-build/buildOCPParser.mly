@@ -261,6 +261,7 @@ use a different rule. */
 
 files:
  { [] }
+| IDENT list_of_options files { ($1, $2) :: $3 }
 | STRING list_of_options files { ($1, $2) :: $3 }
 | SEMI files { $2 }
 | BEGIN list_of_options files END files

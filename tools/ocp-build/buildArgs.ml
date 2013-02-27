@@ -89,6 +89,7 @@ let uninstall_arg = ref false
 let meta_dirnames_arg = ref []
 let meta_verbose_arg = ref false
 let list_installed_arg = ref false
+let oasis_arg = ref false
 
 (* if [query_global] is set, we don't load the project
 .ocp files and stop immediatly after replying to queries. *)
@@ -112,6 +113,9 @@ let root_action () =
   init_arg := true;
   save_arguments_arg := true;
   save_project := true
+
+let oasis_action () =
+  oasis_arg := true
 
 let configure_action () =
   configure_arg := true
@@ -300,6 +304,9 @@ let arg_list = short_arg_list @ [
     BuildAutogen.create_package name LibraryPackage
       (File.of_string "."); exit 0;
   ), "OCP_FILE Auto-generate a .ocp file for a library";
+
+    "-oasis", Arg.Unit oasis_action,
+    " Compatibility mode with oasis";
 
   "-program-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name ProgramPackage
@@ -549,7 +556,6 @@ let _ =
       "all packages are installed.";
     ];
 
-
   add_sub_command "test" "Build and run package tests"
     test_action [] arg_anon
     [ "     ocp-build test [OPTIONS] [PACKAGES]";
@@ -585,6 +591,15 @@ let _ =
       "";
       "Uninstall packages previously installed by ocp-build";
     ];
+
+  add_sub_command "oasis" "Oasis compatibility"
+    oasis_action []
+    arg_anon
+    [ "     ocp-build oasis [OPTIONS] [PACKAGES]";
+      "";
+      "Try to simulate oasis behavior for building packages";
+    ];
+
   ()
 
 let arg_usage =

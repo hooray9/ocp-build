@@ -42,30 +42,6 @@ type oasis_line =
 
 let read_oasis filename =
   let ic = open_in filename in
-(*
-  let in_line = ref None in
-  let in_section = ref None in
-  let lines = ref [] in
-  let finish_section () =
-    match !in_section with
-        None -> ()
-      | Some (kind, name, section_lines) ->
-        in_section := None;
-        lines := (Section (kind,name, List.rev !section_lines)) :: !lines
-  in
-  let finish_line () =
-    match !in_line with
-        None -> ()
-      | Some (_, tokens) ->
-        in_line := None;
-        match !in_section with
-            None ->
-              lines := (Line tokens) :: !lines
-          | Some (_, _, section_lines) ->
-            section_lines := tokens :: !section_lines
-  in
-*)
-
   let lines = ref [] in
   try
     let rec read_line stack ic =

@@ -17,6 +17,8 @@ open BuildOCPTree
 open BuildOCPTypes
 open BuildOCPVariable
 
+let verbose = DebugVerbosity.verbose ["B"] "BuildGlobals"
+
 (* Under Windows, we cannot use dot-prefixed directories *)
 let homedir = try Sys.getenv "HOME" with Not_found -> "."
 
@@ -78,7 +80,7 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
   let lib_install =
     not lib_installed &&
     (match pk.package_type with
-      TestPackage -> false
+        TestPackage -> false
       | ProgramPackage
       | LibraryPackage
       | ObjectsPackage
@@ -139,6 +141,13 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
   in
   Hashtbl.add all_projects lib.lib_id lib;
   packages_by_name := StringMap.add lib.lib_name lib !packages_by_name;
+  if verbose 5 then begin
+    Printf.eprintf "BuildGlobals.new_library %S\n" lib.lib_name;
+    Printf.eprintf "  lib_install = %b\n%!" lib.lib_install;
+    List.iter (fun (s, _) ->
+      Printf.eprintf "  MOD %S\n%!" s;
+    ) lib.lib_sources;
+  end;
   lib
 
 
