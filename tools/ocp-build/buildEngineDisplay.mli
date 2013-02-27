@@ -18,6 +18,7 @@ val begin_command :
 val end_command :
   BuildEngineTypes.build_context ->
   BuildEngineTypes.build_process ->
+  float ->
   int ->
   unit
 val print_file : string -> string -> unit
@@ -25,3 +26,4 @@ val add_error : string list -> unit
 val has_error : unit -> bool
 val errors : unit -> string list list
 val finish : unit -> unit
+val color : bool ref

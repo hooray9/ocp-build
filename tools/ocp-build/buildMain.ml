@@ -429,7 +429,7 @@ let do_compile b cin ncores projects =
     time_step "   Done sanitizing";
 
     time_step "Building packages...";
-    let max_nslots = BuildEngine.parallel_loop b ncores
+    let _max_nslots = BuildEngine.parallel_loop b ncores
     in
     time_step "   Done building packages";
 
@@ -439,13 +439,19 @@ let do_compile b cin ncores projects =
 
     let nerrors = List.length errors in
     Printf.eprintf
-      "Done in %.2fs: %s. %d jobs (%d parallel), %d files generated.\n%!"
+      "%s in %.2fs. %d jobs (parallelism %.1fx), %d files generated.\n%!"
+      (if errors = [] then
+         if !BuildEngineDisplay.color then "\027[32mBuild Successful\027[m"
+         else "Build Successful"
+       else
+         Printf.sprintf "%s%d error%s%s"
+           (if !BuildEngineDisplay.color then "\027[31m" else "")
+           nerrors
+           (if nerrors > 1 then "s" else "")
+           (if !BuildEngineDisplay.color then "\027[m" else ""))
       (t1 -. t0)
-      (if errors = [] then "Build Successful" else
-         Printf.sprintf "%d error%s" nerrors
-           (if nerrors > 1 then "s" else ""))
       !BuildEngine.stats_command_executed
-      max_nslots
+      (!BuildEngine.stats_total_time /. (t1 -. t0))
       !BuildEngine.stats_files_generated;
     if errors <> [] then begin
       Printf.eprintf "Error log:\n";
@@ -629,14 +635,17 @@ let build targets =
 
       | Some project_dir ->
 
-        Unix.chdir (File.to_string project_dir);
-        Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
-          (File.to_string project_dir);
-        add_finally (fun () ->
-          Printf.printf
-            "ocp-build: Leaving directory `%s'\n%!" (File.to_string project_dir)
-        );
-
+        let dir = File.to_string project_dir in
+        if Unix.getcwd () <> dir then begin
+          Unix.chdir dir;
+          Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
+            (File.to_string project_dir);
+          add_finally (fun () ->
+            Printf.printf
+              "ocp-build: Leaving directory `%s'\n%!"
+              (File.to_string project_dir)
+          )
+        end;
         do_load_project_files cin project_dir state;
 
     end;

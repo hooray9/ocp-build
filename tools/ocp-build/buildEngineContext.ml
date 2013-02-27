@@ -384,6 +384,7 @@ let create current_dir_filename build_dir_filename =
       (* to display progress *)
       build_stats_to_execute = 0;
       build_stats_executed = 0;
+      build_stats_running_rules = [];
       build_stats_lastpoint = 0;
     }
 

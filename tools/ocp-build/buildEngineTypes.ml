@@ -113,6 +113,7 @@ and build_context = {
 
   mutable build_stats_to_execute : int;
   mutable build_stats_executed : int;
+  mutable build_stats_running_rules : (int*float) list; (* rule id, tstart *)
   mutable build_stats_lastpoint : int;
 
   mutable build_directories : (int * int64, build_directory) Hashtbl.t;
