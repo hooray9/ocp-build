@@ -39,6 +39,7 @@ open BuildOCPVariable
 *)
 
 type install_where = {
+  install_destdir : string option;
   install_libdirs : string list;
   install_bindir : string;
   install_datadir : string option;
@@ -510,6 +511,11 @@ let rec uninstall_by_uninstaller state uninstall_file =
   let lib_name = Filename.chop_suffix (Filename.basename uninstall_file)
     ".uninstall"
   in
+  if not (Sys.file_exists uninstall_file) then begin
+    Printf.eprintf "Warning: uninstaller file %S not found\n%!"
+      uninstall_file;
+    state.uninstall_errors <- state.uninstall_errors + 1
+  end else
     let list = File.lines_of_file uninstall_file in
     List.iter (fun line ->
       match OcpString.cut_at line ' ' with
@@ -535,6 +541,12 @@ let rec uninstall_by_uninstaller state uninstall_file =
       | "LOG", log -> ()
       | "TYP", kind -> ()
       | "PCK", name ->
+        let name =
+          if Filename.check_suffix name ".uninstall" then
+            Filename.chop_suffix (Filename.basename name) ".uninstall"
+          else name
+        in
+
         schedule_uninstall state name
       | _ ->
         Printf.eprintf "Bad line [%S] in file %S\n%!" line uninstall_file;

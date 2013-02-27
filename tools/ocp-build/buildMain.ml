@@ -521,15 +521,18 @@ let build targets =
   in
   time_step "   Done checking OCaml config.";
 
-  let ocamlfind_path = MetaConfig.load_config () in
-  time_step "   Done checking ocamlfind config";
 
   let install_where =
     let open BuildOCamlInstall in
 
     {
+      install_destdir = cin.cin_install_destdir;
       install_libdirs = (match cin.cin_install_lib with
-          None -> ocamlfind_path @ [cfg.ocaml_ocamllib]
+          None ->
+          begin match cout.cout_meta_dirnames with
+            [] -> [cfg.ocaml_ocamllib]
+            | _ -> cout.cout_meta_dirnames
+          end
         | Some dir -> [dir]);
       install_bindir = (match cin.cin_install_bin with
           None -> cfg.ocaml_bin
@@ -537,7 +540,7 @@ let build targets =
       install_datadir = cin.cin_install_data;
 
       install_ocamllib = cfg.ocaml_ocamllib;
-      install_ocamlfind = ocamlfind_path;
+      install_ocamlfind = cout.cout_meta_dirnames;
     }
   in
 
@@ -587,20 +590,10 @@ let build targets =
   ) !env_ocp_dirs;
   time_step "   Done scanning env for .ocp files";
   let state = BuildOCP.init_packages () in
-  let env_meta_dirs = ref cin.cin_meta_dirnames in
-
-  if cin.cin_use_ocamlfind then begin
-    let more_meta_dirs =
-      match ocamlfind_path with
-        [] -> [cfg.ocaml_ocamllib]
-      | list -> list
-    in
-    env_meta_dirs := !env_meta_dirs @ more_meta_dirs;
-  end;
   time_step "Loading METAs...";
   List.iter (fun dirname ->
     BuildOCamlMeta.load_META_files state cfg dirname
-  ) !env_meta_dirs;
+  ) cout.cout_meta_dirnames;
 
   time_step "   Done Loading METAs";
 

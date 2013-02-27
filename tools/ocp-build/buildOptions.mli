@@ -13,38 +13,6 @@
 
 open SimpleConfig
 
-(*
-
-  type project_options = {
-    mutable option_njobs : int;
-    mutable option_autoscan : bool;
-    mutable option_verbosity : int;
-    mutable option_digest : bool;
-    mutable option_ocaml : string option;
-  }
-
-module GlobalOptions : sig
-
-  val verbosity_option : int config_option
-
-end
-
-val global_config_dir : File.t
-
-val load_global : unit -> unit
-val maybe_save_global : unit -> unit
-val save_global : unit -> unit
-val must_save_global : bool -> unit
-
-val must_save_local : bool -> unit
-val load_local : File.t -> SimpleConfig.config_file * project_options
-val save_local : SimpleConfig.config_file -> unit
-val maybe_save_local : SimpleConfig.config_file -> unit
-
-
-val arg_list : unit -> (string * Arg.spec * string) list
-
-*)
 val shortcut_arg :
   string -> string ->
   (string * Arg.spec * string) list ->
@@ -71,6 +39,7 @@ type config_input = {
   mutable cin_verbosity : int;
   mutable cin_njobs : int;
 
+  mutable cin_install_destdir : string option;
   mutable cin_install_bin : string option;
   mutable cin_install_lib : string option;
   mutable cin_install_doc : string option;

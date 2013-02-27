@@ -58,6 +58,7 @@ type config_input = {
   mutable cin_verbosity : int;
   mutable cin_njobs : int;
 
+  mutable cin_install_destdir : string option;
   mutable cin_install_bin : string option;
   mutable cin_install_lib : string option;
   mutable cin_install_doc : string option;
@@ -77,6 +78,7 @@ type arg_action =
   | SetStrings of string list SimpleConfig.config_option * string
   | SetStringOption of string option SimpleConfig.config_option * string
   | SetStringsOption of string list option SimpleConfig.config_option * string
+  | Apply of (unit -> unit)
 
 let save_configs = ref []
 let arguments = ref []
@@ -171,6 +173,7 @@ let apply_arguments () =
     | SetStrings (option, s) -> option =:= [s]
     | SetStringOption (option, s) -> option =:= Some s
     | SetStringsOption (option, s) -> option =:= Some [s]
+    | Apply f -> f ()
   ) (List.rev !arguments);
 
   List.iter (fun (config, filename) ->
@@ -381,6 +384,18 @@ module ProjectOptions = struct
       [ "native" ] ["If set, compile in native code" ]
       (option_option bool_option) None
 
+  let meta_dirnames_option =
+    SimpleConfig.create_option project_config
+      [ "meta_dirnames" ]
+      ["List of directories where to\n  look for META files" ]
+      (list_option string_option) []
+
+  let install_destdir_option =
+    SimpleConfig.create_option project_config
+      [ "install_destdir" ]
+      ["An alternative root directory for installation"]
+      (option_option string_option) None
+
   let install_bin_option =
     SimpleConfig.create_option project_config
       [ "install_bin" ]  ["where programs should be installed"]
@@ -451,6 +466,9 @@ module ProjectOptions = struct
 
 end
 
+
+let load_ocaml_config_arg = ref true
+let load_user_prefs_arg = ref true
 let njobs_arg = ref None
 let verbosity_arg = ref None
 let asm_arg = ref None
@@ -458,10 +476,16 @@ let byte_arg = ref None
 let scan_arg = ref None
 let digest_arg = ref None
 let use_ocamlfind_arg = ref None
+let meta_dirnames_arg = ref []
+let install_destdir_arg = ref None
 let install_bin_arg = ref None
 let install_lib_arg = ref None
 let install_doc_arg = ref None
 let install_data_arg = ref None
+
+(* Delay actions on project options after loading the project file *)
+let delay f =
+  arguments := Apply f :: !arguments
 
 let arg_list () =
   [
@@ -469,9 +493,11 @@ let arg_list () =
 (* user preferences *)
 (* ocaml options *)
     "-save-user-prefs", Arg.Unit (fun () ->
-      UserOptions.must_save_config := true
+      UserOptions.must_save_config := true;
     ),
     " Save user preferences";
+    "-no-user-prefs", Arg.Clear load_user_prefs_arg,
+    " Do not load user preferences";
 
 (* ocaml options *)
     "-ocaml-config", Arg.String (fun s ->
@@ -484,6 +510,8 @@ let arg_list () =
         OCamlOptions.must_save_config := true
     ),
     "FILENAME Save ocaml config to FILENAME (- for default file)";
+    "-no-ocaml-config", Arg.Clear load_ocaml_config_arg,
+    " Do not load global OCaml configuration";
 
 (**** asm option ****)
 
@@ -492,12 +520,14 @@ let arg_list () =
     "-no-asm", Arg.Unit (fun () ->
       asm_arg := Some true), " Do not compile in native code";
     "-project-asm", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.native_option =:= Some true),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.native_option =:= Some true)),
     " Compile native code version of the project\n  (project option)";
     "-project-no-asm", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.native_option =:= Some false),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.native_option =:= Some false)),
     " Do not compile native code version of the project\n  (project option)";
 
 (**** byte option ****)
@@ -507,12 +537,14 @@ let arg_list () =
     "-no-byte", Arg.Unit (fun () ->
       byte_arg := Some true), " Do not compile in bytecode";
     "-project-byte", Arg.Unit (fun () ->
+      delay (fun () ->
       ProjectOptions.must_save_config := true;
-      ProjectOptions.bytecode_option =:= Some true),
+      ProjectOptions.bytecode_option =:= Some true)),
     " Compile bytecode code version of the project\n  (project option)";
     "-project-no-byte", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.bytecode_option =:= Some false),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.bytecode_option =:= Some false)),
     " Do not compile this project in bytecode\n  (project option)";
 
 (**** autoscan option ****)
@@ -522,12 +554,14 @@ let arg_list () =
     "-no-scan", Arg.Unit (fun () ->
       scan_arg := Some false), " Don't scan sub-directories";
     "-project-autoscan", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.autoscan_option =:= Some true),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.autoscan_option =:= Some true)),
     " Always scan project for new package\n  (project option)";
     "-project-no-autoscan", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.autoscan_option =:= Some false),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.autoscan_option =:= Some false)),
     " Do not scan directory by default\n  (project option)";
 
 (**** digest option ****)
@@ -539,12 +573,14 @@ let arg_list () =
       digest_arg := Some false),
     " Do not use checksums";
     "-project-digest", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.digest_option =:= Some true),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.digest_option =:= Some true)),
     " Use checksums (project option)";
     "-project-no-digest", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.digest_option =:= Some false),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.digest_option =:= Some false)),
     " Do not use checksums (project option)";
 
 (**** njobs option ****)
@@ -553,8 +589,9 @@ let arg_list () =
       njobs_arg := Some n),
     "NUM Number of processes to start in parallel";
     "-project-njobs", Arg.Int (fun n ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.njobs_option =:= Some n),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.njobs_option =:= Some n)),
     "NUM Number of processes to start in parallel\n  (project option)";
 
 (**** verbosity option ****)
@@ -563,8 +600,9 @@ let arg_list () =
       verbosity_arg := Some n),
     "NUM Verbosity level";
     "-project-verbosity", Arg.Int (fun n ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.verbosity_option =:= Some n),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.verbosity_option =:= Some n)),
     "NUM Verbosity level (project option)";
 
 (**** use-ocamlfind option ****)
@@ -576,14 +614,39 @@ let arg_list () =
       use_ocamlfind_arg := Some false),
     " Don't try to use ocamlfind to locate META files";
     "-project-use-ocamlfind", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.use_ocamlfind_option =:= true),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.use_ocamlfind_option =:= true)),
     " Try to Use ocamlfind to locate META files\n  (project option)";
     "-project-no-use-ocamlfind", Arg.Unit (fun () ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.use_ocamlfind_option =:= false),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.use_ocamlfind_option =:= false)),
     " Don't try to use ocamlfind to locate META files\n  (project option)";
 
+(**** meta-dir option ****)
+
+    "-meta-dir", Arg.String (fun s ->
+      meta_dirnames_arg := !meta_dirnames_arg @ [s]),
+    " DIR Add directory to search for META descriptions";
+
+    "-project-meta-dir", Arg.String (fun s ->
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.meta_dirnames_option =:=
+          !!ProjectOptions.meta_dirnames_option @ [s])),
+    " DIR Add directory to search for META descriptions\n  (project option)";
+
+(**** install-destdir option ****)
+
+    "-install-destdir", Arg.String (fun s ->
+      install_destdir_arg := Some s),
+    "FILENAME Directory root where installation should be done";
+    "-project-install-destdir", Arg.String (fun s ->
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.install_destdir_option =:= Some s)),
+    "FILENAME Directory root where installation should be done\n  (project option)";
 
 (**** install-bin option ****)
 
@@ -591,8 +654,9 @@ let arg_list () =
       install_bin_arg := Some s),
     "FILENAME Directory where binaries should be installed";
     "-project-install-bin", Arg.String (fun s ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.install_bin_option =:= Some s),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.install_bin_option =:= Some s)),
     "FILENAME Directory where binaries should be installed\n  (project option)";
 
 (**** install-lib option ****)
@@ -601,8 +665,9 @@ let arg_list () =
       install_lib_arg := Some s),
     "FILENAME Directory where libraries should be installed";
     "-project-install-lib", Arg.String (fun s ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.install_lib_option =:= Some s),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.install_lib_option =:= Some s)),
     "FILENAME Directory where libraries should be installed\n  (project option)";
 
 (**** install-doc option ****)
@@ -611,8 +676,9 @@ let arg_list () =
       install_doc_arg := Some s),
     "FILENAME Directory where documentation should be installed";
     "-project-install-doc", Arg.String (fun s ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.install_doc_option =:= Some s),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.install_doc_option =:= Some s)),
     "FILENAME Directory where documentation should be installed\n  (project option)";
 
 (**** install-data option ****)
@@ -621,8 +687,9 @@ let arg_list () =
       install_data_arg := Some s),
     "FILENAME Directory where data files should be installed";
     "-project-install-data", Arg.String (fun s ->
-      ProjectOptions.must_save_config := true;
-      ProjectOptions.install_data_option =:= Some s),
+      delay (fun () ->
+        ProjectOptions.must_save_config := true;
+        ProjectOptions.install_data_option =:= Some s)),
     "FILENAME Directory where data files should be installed\n  (project option)";
 
     arg_set_true            OCamlOptions.ocps_in_ocamllib_option;
@@ -651,8 +718,8 @@ let some_or_default project_option user_option =
 
 let load project_dir =
 
-  UserOptions.load ();
-  OCamlOptions.load ();
+  if !load_user_prefs_arg then UserOptions.load ();
+  if !load_ocaml_config_arg then OCamlOptions.load ();
   begin
     match project_dir with
       None -> ()
@@ -712,6 +779,11 @@ let load project_dir =
     | Some arg -> arg
   in
 
+  let cin_install_destdir = match !install_destdir_arg with
+      None -> !!ProjectOptions.install_destdir_option
+    | arg -> arg
+  in
+
   let cin_install_bin = match !install_bin_arg with
       None -> !!ProjectOptions.install_bin_option
     | arg -> arg
@@ -732,6 +804,11 @@ let load project_dir =
     | arg -> arg
   in
 
+  let cin_meta_dirnames =
+    !meta_dirnames_arg @
+      !!ProjectOptions.meta_dirnames_option @
+      !!OCamlOptions.meta_dirnames_option in
+
   let cin = {
     cin_bytecode;
     cin_native;
@@ -751,13 +828,14 @@ let load project_dir =
     cin_ocamlbin = !!OCamlOptions.ocamlbin_option;
     cin_ocamllib = !!OCamlOptions.ocamllib_option;
     cin_ocps_in_ocamllib = !!OCamlOptions.ocps_in_ocamllib_option;
-    cin_meta_dirnames = !!OCamlOptions.meta_dirnames_option;
+    cin_meta_dirnames;
     cin_ocps_dirnames = !!OCamlOptions.ocps_dirnames_option;
+
+    cin_install_destdir;
     cin_install_bin;
     cin_install_lib;
     cin_install_doc;
     cin_install_data;
-
   }
   in
   cin

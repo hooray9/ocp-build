@@ -12,6 +12,8 @@
 (******************************************************************************)
 
 type install_where = {
+  install_destdir : string option;
+
   install_libdirs : string list;
   install_bindir : string;
   install_datadir : string option;

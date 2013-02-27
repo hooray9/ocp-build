@@ -69,6 +69,7 @@ module TYPES : sig
     mutable cout_ocamldep : string list option;
     mutable cout_ocamlyacc : string list option;
     mutable cout_ocamllex : string list option;
+    mutable cout_meta_dirnames : string list;
   }
 
 end

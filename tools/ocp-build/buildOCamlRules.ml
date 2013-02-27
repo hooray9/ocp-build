@@ -828,15 +828,68 @@ let add_mli_source b lib pj mli_file options =
     cmi_files := cmi_file :: !cmi_files
 
 
-let get_packed_objects r src_dir pack_of cmx_ext =
+let rec find_capital s len =
+  if len > 0 then
+    let pos = len-1 in
+    let c = s.[pos] in
+    if c = '/' || c = '\\' then len
+    else
+      find_capital s pos
+  else 0
+
+let invert_capital s =
+  let len = String.length s in
+  let pos = find_capital s len in
+  Printf.eprintf "invert_capital %S at pos %d\n%!" s pos;
+  if pos < len then
+    let c = s.[pos] in
+    match c with
+    | 'a'..'z' -> s.[pos] <- Char.uppercase c
+    | 'A'..'Z' -> s.[pos] <- Char.lowercase c
+    | _ -> ()
+
+let rec find_source_with_extension b lib src_dir kernel_name exts =
+  match exts with
+  | [] ->
+    Printf.eprintf "Error: package %S, module %S, could not find\n"
+      lib.lib_name kernel_name;
+    Printf.eprintf "   matching source in source directory\n";
+    Printf.eprintf "   %S\n%!" src_dir.dir_fullname;
+    exit 2
+  | ext :: rem_exts ->
+    let basename1 = kernel_name ^ "." ^ ext in
+    let test1 = File.add_basename src_dir.dir_file basename1 in
+    if File.X.exists test1 then
+      (basename1, ext)
+    else
+    let basename2 = kernel_name ^ "." ^ ext in
+      invert_capital basename2;
+    let test2 = File.add_basename src_dir.dir_file basename2 in
+    if File.X.exists test2 then
+      (basename2, ext)
+    else
+      find_source_with_extension b lib src_dir kernel_name rem_exts
+
+
+let standard_exts =        [ "mly"; "mll"; "ml"; "mli"; "c" ]
+
+let get_packed_objects lib r src_dir pack_of cmx_ext =
   let packed_cmx_files = ref [] in
   let b = r.rule_context in
   List.iter (fun basename ->
     let name, extension = File.cut_last_extension basename in
+    let (basename, extension) =
+      if extension = "" then
+        find_source_with_extension b lib src_dir name standard_exts
+      else
+        (basename, extension)
+    in
     let obj_extension = match String.lowercase extension with
 	"ml" | "mll" | "mly" -> cmx_ext
       | "mli" -> ".cmi"
-      | _ -> Printf.ksprintf failwith "Bad extension [%s] for filename [%s]" extension basename
+      | _ ->
+        Printf.ksprintf failwith
+          "Bad extension [%s] for filename [%s]" extension basename
     in
     let filename = name ^ obj_extension in
     let object_file = add_file b src_dir filename in
@@ -1161,7 +1214,7 @@ let add_ml_source b lib pj ml_file options =
       let src_dir = Filename.concat dst_dir.dir_fullname modname in
       (*      Printf.eprintf "Pack in %s [%s]\n" src_dir modname; *)
       let src_dir = add_directory b src_dir in
-      let cmo_files = get_packed_objects r src_dir pack_of ".cmo" in
+      let cmo_files = get_packed_objects lib r src_dir pack_of ".cmo" in
       let cmd = add_files_to_link_to_command cmd options cmo_files in
       add_rule_command r cmd
     end;
@@ -1214,7 +1267,7 @@ let add_ml_source b lib pj ml_file options =
       add_command_pack_args cmd pack_for;
 
       let src_dir = add_directory b (Filename.concat dst_dir.dir_fullname modname) in
-      let cmx_files = get_packed_objects r src_dir pack_of ".cmx" in
+      let cmx_files = get_packed_objects lib r src_dir pack_of ".cmx" in
       let cmd = add_files_to_link_to_command cmd options cmx_files in
       add_rule_command r cmd
     end;
@@ -1306,7 +1359,14 @@ let add_mly_source b lib pj mly_file options =
     add_ml_source b lib pj ml_file options
 
 let rec process_source b lib src_dir (basename, options) =
-  let (kernel_name, last_extension) = File.cut_last_extension basename in
+  let (kernel_name, last_extension) = String.rcut_at basename '.' in
+  let (basename, last_extension) =
+    if last_extension = "" then
+      find_source_with_extension b lib src_dir kernel_name
+standard_exts
+    else
+      (basename, last_extension)
+  in
   let src_file = add_filename b src_dir basename in
   match last_extension with
       "c" ->
@@ -1348,7 +1408,7 @@ let rec process_source b lib src_dir (basename, options) =
     | "mli" ->
       add_mli_source b lib lib src_file options
     (* other ones: .ml4, mli4, .ml5, .mli5, .mly4, .mly5, .mll4, .mll5 *)
-    | _ ->
+    | ext ->
       if bool_option_true options ml_file_option then
 	add_ml_source b lib lib src_file options
       else
@@ -1356,8 +1416,8 @@ let rec process_source b lib src_dir (basename, options) =
           add_mli_source b lib lib src_file options
         else begin
 
-	  Printf.eprintf "Don't know what to do with [%s]\n%!"
-            (String.escaped basename);
+	  Printf.eprintf "Don't know what to do with [%s] (extension %S)\n%!"
+            (String.escaped basename) ext;
 	  Printf.eprintf "\tfrom project %s in dir %s\n%!"
             lib.lib_name src_dir.dir_fullname;
 	  exit 2;

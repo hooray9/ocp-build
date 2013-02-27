@@ -43,6 +43,7 @@ module TYPES = struct
     mutable cout_ocamldep : string list option;
     mutable cout_ocamlyacc : string list option;
     mutable cout_ocamllex : string list option;
+    mutable cout_meta_dirnames : string list;
   }
 
 end
@@ -141,6 +142,7 @@ let check_config cin =
     cout_ocamlyacc = None;
     cout_ocamldep = None;
     cout_ocaml = None;
+    cout_meta_dirnames = [];
   } in
 
   if not (cin.cin_native || cin.cin_bytecode) then begin
@@ -232,6 +234,7 @@ let check_config cin =
       cout.cout_ocamlcc <- Some [ocamlc];
       byte_config
   in
+
   cout.cout_ocaml <- Some cfg;
 
   let ocamldep = find_first_in_path path
@@ -264,6 +267,26 @@ let check_config cin =
     | Some ocamlyacc ->
       cout.cout_ocamlyacc <- Some [ocamlyacc];
   end;
+
+  let ocamlfind_path =
+    if cin.cin_use_ocamlfind then
+      MetaConfig.load_config ()
+    else [] in
+
+  let meta_dirnames =
+    ocamlfind_path @
+    cin.cin_meta_dirnames in
+
+  let rec filter_dirnames path =
+    match path with
+      [] | "END" :: _ -> []
+    | "OCAML" :: tail -> cfg.ocaml_ocamllib :: (filter_dirnames tail)
+    | dir :: tail -> dir :: (filter_dirnames tail)
+  in
+  let meta_dirnames = filter_dirnames meta_dirnames in
+  cout.cout_meta_dirnames <- meta_dirnames;
+
+
 
   cout
 

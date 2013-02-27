@@ -477,6 +477,7 @@ let _ =
     "-no-digest", "-project-no-digest";
     "-no-ocamlfind", "-project-no-use-ocamlfind";
 
+    "-install-destdir", "-project-install-destdir";
     "-install-bin", "-project-install-bin";
     "-install-lib", "-project-install-lib";
     "-install-doc","-project-install-doc";
@@ -508,6 +509,7 @@ let _ =
     dup "-k";
     dup "-sanitize";
     dup "-sanitize-dirs";
+    dup "-list-waiting-targets";
     "", " \nYou can override the configuration also:";
     "", " ";
     "-njobs", "-njobs";
@@ -535,6 +537,7 @@ let _ =
     install_action [
     "", " \nYou can override the configuration also:";
     "", " ";
+    dup "-install-destdir";
     dup "-install-bin";
     dup "-install-lib";
     dup "-install-doc";
@@ -574,7 +577,10 @@ let _ =
 
 
   add_sub_command "uninstall" "Uninstall packages"
-    uninstall_action [] arg_anon
+    uninstall_action [
+      dup "-install-destdir";
+    dup "-install-lib";
+  ] arg_anon
     [ "     ocp-build uninstall [OPTIONS] [PACKAGES]";
       "";
       "Uninstall packages previously installed by ocp-build";

@@ -58,12 +58,13 @@ let print_file message filename =
 	let line = input_line ic in
 	if not !message_printed then begin
 	  message_printed := true;
-	  Printf.eprintf "%s\n%!" message
+	  Printf.eprintf "%s\n" message
 	end;
-	Printf.eprintf "%s\n%!" line
+	Printf.eprintf "%s\n" line
       done
     with _ -> ()
   end;
+  Printf.eprintf "%!";
   close_in ic
 
 let temp_stdout b r =
