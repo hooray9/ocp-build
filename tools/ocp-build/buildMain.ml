@@ -554,6 +554,7 @@ let build targets =
   if !uninstall_arg && targets <> [] then begin
 
     List.iter (BuildOCamlInstall.uninstall_by_name uninstall_state) targets;
+    BuildOCamlInstall.uninstall_finish uninstall_state;
     exit 0
   end;
 
@@ -724,7 +725,9 @@ let build targets =
 
         List.iter (fun lib ->
           BuildOCamlInstall.uninstall uninstall_state lib)
-          projects
+          projects;
+        BuildOCamlInstall.uninstall_finish uninstall_state;
+        exit 0
 
       end (* !uninstall_arg *)
       else

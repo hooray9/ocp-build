@@ -66,6 +66,18 @@ install:
           -install-bin $(BINDIR) \
           -install-data $(TYPEREXDIR)
 
+install-destdir:
+	$(OCPBUILD) install \
+	  -install-destdir $(HOME)/typerex-root \
+          -install-lib $(LIBDIR) \
+          -install-bin $(BINDIR) \
+          -install-data $(TYPEREXDIR)
+
+uninstall-destdir:
+	$(OCPBUILD) uninstall \
+	  -install-destdir $(HOME)/typerex-root \
+          -install-lib $(LIBDIR) 
+
 #	mkdir -p $(TYPEREXDIR)
 #	mkdir -p $(BINDIR)
 #	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)

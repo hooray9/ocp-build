@@ -36,16 +36,13 @@ val install :
   install_what ->
   BuildTypes.package_info -> string -> unit
 
-val install_bundle :
-  install_where ->
-  string -> string list -> string -> unit
-
 val find_installdir :
   install_where ->
   install_what ->
   string -> string option
 
 val uninstall_init : install_where -> uninstall_state
+val uninstall_finish : uninstall_state -> unit
 val uninstall_by_name : uninstall_state ->  string -> unit
 val uninstall : uninstall_state -> BuildTypes.package_info -> unit
 
