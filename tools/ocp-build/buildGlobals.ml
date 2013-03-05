@@ -105,7 +105,13 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_node = pk.package_node;
       lib_missing_deps = pk.package_missing_deps;
       lib_requires = List.map (fun dep ->
-        let pd = Hashtbl.find all_projects dep.dep_project.package_id in
+        let pd = try
+          Hashtbl.find all_projects dep.dep_project.package_id
+        with Not_found ->
+          Printf.eprintf "Unknown dependency %d of package %S\n%!"
+            dep.dep_project.package_id pk.package_name;
+          exit 2
+          in
         { dep with dep_project = pd }
       ) pk.package_requires;
       lib_added = pk.package_added;

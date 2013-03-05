@@ -178,6 +178,11 @@ let test_package b stats lib only_benchmarks =
             let test_basename =
               Printf.sprintf "%s-%s%s" test kind variant
             in
+            let test_result_dir = Filename.concat tests_result_dir
+                test_basename in
+            let test_info = Filename.concat test_result_dir "test_info.txt" in
+
+
         let test_name = Printf.sprintf "%s/tests/%s" lib.lib_name test_basename
         in
         let subst = BuildSubst.env_subst in
@@ -191,11 +196,8 @@ let test_package b stats lib only_benchmarks =
         in
         let subst = StringSubst.add_to_copy subst "%{sources}%"
             (File.to_string lib.lib_src_dir.dir_file) in
-        let test_result_dir = Filename.concat tests_result_dir
-            test_basename in
         let subst = StringSubst.add_to_copy subst "%{results}%"
             test_result_dir in
-        BuildMisc.safe_mkdir test_result_dir;
         let cmd = list_option_with_default options
             "test_cmd" [ "%{binary}%" ]
         in
@@ -244,7 +246,23 @@ let test_package b stats lib only_benchmarks =
         in
         let serialized = bool_option_with_default options
             "test_serialized" false in
+
+
         let start_test () =
+          BuildMisc.safe_mkdir test_result_dir;
+          let oc = open_out test_info in
+          Printf.fprintf oc "test=%S\n" test;
+          Printf.fprintf oc "test_binary=%S\n" binary;
+          Printf.fprintf oc "variant=%S\n" variant;
+          Printf.fprintf oc "test_dir=%S\n" test_rundir;
+          Printf.fprintf oc "test_kind=%S\n" kind;
+          Printf.fprintf oc "test_benchmark=%b\n" benchmark;
+          Printf.fprintf oc "test_serialized=%b\n" serialized;
+          Printf.fprintf oc "test_exit=%d\n" expected_status;
+          Printf.fprintf oc "test_cmd=\"%s\"\n"
+            (String.concat "\" \"" cmd_args);
+          close_out oc;
+
           Unix.chdir test_rundir;
           let pid = BuildMisc.create_process cmd_args
               test_stdin (Some result_out) (Some result_err)
@@ -254,6 +272,7 @@ let test_package b stats lib only_benchmarks =
           Unix.chdir cwd;
           pid
         in
+
         let check_test time status =
           if verbose 2 then
             Printf.eprintf "Test finished\n%!";
@@ -402,6 +421,6 @@ let finish tests njobs =
     ) (List.sort compare tests.tests_timings);
   end;
   if tests.tests_nfailures > 0 then begin
-    Printf.eprintf "You can read failed test outputs in _obuild/PACKAGE/tests/\n%!";
+    Printf.eprintf "You can read failed test outputs in _obuild/_tests/PACKAGE/\n%!";
     exit 1
   end

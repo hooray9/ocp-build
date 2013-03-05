@@ -183,6 +183,12 @@ let arg_list = short_arg_list @ [
     save_project := true
   ), " Create the ocp-build.root file\n  in the current directory";
 
+  "-root", Arg.Unit (fun () ->
+    init_arg := true;
+    save_arguments_arg := true;
+    save_project := true
+  ), " Create the ocp-build.root file\n  in the current directory";
+
   "-configure", Arg.Unit (fun () ->
     configure_arg := true;
   ),

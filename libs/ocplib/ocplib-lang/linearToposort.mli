@@ -11,8 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-exception CyclicGraph
-
 (** Abstract type for a node *)
 type node
 
@@ -22,11 +20,15 @@ val new_node : unit -> node
 module Make :
   functor
     (M : sig
-      type t
-      val node : t -> node
-      val iter_edges : (t -> unit) -> t -> unit
-      val name : t -> string
-    end) ->
+       type t
+       val node : t -> node
+       val iter_edges : (t -> unit) -> t -> unit
+       val name : t -> string
+     end) ->
       sig
-        val sort : M.t list -> M.t list
+        val sort : M.t list ->
+    M.t list * (* sorted list *)
+      (M.t * M.t list * M.t list) list *  (* a cycle *)
+      M.t list (* other non-sorted nodes *)
+
       end

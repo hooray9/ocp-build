@@ -207,17 +207,6 @@ let find_root root_dir basenames =
   in
   find root_dir basenames
 
-(*
-val open_project : (File.t -> project)
-let open_project files =
-
-(*
-  let config_file = SimpleConfig.create_config_file file_t in
-*)
-(*  SimpleConfig.load config_file; *)
-  pj
-*)
-
 module PackageDepSorter = LinearToposort.Make(struct
   type t = package
   let node pd = pd.package_node
@@ -640,7 +629,10 @@ begin
 end;
   ) !list;
 
-  let project_sorted = PackageDepSorter.sort !list in
+  let (project_sorted, cycle, other) =
+    PackageDepSorter.sort !list
+  in
+  let list = () in
   List.iter update_deps project_sorted;
 
   List.iter (fun pk ->
@@ -676,7 +668,9 @@ also duplicated packages. *)
      order than the one globally inferred.  *)
   Array.iter (fun pk ->
     if bool_option_true pk.package_options  requires_keep_order_option then
-      pk.package_requires <- PackageLinkSorter.sort pk.package_requires
+      let (sorted, cycle, _ ) = PackageLinkSorter.sort pk.package_requires in
+      assert (cycle = []);
+      pk.package_requires <- sorted
     else
       pk.package_requires <- List.sort (fun dep1 dep2 ->
         compare

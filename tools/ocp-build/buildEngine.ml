@@ -506,6 +506,9 @@ let print_waiting_queue q =
     ) !queue_inactive
   end
 
+(* Beware not to use add_temp_file on a file that has already been
+   initialized as a target, it would cause an assertion failure. *)
+
 let temp_files = ref IntMap.empty
 
 let check_temporary b r file =
@@ -518,9 +521,18 @@ let check_temporary b r file =
   with Not_found -> ()
 
 let lock_temporary r file =
+  if IntMap.mem file.file_id !temp_files then begin
+    Printf.eprintf "Error in lock_temporary: file %S is already locked\n%!"
+      (File.to_string file.file_file);
+    exit 2
+  end;
+(*    Printf.eprintf "LOCKING FILE %d %S\n%!" file.file_id
+      (File.to_string file.file_file);
+*)
   temp_files := IntMap.add file.file_id (r, ref []) !temp_files
 
 let check_temporaries b r =
+(*  Printf.eprintf "check_temporaries %d\n%!" r.rule_id; *)
   if (r.rule_missing_sources <> 0) then begin
     Printf.eprintf "check_temporaries: missing_sources = %d\n" r.rule_missing_sources;
     exit 2;
@@ -533,13 +545,17 @@ let check_temporaries b r =
     true
   end else begin
     let lock_temporary = lock_temporary r in
+(*    Printf.eprintf "lock_temporaries\n%!"; *)
     List.iter lock_temporary r.rule_temporaries;
+(*    Printf.eprintf "lock_targets\n%!"; *)
     List.iter lock_temporary r.rule_targets;
     false
   end
 
 let release_temporaries b r =
   let release_temporary file =
+(*    Printf.eprintf "UNLOCKING FILE %d %S\n%!" file.file_id
+      (File.to_string file.file_file); *)
     let _, rules = IntMap.find file.file_id !temp_files in
     temp_files := IntMap.remove file.file_id !temp_files;
     List.iter (fun r ->
@@ -915,6 +931,14 @@ let print_project_location pj =
     pj.project_filename pos pos
 *)
 
+let rule_executed b r s =
+  try
+    rule_executed b r s
+  with e ->
+    Printf.eprintf "rule_executed: exception %s\n%!"
+      (Printexc.get_backtrace ());
+    raise e
+
 let parallel_loop b ncores =
   let max_nslots = ref 0 in
   let slots = ref IntMap.empty in
@@ -963,6 +987,7 @@ let parallel_loop b ncores =
      of available slots. *)
   and wait nslots =
     assert (nslots >= 0);
+    assert (ncores - nslots = IntMap.cardinal !slots);
     let nslots =
       try
         if verbose 3 then Printf.eprintf "Wait for %d processes\n%!" (IntMap.cardinal !slots);
@@ -984,7 +1009,13 @@ let parallel_loop b ncores =
         | Some status ->
 	  begin
 	    try
-	      let proc = IntMap.find pid !slots in
+	      let proc =
+         try
+           IntMap.find pid !slots
+         with Not_found ->
+           Printf.eprintf "SLOT NOT FOUND...\n%!";
+           raise Not_found
+       in
 	      slots := IntMap.remove pid !slots;
 	      let status =
 	        match proc.proc_last with
@@ -1009,7 +1040,10 @@ let parallel_loop b ncores =
 	        nslots + 1
 	      end else
 	        execute_proc proc (nslots + 1) (* we just freeed a slot *)
-	    with Not_found -> nslots
+	    with Not_found ->
+       Printf.eprintf "WARNING: Could not find returned pid %d in slots\n%!"
+         pid;
+       nslots
 	  end
       with e ->
         (*	if verbose 7 then *)

@@ -59,19 +59,29 @@ open BuildOCamlTypes
 open BuildOCamlVariables
 open BuildOCamlMisc
 
-let mut_dir lib src_file =
+(* TODO: [mut_dir] does not work for source files beginning with ".."
+   and for source files in other packages (package = "toto")
+*)
+
+let copy_dir lib src_file =
+  let b = lib.lib_context in
+  let mut_dirname =
+    Filename.concat b.build_dir_filename "_mutable_tree" in
+  if not (Sys.file_exists mut_dirname) then
+    OcpUnix.safe_mkdir mut_dirname 0o755;
+  let mut_dir = add_directory b mut_dirname in
+
   let rec iter mut_dir file_dir =
-(*
+    (*
     Printf.eprintf "src_dir = %S\n%!" lib.lib_src_dir.dir_fullname;
     Printf.eprintf "fil_dir = %S\n%!" file_dir.dir_fullname;
     Printf.eprintf "mut_dir = %S\n%!" lib.lib_mut_dir.dir_fullname;
 *)
-    if lib.lib_src_dir == file_dir
-      || lib.lib_mut_dir == file_dir
+    if file_dir.dir_parent == file_dir
     then mut_dir else
       let parent_dir = file_dir.dir_parent in
 (*      Printf.eprintf "check parent\n"; *)
-      assert (lib.lib_mut_dir.dir_fullname <> file_dir.dir_fullname);
+(*      assert (lib.lib_mut_dir.dir_fullname <> file_dir.dir_fullname); *)
       let mut_dir = iter mut_dir parent_dir in
       let subdir = Filename.concat mut_dir.dir_fullname file_dir.dir_basename
       in
@@ -79,23 +89,23 @@ let mut_dir lib src_file =
         OcpUnix.safe_mkdir subdir 0o755;
       add_directory lib.lib_context subdir
   in
-  iter lib.lib_mut_dir  src_file.file_dir
+  try
+    let copy_dir = iter mut_dir  src_file.file_dir in
+(*    Printf.eprintf "COPY DIR of %S is %S\n%!"
+      (File.to_string src_file.file_file) copy_dir.dir_fullname; *)
+    copy_dir
+  with Stack_overflow ->
+    Printf.eprintf "Error: Stack_overflow while computing mut_dir\n";
+    Printf.eprintf "  of source file %S of package %S \n%!"
+      (File.to_string src_file.file_file)
+      lib.lib_name;
+    exit 2
 
 let verbose = DebugVerbosity.verbose ["B"] "BuildOCamlRules"
 
 let chop_prefix s prefix =
   let prefix_len = String.length prefix in
   String.sub s prefix_len (String.length s - prefix_len)
-
-(*
-module ProjectSorter = LinearToposort.Make(struct
-  type t = BuildTypes.package_info  package_dependency
-  let node pd = pd.dep_project.lib_node
-  let iter_edges f pd = List.iter f pd.dep_project.lib_requires
-  let name pd = pd.dep_project.lib_name
-end)
-*)
-
 
 
 (* Within a project... *)
@@ -115,7 +125,9 @@ let ocaml_version_greater_than version options =
   ocaml_version >= version
 
 let add_bin_annot_argument cmd options =
-  if ocaml_version_greater_than "4" options then
+  if ocaml_version_greater_than "4" options &&
+     bool_option_with_default options "binannot" true
+  then
     add_command_args cmd [S "-bin-annot" ]
 
 let command_includes lib pack_for =
@@ -401,8 +413,10 @@ let sort_ocaml_files cmo_files =
 
   ) cmo_files;
 
+  let (sorted, cycle, others) = FileSorter.sort list in
+  assert (cycle = []);
   let cmo_files =
-    List.map (fun to_sort -> to_sort.to_sort_value) (FileSorter.sort list) in
+    List.map (fun to_sort -> to_sort.to_sort_value) sorted in
 
   if verbose 3 then begin
     Printf.eprintf "\n";
@@ -664,7 +678,7 @@ let add_command_pack_args cmd modnames =
                           S (String.concat "." modnames)]
 
 
-let move_compilation_garbage r mut_dir temp_dir kernel_name lib =
+let move_compilation_garbage r copy_dir temp_dir kernel_name lib =
   let b = r.rule_context in
 
   let move_to_sources dst_dir_virt exts =
@@ -684,7 +698,7 @@ let move_compilation_garbage r mut_dir temp_dir kernel_name lib =
       let basename = kernel_name ^ ext in
       let src_file = File.add_basename temp_dir basename in
       let dst_file = add_file b lib.lib_dst_dir basename in
-      let link_file = add_file b mut_dir basename in
+      let link_file = add_file b copy_dir basename in
       add_rule_command r (MoveIfExists
                             (F src_file, BF dst_file, Some (BF link_file)))
     ) exts
@@ -720,7 +734,7 @@ let add_mli_source b lib pj mli_file options =
   let basename = mli_file.file_basename in
   src_files := IntMap.add mli_file.file_id mli_file !src_files;
 
-  let mut_dir = mut_dir lib mli_file in
+  let copy_dir = copy_dir lib mli_file in
   let ppv = BuildOCamlSyntaxes.get_pp lib basename options in
   let mli_file, force =
     match ppv.pp_option with
@@ -730,7 +744,7 @@ let add_mli_source b lib pj mli_file options =
            as the source file, not at the toplevel !! *)
 
       let new_mli_file =
-        add_file b mut_dir (mli_file.file_basename ^ "pp")
+        add_file b lib.lib_mut_dir (mli_file.file_basename ^ "pp")
       in
 
       let cmd = new_command pp (ppv.pp_flags @ [ BF mli_file ])  in
@@ -784,8 +798,11 @@ let add_mli_source b lib pj mli_file options =
   let r = new_rule b lib.lib_loc cmi_file [Execute cmd] in
   add_more_rule_sources lib r options;
 
-  cross_move r [ BF cmi_temp, BF cmi_file ];
-  move_compilation_garbage r mut_dir mli_file.file_dir.dir_file kernel_name lib;
+    if cmi_temp != cmi_file then begin
+      cross_move r [ BF cmi_temp, BF cmi_file ];
+      add_rule_temporary r cmi_temp;
+    end;
+  move_compilation_garbage r copy_dir mli_file.file_dir.dir_file kernel_name lib;
   List.iter (fun pd ->
     if pd.dep_link then
       let lib = pd.dep_project in
@@ -793,7 +810,6 @@ let add_mli_source b lib pj mli_file options =
   ) pj.lib_requires;
   add_rule_source r mli_file;
   add_rule_sources r seq_order;
-  add_rule_temporary r cmi_temp;
 
 (* TODO: we should actually rename all modules to fit their capitalized name in the _obuild directory *)
   let lib_modules = match pack_for with
@@ -805,12 +821,14 @@ let add_mli_source b lib pj mli_file options =
 	map
       with Not_found ->
 	let map = ref StringMap.empty in
-	lib.lib_internal_modules <- StringsMap.add pack_for (dst_dir, map) lib.lib_internal_modules;
+	lib.lib_internal_modules <-
+          StringsMap.add pack_for (dst_dir, map) lib.lib_internal_modules;
 	map
   in
 
   begin
-    let (is_ml, modname, basename) = BuildOCamldep.modname_of_file options force mli_file.file_basename in
+    let (is_ml, modname, basename) =
+      BuildOCamldep.modname_of_file options force mli_file.file_basename in
     try
       let (kind, basename) = StringMap.find modname !lib_modules in
       match kind with
@@ -885,7 +903,15 @@ let get_packed_objects lib r src_dir pack_of obj_ext =
         let obj_extension = match String.lowercase extension with
 	    "ml" | "mll" | "mly" -> obj_ext
           | "mli" -> "cmi"
-          | _ ->
+          | ext ->
+            if List.mem ext (list_option_with_default lib.lib_options
+                  "impl_exts" []) then
+              obj_ext
+            else
+            if List.mem ext (list_option_with_default lib.lib_options
+                  "intf_exts" []) then
+              "cmi"
+            else
             Printf.ksprintf failwith
               "Bad extension [%s] for filename [%s]" extension basename
         in
@@ -1040,8 +1066,8 @@ let add_ml_source b lib pj ml_file options =
 
   end else
 
-    let mut_dir = mut_dir lib ml_file in
-    let ml_file = create_ml_file_if_needed b lib mut_dir options ml_file in
+    let copy_dir = copy_dir lib ml_file in
+    let ml_file = create_ml_file_if_needed b lib lib.lib_mut_dir options ml_file in
     let ppv = BuildOCamlSyntaxes.get_pp lib basename options in
     let ml_file, force =
       match ppv.pp_option with
@@ -1050,9 +1076,9 @@ let add_ml_source b lib pj ml_file options =
         (* TODO: we should create the new_ml_file in the same subdirectory
            as the source file, not at the toplevel !! *)
 
-        copy_mli_if_needed b mut_dir ml_file kernel_name;
+        copy_mli_if_needed b lib.lib_mut_dir ml_file kernel_name;
         let new_ml_file =
-          add_file b mut_dir (ml_file.file_basename ^ "pp")
+          add_file b lib.lib_mut_dir (ml_file.file_basename ^ "pp")
         in
 
         let cmd = new_command pp (ppv.pp_flags @ [ BF ml_file ])  in
@@ -1226,7 +1252,7 @@ let add_ml_source b lib pj ml_file options =
 			(T cmi_basename, BF cmi_file) :: moves
 		    | _ -> moves);
 
-    move_compilation_garbage r mut_dir
+    move_compilation_garbage r copy_dir
       (BuildEngineRules.rule_temp_dir r) kernel_name lib;
 
     add_rule_sources r seq_order;
@@ -1300,7 +1326,7 @@ let add_ml_source b lib pj ml_file options =
 	  add_rule_time_dependency r cmo_file
       | _ -> ()
     end;
-    move_compilation_garbage r mut_dir (BuildEngineRules.rule_temp_dir r) kernel_name lib;
+    move_compilation_garbage r copy_dir (BuildEngineRules.rule_temp_dir r) kernel_name lib;
   end;
   if pack_for = [] then begin
     cmo_files := cmo_file :: !cmo_files;
@@ -1323,12 +1349,12 @@ let add_mll_source b lib pj mll_file options =
         (File.to_string mll_file.file_dir.dir_file) in
     if not (Sys.file_exists tmp_dirname) then safe_mkdir tmp_dirname;
     let tmp_dir = add_directory b tmp_dirname in *)
-    let mut_dir = mut_dir lib mll_file in
+(*    let copy_dir = copy_dir lib mll_file in *)
+    let _ = () in
+    copy_mli_if_needed b lib.lib_mut_dir mll_file kernel_name;
 
-    copy_mli_if_needed b mut_dir mll_file kernel_name;
 
-
-    let ml_file = add_file b mut_dir (kernel_name ^ ".ml") in
+    let ml_file = add_file b lib.lib_mut_dir (kernel_name ^ ".ml") in
     add_mll2ml_rule b lib pj mll_file ml_file options;
     add_ml_source b lib pj ml_file options
   else
@@ -1345,11 +1371,12 @@ let add_mly_source b lib pj mly_file options =
   let kernel_name = Filename.chop_suffix basename ".mly" in
 
   if not lib.lib_installed then
-    let tmp_dir = mut_dir lib mly_file in
+    let _ = () in
+(*    let copy_dir = copy_dir lib mly_file in *)
 
-    let ml_file = add_file b tmp_dir (kernel_name ^ ".ml") in
+    let ml_file = add_file b lib.lib_mut_dir (kernel_name ^ ".ml") in
     let mli_filename = kernel_name ^ ".mli" in
-    let mli_file = add_file b tmp_dir mli_filename in
+    let mli_file = add_file b lib.lib_mut_dir mli_filename in
     add_mli_source b lib pj mli_file options;
     add_mly2ml_rule b lib pj mly_file ml_file mli_file options;
     add_ml_source b lib pj ml_file options
@@ -1366,7 +1393,16 @@ let rec process_source b lib src_dir (basename, options) =
     else
       (basename, last_extension)
   in
-  let src_file = add_filename b src_dir basename in
+  let src_file = try
+    BuildEngineContext.add_filename b src_dir basename
+  with Unix.Unix_error(Unix.ENOENT, _, _) ->
+    Printf.eprintf "Error: missing source file %S for package %S\n%!"
+      (Filename.concat src_dir.dir_fullname basename) lib.lib_name;
+    Printf.eprintf "  (You may need to  manually disable compilation of this package\n";
+    Printf.eprintf "  with 'enabled = false')\n%!";
+    exit 2
+
+in
   match last_extension with
       "c" ->
 	add_c_source b lib lib src_file options
@@ -1697,11 +1733,16 @@ let add_package b build_tests pk =
 
     let mut_dir =
       if already_installed then src_dir else
+        let mut_dirname =
+          Filename.concat dst_dir.dir_fullname "temp"
+        in
+(*
         let src_dirname = File.to_string src_dir.dir_file in
         let mut_dirname =
           Filename.concat
             (Filename.concat b.build_dir_filename "_mutable_tree") src_dirname
         in
+*)
         if not (Sys.file_exists mut_dirname) then
           safe_mkdir mut_dirname;
         add_directory b mut_dirname
@@ -1746,3 +1787,11 @@ let create b pj build_tests =
       Printf.eprintf "Error: %s\n%!" s;
       exit 2
   ) libs
+
+(*
+buildOCamlRules.ml:395:    List.map (fun to_sort -> to_sort.to_sort_value) (FileSorter.sort list) in
+buildOCFGen.ml:441:  let files = FileSorter.sort !all_files in
+buildOCP.ml:471:    pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
+buildOCP.ml:632:  let project_sorted = PackageDepSorter.sort !list in
+buildOCP.ml:668:      pk.package_requires <- PackageLinkSorter.sort pk.package_requires
+*)

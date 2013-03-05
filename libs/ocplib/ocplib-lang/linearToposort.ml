@@ -13,10 +13,9 @@
 
 let verbose = DebugVerbosity.verbose [ "OcpLang" ] "LinearToposort"
 
-exception CyclicGraph
-
 type node = {
   mutable node_incoming_edges : node IntMap.t;
+  mutable node_outgoing_edges : node IntMap.t;
   mutable node_outgoing_nbr : int;
   mutable node_id : int;
   mutable node_position : int;
@@ -30,6 +29,7 @@ let new_node () =
   {
     node_id = !node_ids;
     node_incoming_edges = IntMap.empty;
+    node_outgoing_edges = IntMap.empty;
     node_outgoing_nbr = 0;
     node_position = 0;
     node_name = "";
@@ -55,13 +55,15 @@ end) = (struct
 
     let rec add t node =
       if not (IntMap.mem node.node_id !graph) then begin
-        graph := IntMap.add node.node_id node !graph;
+        graph := IntMap.add node.node_id (t,node) !graph;
         node.node_position <- !initial_position;
         node.node_incoming_edges <- IntMap.empty;
+        node.node_outgoing_edges <- IntMap.empty;
         node.node_outgoing_nbr <- 0;
         node.node_name <- M.name t;
         if verbose 1 then
-          Printf.eprintf "Adding %d:%s to graph\n%!" node.node_id node.node_name;
+          Printf.eprintf "Adding %d:%s to graph\n%!"
+            node.node_id node.node_name;
         incr initial_position;
         M.iter_edges (fun t ->
           let t_node = M.node t in
@@ -84,6 +86,8 @@ end) = (struct
               Printf.eprintf "Adding edge %d:%s -> %d:%s\n%!" node.node_id node.node_name
                 t_node.node_id t_node.node_name;
             node.node_outgoing_nbr <- node.node_outgoing_nbr + 1;
+            node.node_outgoing_edges <-
+              IntMap.add t_node.node_id t_node node.node_outgoing_edges
           end
     done;
     if verbose 1 then
@@ -91,7 +95,7 @@ end) = (struct
 
 
     let orphans = ref IntMap.empty in
-    IntMap.iter (fun _ node ->
+    IntMap.iter (fun _ (_,node) ->
       if verbose 1 then
         Printf.eprintf "Total %d (%d)\n%!" node.node_id node.node_outgoing_nbr;
       if node.node_outgoing_nbr = 0 then begin
@@ -112,6 +116,8 @@ end) = (struct
       incr final_position;
       IntMap.iter (fun _ node2 ->
         node2.node_outgoing_nbr <- node2.node_outgoing_nbr - 1;
+        node2.node_outgoing_edges <- IntMap.remove node.node_id
+            node2.node_outgoing_edges;
         if verbose 1 then
           Printf.eprintf "\tremove edge %d to %d (%d)\n%!" node.node_id node2.node_id  node2.node_outgoing_nbr;
         if node2.node_outgoing_nbr = 0 then begin
@@ -121,19 +127,57 @@ end) = (struct
         end
       ) node.node_incoming_edges
     done;
-
-    if !graph = IntMap.empty then
-      let list = List.stable_sort (fun n1 n2 ->
+    let sorted = List.stable_sort (fun n1 n2 ->
         let s1 = M.node n1 in
         let s2 = M.node n2 in
         s1.node_position - s2.node_position) list in
-      list
+
+    if !graph = IntMap.empty then
+      (sorted, [], [])
     else begin
+      let removed = ref [] in
+      let rec remove_node t node =
+        if verbose 1 then
+          Printf.eprintf "Removing node %d\n%!" node.node_id;
+        removed := t :: !removed;
+        graph := IntMap.remove node.node_id !graph;
+        IntMap.iter (fun _ node2 ->
+          node2.node_incoming_edges <-
+            IntMap.remove node.node_id node2.node_incoming_edges;
+          if node2.node_incoming_edges = IntMap.empty then
+            let (t2, _) = IntMap.find node2.node_id !graph in
+            remove_node t2 node2;
+        ) node.node_outgoing_edges;
+        node.node_outgoing_edges <- IntMap.empty
+      in
+      IntMap.iter (fun _ (t, node) ->
+        if node.node_incoming_edges = IntMap.empty then
+          remove_node t node
+      ) !graph;
       if verbose 1 then
-        IntMap.iter (fun _ node ->
-          Printf.eprintf "Remaining node %d (%d)\n%!" node.node_id node.node_outgoing_nbr;
+        IntMap.iter (fun _ (_,node) ->
+          Printf.eprintf "Remaining node %d (out=%d/%d,in=%d,pos=%d)\n%!"
+            node.node_id
+            node.node_outgoing_nbr
+            (IntMap.cardinal node.node_outgoing_edges)
+            (IntMap.cardinal node.node_incoming_edges)
+            node.node_position;
         ) !graph;
-      raise CyclicGraph
+      let cycle = ref [] in
+      IntMap.iter (fun _ (t, node) ->
+        let incoming_edges = ref [] in
+        IntMap.iter (fun node2_id node2 ->
+          let (t2, _) = IntMap.find node2_id !graph in
+          incoming_edges := t2 :: !incoming_edges;
+        ) node.node_incoming_edges;
+        let outgoing_edges = ref [] in
+        IntMap.iter (fun node2_id node2 ->
+          let (t2, _) = IntMap.find node2_id !graph in
+          outgoing_edges := t2 :: !outgoing_edges;
+        ) node.node_outgoing_edges;
+        cycle := (t, !incoming_edges, !outgoing_edges) :: !cycle
+      ) !graph;
+      (sorted, !cycle, !removed)
     end
 
 
