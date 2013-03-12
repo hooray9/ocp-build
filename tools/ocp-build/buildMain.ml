@@ -295,9 +295,79 @@ let do_print_project_info pj =
 
   end
 
-
-
-
+let do_print_fancy_project_info pj =
+  let cantbuild = [] in
+  let missing =
+    List.filter
+      (fun (_name,pkgs) ->
+        List.exists (fun pk -> pk.package_source_kind <> "meta") pkgs)
+      pj.project_missing
+  in
+  let missing_roots =
+    (* remove all missing pkgs that depend on another to get the missing roots *)
+    List.filter
+      (fun (name,pkgs) ->
+        not
+          (List.exists
+             (fun (_,pks) -> List.exists (fun pk -> name = pk.package_name) pks)
+             missing))
+      missing
+  in
+  let cantbuild =
+    if missing = [] then cantbuild
+    else if missing_roots = [] then begin (* no roots ! *)
+      let rec find_cycle acc = function
+        | [] -> None
+        | name :: _ when List.mem name acc -> Some acc
+        | name :: r ->
+          let provides =
+            List.map (fun pk -> pk.package_name)
+              (try List.assoc name missing with Not_found -> [])
+          in
+          match find_cycle (name::acc) provides with
+          | Some _ as r -> r
+          | None -> find_cycle acc r
+      in
+      let cycle = List.map fst missing in
+      let cycle =
+        match find_cycle [] cycle with
+        | Some l -> l
+        | None -> assert false
+      in
+      Printf.eprintf
+        "\027[31mERROR\027[m: circular dependency between:\n";
+      List.iter
+        (fun (n1,n2) -> Printf.eprintf "  - \027[1m%s\027[m depends on %s\n" n1 n2)
+        (List.combine cycle (List.tl cycle @ [List.hd cycle]));
+      cycle @ cantbuild
+    end else begin
+      Printf.eprintf
+        "\027[31mERROR\027[m: the following packages are \027[1mmissing\027[m:\n";
+      List.iter (fun (name,_) ->
+        Printf.eprintf "  - \027[1m%s\027[m\n" name
+      ) missing_roots;
+      List.map fst missing_roots @ cantbuild
+    end
+  in
+  let cantbuild =
+    if pj.project_incomplete = [||] then cantbuild
+    else begin
+      let additional =
+        List.filter
+          (fun pk -> pk.package_source_kind <> "meta"
+                     && not (List.mem pk.package_name cantbuild))
+          (Array.to_list pj.project_incomplete)
+      in
+      if additional <> [] then
+        Printf.eprintf
+          "Additional packages %s can't be built.\n"
+          (String.concat ", "
+             (List.map (fun pk -> Printf.sprintf "\027[1m%s\027[m" pk.package_name)
+                additional));
+      List.map (fun pk -> pk.package_name) additional @ cantbuild
+    end
+  in
+  if cantbuild <> [] then exit 1
 
 let do_init_project_building cfg project_dir pj =
   let build_dir_basename = !build_dir_basename_arg in
@@ -453,7 +523,7 @@ let do_compile b cin ncores projects =
       !BuildEngine.stats_command_executed
       (!BuildEngine.stats_total_time /. (t1 -. t0))
       !BuildEngine.stats_files_generated;
-    if errors <> [] then begin
+    if errors <> [] && not (verbose 1 && !BuildEngineDisplay.color) then begin
       Printf.eprintf "Error log:\n";
       List.iter (fun lines ->
         Printf.eprintf "Error:\n";
@@ -693,7 +763,10 @@ let build targets =
       exit 0;
     end;
 
-    do_print_project_info pj;
+    if verbose 1 && !BuildEngineDisplay.color then
+      do_print_fancy_project_info pj
+    else
+      do_print_project_info pj;
 
 
     match project_dir with
