@@ -522,7 +522,7 @@ let _ =
     dup "-k";
     dup "-sanitize";
     dup "-sanitize-dirs";
-    dup "-list-waiting-targets";
+    (* dup "-list-waiting-targets"; *)
     "", " \nYou can override the configuration also:";
     "", " ";
     "-njobs", "-njobs";
