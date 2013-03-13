@@ -54,7 +54,7 @@ distclean: clean $(OCPBUILD)
 TO_INSTALL = ocp-build ocp-fix-errors ocp-edit-mode ocp-spotter ocp-type-from-loc ocp-build-infer-env
 
 uninstall:
-	$(OCPBUILD) -uninstall typerex
+	$(OCPBUILD) -uninstall
 
 installed:
 	$(OCPBUILD) -installed
