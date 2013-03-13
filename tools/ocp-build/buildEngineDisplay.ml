@@ -196,7 +196,9 @@ let end_command b proc time status =
            (String.concat " " (BuildEngineRules.command_of_command cmd)))
     in
     let color_begin, color_end =
-      if !color then "\027[33m", "\027[m" else "", ""
+      if not !color then "", ""
+      else if status = 0 then "\027[33m", "\027[m"
+      else "\027[31m", "\027[m"
     in
     if cmd.cmd_stdout_pipe = None then
       print_file
