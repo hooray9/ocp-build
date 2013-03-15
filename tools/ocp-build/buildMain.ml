@@ -116,23 +116,30 @@ let do_load_project_files cin project_dir state =
 
 let do_install install_where install_what projects =
 
-  let already_installed = ref 0 in
-
-  List.iter (fun pj ->
-    if pj.lib_install &&
-       BuildOCamlInstall.is_installed
-         install_where
-         pj.lib_name then begin
-      Printf.eprintf "Error: %S is already installed\n%!" pj.lib_name;
-      incr already_installed
-    end
-  ) projects;
-  if !already_installed > 0 then begin
-    Printf.eprintf
-      "Error: %d packages are already installed. Uninstall them first !\n%!"
-      !already_installed;
-    exit 2
-  end;
+  let already_installed =
+    List.map (fun pj -> pj.lib_name)
+      (List.filter
+         (fun pj -> pj.lib_install &&
+                    BuildOCamlInstall.is_installed install_where pj.lib_name)
+         projects)
+  in
+  let bold s =
+    if !BuildArgs.color then Printf.sprintf "\027[1m%s\027[m" s else s
+  in
+  if already_installed <> [] then
+    if !BuildArgs.auto_uninstall then begin
+      Printf.printf "Packages %s are already installed, removing first...\n"
+        (String.concat ", " (List.map bold already_installed));
+      let uninstall_state = BuildOCamlInstall.uninstall_init install_where in
+      List.iter
+        (BuildOCamlInstall.uninstall_by_name uninstall_state)
+        already_installed;
+      BuildOCamlInstall.uninstall_finish uninstall_state
+    end else begin
+      Printf.eprintf "Error: Packages %s are already installed."
+        (String.concat ", " (List.map bold already_installed));
+      exit 2
+    end;
 
   let projects_to_install = ref StringMap.empty in
   let rec add_to_install pj =
@@ -511,19 +518,19 @@ let do_compile b cin ncores projects =
     Printf.eprintf
       "%s in %.2fs. %d jobs (parallelism %.1fx), %d files generated.\n%!"
       (if errors = [] then
-         if !BuildEngineDisplay.color then "\027[32mBuild Successful\027[m"
+         if !BuildArgs.color then "\027[32mBuild Successful\027[m"
          else "Build Successful"
        else
          Printf.sprintf "%s%d error%s%s"
-           (if !BuildEngineDisplay.color then "\027[31m" else "")
+           (if !BuildArgs.color then "\027[31m" else "")
            nerrors
            (if nerrors > 1 then "s" else "")
-           (if !BuildEngineDisplay.color then "\027[m" else ""))
+           (if !BuildArgs.color then "\027[m" else ""))
       (t1 -. t0)
       !BuildEngine.stats_command_executed
       (!BuildEngine.stats_total_time /. (t1 -. t0))
       !BuildEngine.stats_files_generated;
-    if errors <> [] && not (verbose 1 && !BuildEngineDisplay.color) then begin
+    if errors <> [] && not (verbose 1 && !BuildArgs.color) then begin
       Printf.eprintf "Error log:\n";
       List.iter (fun lines ->
         Printf.eprintf "Error:\n";

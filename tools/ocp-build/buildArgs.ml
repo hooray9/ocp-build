@@ -92,6 +92,7 @@ let list_installed_arg = ref false
 let oasis_arg = ref false
 
 let color = BuildEngineDisplay.color
+let auto_uninstall = ref true
 
 (* if [query_global] is set, we don't load the project
 .ocp files and stop immediatly after replying to queries. *)
@@ -268,6 +269,9 @@ let arg_list = short_arg_list @ [
 
   "-uninstall", Arg.Set uninstall_arg,
   " Uninstall given packages (installed by ocp-build)";
+
+  "-no-auto-uninstall", Arg.Unit (fun () -> auto_uninstall := false),
+  " If trying to install already installed packages, fail rather than uninstall them";
 
   "-install-bundle", Arg.String (fun s ->
     Printf.eprintf "Warning: option -install-bundle is obsolete\n%!"
