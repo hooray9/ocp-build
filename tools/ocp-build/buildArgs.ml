@@ -75,7 +75,7 @@ let tests_arg = ref false
 let benchmarks_arg = ref false
 let save_project = ref false
 let save_arguments_arg = ref false
-let delete_orphans_arg = ref KeepOrphans
+let delete_orphans_arg = ref DeleteOrphanFilesAndDirectories
 let list_projects_arg = ref false
 let list_byte_targets_arg = ref false
 let list_asm_targets_arg = ref false
@@ -285,10 +285,8 @@ let arg_list = short_arg_list @ [
   "ARCH Set arch sub-directory of _obuild";
   "-auto-arch", Arg.Unit (fun () -> arch_arg := ArchAuto),
   " Set arch automatically";
-  "-sanitize", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFiles),
-  " Remove orphan objects from _obuild";
-  "-sanitize-dirs", Arg.Unit (fun _ -> delete_orphans_arg := DeleteOrphanFilesAndDirectories),
-  " Remove orphan directories from _obuild";
+  "-no-sanitize", Arg.Unit (fun () -> delete_orphans_arg := KeepOrphans),
+  " Fail rather than remove stale objects from _obuild";
 
   "-list-ocp-files", Arg.Set list_ocp_files, " List all .ocp files found";
   "-k", Arg.Clear stop_on_error_arg,  " Continue after errors";
@@ -514,8 +512,6 @@ let _ =
 
   add_sub_command "project" "Query project information"
     project_action [
-    dup "-sanitize";
-    dup "-sanitize-dirs";
       dup "-print-conflicts";
       dup "-print-incomplete-meta";
     dup "-list-all-packages";
@@ -529,8 +525,6 @@ let _ =
   add_sub_command "build" "Build project"
     build_action [
     dup "-k";
-    dup "-sanitize";
-    dup "-sanitize-dirs";
     (* dup "-list-waiting-targets"; *)
     "", " \nYou can override the configuration also:";
     "", " ";
