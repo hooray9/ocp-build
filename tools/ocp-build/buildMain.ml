@@ -827,13 +827,6 @@ let build targets =
         exit 0
 
       end (* !uninstall_arg *)
-      else
-
-      if !install_arg then begin
-
-        do_install install_where install_what projects
-
-      end (* !install_arg *)
       else begin
 
         let ncores = cin.cin_njobs in
@@ -850,8 +843,13 @@ let build targets =
         if !tests_arg then begin
 
           do_test b ncores projects;
-        end
+        end;
 
+        if !install_arg then begin
+
+          do_install install_where install_what projects
+
+        end
       end
 
 
