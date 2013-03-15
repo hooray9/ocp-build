@@ -531,8 +531,8 @@ let do_compile b cin ncores projects =
           Printf.eprintf "%s\n" line
         ) lines
       ) errors;
-      exit 2
     end;
+    if errors <> [] then exit 2
   end;
   Printf.eprintf "%!"
 
@@ -763,7 +763,7 @@ let build targets =
       exit 0;
     end;
 
-    if verbose 1 && !BuildEngineDisplay.color then
+    if verbose 1 && !BuildArgs.color then
       do_print_fancy_project_info pj
     else
       do_print_project_info pj;

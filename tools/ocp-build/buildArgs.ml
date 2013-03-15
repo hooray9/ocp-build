@@ -91,6 +91,8 @@ let meta_verbose_arg = ref false
 let list_installed_arg = ref false
 let oasis_arg = ref false
 
+let color = BuildEngineDisplay.color
+
 (* if [query_global] is set, we don't load the project
 .ocp files and stop immediatly after replying to queries. *)
 let query_global = ref false
@@ -305,6 +307,9 @@ let arg_list = short_arg_list @ [
 
   "-time", Arg.Set time_arg,
   " Print timings";
+
+  "-no-color", Arg.Unit (fun () -> color := false),
+  " Don't use color output";
 
   "-library-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name LibraryPackage
