@@ -51,6 +51,7 @@ exception MissingSourceWithNoBuildingRule of build_rule * string
 
 let stats_command_executed = ref 0
 let stats_files_generated = ref 0
+let stats_total_time = ref 0.
 
 let queue_inactive = ref ([] : build_rule list)
 let queue_ready = ref (IntMap.empty : build_rule IntMap.t)
@@ -840,6 +841,8 @@ let execute_command b proc =
   let cmd_args =
     (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
   in
+  b.build_stats_running_rules <-
+    (r.rule_id, Unix.gettimeofday()) :: b.build_stats_running_rules;
   BuildEngineDisplay.begin_command b proc;
   Printf.fprintf b.build_log "'%s' %s\n"
     (String.concat "' '" cmd_args)
@@ -900,7 +903,13 @@ let command_executed b proc status =
   | None -> assert false
   | Some cmd ->
     let r = proc.proc_rule in
-    BuildEngineDisplay.end_command b proc status;
+    let t =
+      Unix.gettimeofday() -. List.assoc r.rule_id b.build_stats_running_rules
+    in
+    b.build_stats_running_rules <-
+      List.filter (fun (id,_) -> id <> r.rule_id) b.build_stats_running_rules;
+    stats_total_time := !stats_total_time +. t;
+    BuildEngineDisplay.end_command b proc t status;
     let copy_status =
       match cmd.cmd_stdout_pipe with
 	None ->

@@ -15,6 +15,7 @@ exception MissingSourceWithNoBuildingRule of BuildEngineTypes.build_rule * strin
 
 val stats_command_executed : int ref
 val stats_files_generated : int ref
+val stats_total_time : float ref
 
 (* [init targets] Initialize the build engine, by checking activating all the rules
  needed for the creation of the files [targets].
