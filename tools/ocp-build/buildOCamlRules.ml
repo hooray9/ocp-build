@@ -130,9 +130,38 @@ let add_bin_annot_argument cmd options =
   then
     add_command_args cmd [S "-bin-annot" ]
 
+let c_includes lib =
+  let added_dirs = ref IntMap.empty in
+  let includes = ref [] in
+  let add_include_dir dir =
+    if not (IntMap.mem dir.dir_id !added_dirs) then begin
+      added_dirs := IntMap.add dir.dir_id dir !added_dirs;
+      includes := !includes @ [S "-I"; S  dir.dir_fullname];
+    end
+  in
+
+  add_include_dir lib.lib_src_dir;
+
+  (* TODO: Fabrice: they should be reversed, no ?
+     We should search directories in the
+     reverse order of the topological order. *)
+  List.iter (fun dep ->
+    let lib = dep.dep_project in
+    match lib.lib_type with
+    | ProgramPackage (* | ProjectToplevel *) -> ()
+    | TestPackage -> assert false
+    | LibraryPackage
+    | ObjectsPackage ->
+      if dep.dep_link then begin
+	add_include_dir lib.lib_src_dir;
+      end
+    | SyntaxPackage -> ()
+  ) (List.rev lib.lib_requires);
+  !includes
+
 let command_includes lib pack_for =
-  let includes =
-    match lib.lib_includes with
+    let includes =
+      match lib.lib_includes with
       | Some includes -> includes
       | None ->
 
@@ -148,41 +177,41 @@ let command_includes lib pack_for =
 	add_include_dir lib.lib_dst_dir;
 	add_include_dir lib.lib_src_dir;
 
-      (* TODO: Fabrice: they should be reversed, no ?
-         We should search directories in the
-	 reverse order of the topological order. *)
+        (* TODO: Fabrice: they should be reversed, no ?
+           We should search directories in the
+	   reverse order of the topological order. *)
 	List.iter (fun dep ->
           let lib = dep.dep_project in
           match lib.lib_type with
-            | ProgramPackage (* | ProjectToplevel *) -> ()
-            | TestPackage -> assert false
-            | LibraryPackage
-            | ObjectsPackage ->
-              if dep.dep_link then begin
-	        add_include_dir lib.lib_dst_dir;
-	        add_include_dir lib.lib_src_dir;
-              end
-            | SyntaxPackage -> ()
+          | ProgramPackage (* | ProjectToplevel *) -> ()
+          | TestPackage -> assert false
+          | LibraryPackage
+          | ObjectsPackage ->
+            if dep.dep_link then begin
+	      add_include_dir lib.lib_dst_dir;
+	      add_include_dir lib.lib_src_dir;
+            end
+          | SyntaxPackage -> ()
 	) (List.rev lib.lib_requires);
 
-      (* we put the source dir last in case there are some remaining objects files there, since
-	 we don't do any hygienic cleaning before. We don't do it because we want to be able to
-	 support object files that are built by other means. *)
+        (* we put the source dir last in case there are some remaining objects files there, since
+	   we don't do any hygienic cleaning before. We don't do it because we want to be able to
+	   support object files that are built by other means. *)
 
 	let includes = !includes in
 	lib.lib_includes <- Some includes;
 	includes
-  in
-  let rec add_internal_includes pack_for includes =
-    match pack_for with
+    in
+    let rec add_internal_includes pack_for includes =
+      match pack_for with
 	[] -> includes
       | _ :: tail ->
 	let includes = add_internal_includes tail includes in
 	let includes = "-I" :: (Filename.concat lib.lib_dst_dir.dir_fullname (String.concat "/" (List.rev pack_for))) ::
-	includes in
+	    includes in
 	includes
-  in
-  add_internal_includes (List.rev pack_for) includes
+    in
+    add_internal_includes (List.rev pack_for) includes
 
 (*
 let command_pp pj options =
@@ -209,13 +238,13 @@ let add_c2o_rule b lib pj seq src_file target_file options =
 		       (if bool_option_true pj.lib_options byte_option then ocamlcc_cmd
 		       else ocamlopt_cmd) *)
                 )
-		[
-                  S "-I"; S src_file.file_dir.dir_fullname;
+		(c_includes lib @[
 		 S "-ccopt"; S
                    (String.concat " " (strings_option options cflags_option));
 		 S "-ccopt"; S (String.concat " " (strings_option options ccopt_option));
 		 S "-c"; S (file_filename src_file);
-		]);
+		])
+);
      Move (F temp_file.file_file, F target_file.file_file)
     ]
   in
