@@ -23,7 +23,7 @@ open BuildOCPParser
   let lexer = Ocamllexer.make_lexer
     [ "begin"; "end"; "true"; "false";
       "library"; "syntax"; "program"; "objects"; "config"; "include"; "type";
-      "files"; "requires"; "file"; "use"; "pack"; "test"; "tests";
+      "files"; "requires"; "use"; "pack"; "test"; "tests";
       "if"; "then"; "else";
       "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
       "not"; "&&"; "||"
