@@ -106,7 +106,10 @@ let md5sum =
       "wget --passive-ftp -q -O '%s' '%s'" archive_file
       url in
     if Sys.command cmd <> 0 then begin
-      failwith "could not download archive"
+      Printf.eprintf "Could not download archive:\n%!";
+      Printf.eprintf " URL: %s\n%!" archive_file;
+      Printf.eprintf "(hint: did you forget to tag and push your repository?)\n";
+      exit 2
     end;
     let md5sum = Digest.file archive_file in
     Digest.to_hex md5sum

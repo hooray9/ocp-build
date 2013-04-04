@@ -118,7 +118,7 @@ bootstrap-ready: \
    _obuild/ocp-build/ocp-build.byte
 
 old-ocp-build:
-	OCAML_VERSION=ocaml-3.12.1 ocp-build -arch 3.12.1 ocp-build
+	OCAML_VERSION=ocaml-3.12.1 ocp-build -no-color -arch 3.12.1 ocp-build
 
 bootstrap: old-ocp-build
 	rm -rf Saved
