@@ -310,3 +310,27 @@ let rename fa1 fa2 =
       with e -> ()
     end;
   Sys.rename fa1 fa2
+
+(* val get_stdout_lines : string list -> string list -> int * string list *)
+
+let b = Buffer.create 10000
+let get_stdout_lines cmd args =
+  let temp_file = Filename.temp_file "ocp-build-" ".out" in
+  let pid = create_process (cmd@args) None (Some temp_file) None in
+  let status = wait_command pid in
+  let lines = ref [] in
+  begin try
+	  let ic = open_in temp_file in
+	  begin
+
+	    try
+	      while true do
+		lines := (input_line ic) :: !lines
+	      done
+	    with _ -> ()
+	  end;
+	  close_in ic;
+	  Sys.remove temp_file;
+    with _ -> ()
+  end;
+  (status, List.rev !lines)

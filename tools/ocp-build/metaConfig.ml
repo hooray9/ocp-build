@@ -34,7 +34,7 @@
 let load_config () =
   try
     let (status, lines) =
-      BuildConfig.get_stdout_lines
+      BuildMisc.get_stdout_lines
         [ "ocamlfind" ] [ "printconf" ]
     in
     let search_path = ref [] in

@@ -30,30 +30,29 @@ let term_escape s =
 
 let color = ref (Unix.isatty Unix.stderr)
 let columns =
-  let with_process_in cmd f =
-    let ic = Unix.open_process_in cmd in
-    try
-      let r = f ic in
-      ignore (Unix.close_process_in ic) ; r
-    with exn ->
-        ignore (Unix.close_process_in ic) ; raise exn
-  in
   try
     (* terminfo *)
-    with_process_in "tput cols"
-      (fun ic -> ref (int_of_string (input_line ic)))
-  with Unix.Unix_error _ | End_of_file | Failure _ -> try
-    (* GNU stty *)
-    with_process_in "stty size"
-      (fun ic ->
-        match OcpString.split (input_line ic) ' ' with
-        | [_ ; v] -> ref (int_of_string v)
-        | _ -> failwith "stty")
-  with Unix.Unix_error _ | End_of_file | Failure _ -> try
-    (* shell envvar *)
-    ref (int_of_string (Sys.getenv "COLUMNS"))
-  with Not_found | Failure _ ->
-      ref 80
+    match BuildMisc.get_stdout_lines [ "tput"; "cols" ] [] with
+    | 0, line :: _ -> int_of_string line
+    | _ -> raise Not_found
+  with _ ->
+    try
+      (* GNU stty *)
+      match BuildMisc.get_stdout_lines [ "stty"; "size" ] [] with
+      | 0, line :: _ -> begin
+          match OcpString.split line ' ' with
+          | [_ ; v] -> int_of_string v
+          | _ -> failwith "stty"
+        end
+      | _ -> raise Not_found
+    with Unix.Unix_error _ | End_of_file | Failure _ ->
+      try
+        (* shell envvar *)
+        int_of_string (Sys.getenv "COLUMNS")
+      with Not_found | Failure _ ->
+        80
+
+let columns = ref columns
 
 let init _b = ()
 

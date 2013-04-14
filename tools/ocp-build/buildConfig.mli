@@ -17,7 +17,6 @@ open BuildOCPVariable
 
 
 (* Misc *)
-val get_stdout_lines : string list -> string list -> int * string list
 val number_of_cores : unit -> int
 val split_version : string -> string * string * string
 val find_in_PATH : string -> string list -> string

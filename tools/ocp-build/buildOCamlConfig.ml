@@ -13,6 +13,7 @@
 
 let verbose = DebugVerbosity.verbose [ "B" ] "BuildOCamlConfig"
 
+open BuildMisc
 open BuildOCPVariable
 open SimpleConfig
 open BuildConfig
