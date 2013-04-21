@@ -9,6 +9,7 @@ Contributor as well as the protection of OCamlPro and its users; it
 does not change your rights to use your own Contributions for any
 other purpose.
 
-* [http://www.ocamlpro.com/files/CLA-OCamlPro-individual.txt](Individual CLA)
-* [http://www.ocamlpro.com/files/CLA-OCamlPro-corporate.txt](Corporate CLA)
+* [Individual CLA](http://www.ocamlpro.com/files/CLA-OCamlPro-individual.txt)
+* [Corporate CLA](http://www.ocamlpro.com/files/CLA-OCamlPro-corporate.txt)
+
 
