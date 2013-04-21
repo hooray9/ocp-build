@@ -1,4 +1,4 @@
-# Contributing to OCamlPro Free Software
+# Contributing to OCamlPro Open-Source Software
 
 In order to clarify the intellectual property license granted with
 Contributions from any person or entity, OCamlPro SAS ("OCamlPro")
