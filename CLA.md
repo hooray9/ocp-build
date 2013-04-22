@@ -1,6 +1,6 @@
 # Contributing to OCamlPro Open-Source Software
 
-As most open-source projects, we need you to clarify the intellectual
+As most open-source projects, we need to keep a record of the intellectual
 property license granted with Contributions from any person or entity.
 OCamlPro SAS ("OCamlPro")
 must have a Contributor License Agreement (CLA) on file that has been
