@@ -103,20 +103,23 @@ configure: configure.ac m4/*.m4
 
 OCP_OPAMER=ocp-opamer
 
+push-tag:
+	git push -f origin ocp-build.$(VERSION)
+
 tag:
 	git tag ocp-build.$(VERSION)
-	git push ocamlpro ocp-build.$(VERSION)
+	$(MAKE) push-tag
 
 force_tag:
 	git tag -f ocp-build.$(VERSION)
-	git push -f ocamlpro ocp-build.$(VERSION)
+	$(MAKE) push-tag
 
 opamize:
 	$(MAKE) opamize-ocp-build
 opamize-ocp-build:
 	$(OCP_OPAMER) \
-	 	-descr packages/opam/ocp-build.descr \
-		-opam packages/opam/ocp-build.opam  \
+	 	-descr opam/ocp-build.descr \
+		-opam opam/ocp-build.opam  \
 		ocp-build $(VERSION) \
 		https://github.com/OCamlPro/ocp-build/tarball/ocp-build.$(VERSION)
 
@@ -157,14 +160,10 @@ old-ocp-build:
 	OCAML_VERSION=ocaml-3.12.1 ocp-build -no-color -arch 3.12.1 ocp-build
 
 bootstrap: old-ocp-build
-	rm -rf Saved
-	mv boot Saved
-	mkdir boot
-	mv Saved boot/Saved
 	$(OCP_BYTECODE) _obuild/3.12.1/ocp-build/ocp-build.byte \
 	   -make-static \
 	   -filter-unused-prims \
-	   -remove-prims tools/ocp-build/remove-primitives.txt \
+	   -remove-prims boot/remove-primitives.txt \
 	   -o $(BOOTSTRAP_OCPBUILD)
 	$(MAKE) clean
 	$(MAKE) byte

@@ -1360,7 +1360,10 @@ let add_ml_source b lib pj ml_file options =
   if pack_for = [] then begin
     cmo_files := cmo_file :: !cmo_files;
     cmx_files := cmx_file :: !cmx_files;
-    cmxo_files := o_file :: !cmxo_files
+    cmxo_files := o_file :: !cmxo_files;
+    if needs_cmi = None then
+      cmi_files := cmi_file :: !cmi_files;
+
   end
 
 let add_mll_source b lib pj mll_file options =
@@ -1680,7 +1683,8 @@ let add_program b lib =
               match kind1, kind2 with
               | (ML | MLandMLI), (ML | MLandMLI) ->
                 Printf.eprintf
-                  "Warning: program %s, requirements %s and %s both\n" lib.lib_name lib2.lib_name lib1.lib_name;
+                  "Warning: program %s, requirements %s and %s both\n"
+                  lib.lib_name lib2.lib_name lib1.lib_name;
                 Printf.eprintf "\tdefine a module name %s.\n" modname;
               | _ -> ()
             with Not_found ->
