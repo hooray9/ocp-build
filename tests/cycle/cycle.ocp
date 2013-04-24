@@ -1,0 +1,3 @@
+begin program "cycle"
+  files = [ "a.ml" "b.ml" ]
+end

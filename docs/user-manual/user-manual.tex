@@ -1,55 +1,28 @@
-\documentclass[12pt]{book}
+\documentclass[11pt]{book}
 
 \usepackage{enumerate}
 \usepackage{color}
-\usepackage{a4wide}
+%\usepackage{a4wide}
 \usepackage[colorlinks=true,linkcolor=blue] {hyperref}
-%\usepackage{hevea}
 \usepackage{url}
 
-\title{TypeRex User Manual}
+\newcommand{\cmd}[1]{$\texttt{#1}$}
+
+\newcommand{\ocpbuild}{\cmd{ocp-build}}
+\newcommand{\typerex}{TypeRex}
+\newcommand{\opam}{\cmd{opam}}
+\newcommand{\github}{GitHub}
+
+\title{\ocpbuild{} User Manual}
 
 \author{OCamlPro \and INRIA}
-\date{\today{}\\
-~\\
-This manual presents \typerex, a development
-environment for OCaml.
-}
+\date{Jan 26, 2013}
 \begin{document}
 
-\newcommand{\typerex}{TypeRex}
-\newcommand{\cmd}[1]{$\texttt{#1}$}
-%\begin{htmlonly}
-%\renewcommand{\paragraph}[1]{{\bf #1}}
-%\end{htmlonly}
-
-%\newenvironment{code}{\footnotesize\verbatim}{\endverbatim}
-%\newenvironment{code}{\small\begin{verbatim}}{\end{verbatim}}
-\newcommand{\verbsize}{%BEGIN LATEX
-\footnotesize%
-%END LATEX
-%HEVEA\color{blue}
-}
-
-%BEGIN LATEX
 \maketitle
-%\thispagestyle{empty}
-%\cleardoublepage
-%\thispagestyle{plain}
-%\input{introduction}
-%\newpage
 \thispagestyle{empty}
 \tableofcontents
-%END LATEX
 
-%HEVEA\input{introduction}
-
-\chapter{TypeRex}
-
-\input{../../tools/ocp-edit-mode/docs/user-manual}
-
-\chapter{The {\tt ocp-build} build tool}
-
-\input{../../tools/ocp-build/docs/user-manual}
+\input{content}
 
 \end{document}

@@ -4,9 +4,9 @@
 
 include Makefile.config
 
+BOOTSTRAP_OCPBUILD=./boot/ocp-build.boot
 
-
-OCPBUILD=./ocp-build/ocp-build
+OCPBUILD=./boot/ocp-build
 OCPBUILD_FLAGS=
 
 all: $(OCPBUILD)
@@ -23,18 +23,15 @@ opt: $(OCPBUILD)
 noscan: $(OCPBUILD)
 	$(OCPBUILD) build $(OCPBUILD_FLAGS) -no-scan
 
-ocp-build/ocp-build.boot: boot/ocp-build.boot
-	cp -f boot/ocp-build.boot ocp-build/ocp-build.boot
-
 WIN32_FILES= \
-  libs/ocplib/ocplib-win32/win32_waitpids_c.c \
-  libs/ocplib/ocplib-win32/win32_fileinfo_c.c
+  libs/ocplib-win32/win32_waitpids_c.c \
+  libs/ocplib-win32/win32_fileinfo_c.c
 
-ocp-build/win32_c.c: $(WIN32_FILES)
-	cat $(WIN32_FILES) > ocp-build/win32_c.c
+boot/win32_c.c: $(WIN32_FILES)
+	cat $(WIN32_FILES) > boot/win32_c.c
 
-ocp-build/ocp-build: ocp-build/ocp-build.boot ocp-build/win32_c.c
-	$(MAKE) -C ocp-build
+boot/ocp-build: boot/ocp-build.boot boot/win32_c.c
+	$(MAKE) -C boot
 
 scan: $(OCPBUILD)
 	$(OCPBUILD) build -scan
@@ -47,11 +44,12 @@ clean-temps:
 
 clean: clean-temps $(OCPBUILD)
 	$(OCPBUILD) -clean
-distclean: clean $(OCPBUILD)
-	$(OCPBUILD) -distclean
+distclean: clean
+	(cd boot; $(MAKE) clean)
+	rm -f Makefile.config config.log
+	rm -rf autom4te.cache ocp-build.root*
 
-
-TO_INSTALL = ocp-build ocp-fix-errors ocp-edit-mode ocp-spotter ocp-type-from-loc ocp-build-infer-env
+TO_INSTALL = ocp-build  ocp-build-infer-env
 
 uninstall:
 	$(OCPBUILD) -uninstall
@@ -95,7 +93,7 @@ install-ocpbuild:
 	sudo cp _obuild/ocp-build/ocp-build.asm /usr/local/bin/ocp-build
 
 #
-#  Building boot/ocp-build.boot is difficult, because it must run
+#  Building $(BOOTSTRAP_OCPBUILD) is difficult, because it must run
 # with any version of ocamlrun. Currently, we remove dynamic dependencies
 # from ocp-build and remove all unused primitives, using ocp-bytecode.
 #
@@ -129,7 +127,7 @@ bootstrap: old-ocp-build
 	   -make-static \
 	   -filter-unused-prims \
 	   -remove-prims tools/ocp-build/remove-primitives.txt \
-	   -o boot/ocp-build.boot
+	   -o $(BOOTSTRAP_OCPBUILD)
 	$(MAKE) clean
 	$(MAKE) byte
 
@@ -145,7 +143,7 @@ bootclean:
 	rm -rf boot/Saved
 
 make-boot:
-	ocamlc -o boot/ocp-build.boot -use-runtime  boot/ocp-build-runner \
+	ocamlc -o $(BOOTSTRAP_OCPBUILD) -use-runtime  boot/ocp-build-runner \
 	   -use-prims boot/prims_needed.txt \
 	   unix.cma \
            ./_obuild/ocplib-lang/ocplib-lang.cma \

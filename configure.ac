@@ -1,7 +1,7 @@
-AC_INIT(typerex,1.99.6-beta)
+AC_INIT(ocp-build,1.99.7-beta)
 CONFIGURE_ARGS=$*
 
-AC_COPYRIGHT(Copyright 2012 OcamlPro SAS)
+AC_COPYRIGHT(Copyright 2013 OcamlPro SAS)
 AC_CONFIG_MACRO_DIR([m4])
 
 
@@ -62,8 +62,7 @@ AC_SUBST(CONFIGURE_ARGS)
 AC_SUBST(VERSION)
 AC_CONFIG_FILES(
   Makefile.config \
-  typerex.ocp \
-  packages/opam/ocp-build.opam
+  ocp-build-bundle.ocp \
 )
 AC_OUTPUT
 
