@@ -2,7 +2,7 @@
 # Sub-projects may have their own Makefiles internally to build
 # non-ocaml files and targets.
 
-include Makefile.config
+include config/Makefile
 
 BOOTSTRAP_OCPBUILD=./boot/ocp-build.boot
 
@@ -46,7 +46,7 @@ clean: clean-temps $(OCPBUILD)
 	$(OCPBUILD) -clean
 distclean: clean
 	(cd boot; $(MAKE) clean)
-	rm -f Makefile.config config.log
+	rm -f config/Makefile config/config.*
 	rm -rf autom4te.cache ocp-build.root*
 
 TO_INSTALL = ocp-build  ocp-build-infer-env
@@ -86,10 +86,11 @@ doc:
 
 
 
-configure: configure.ac m4/*.m4
-	aclocal -I m4
-	autoconf
-	./configure $(CONFIGURE_ARGS)
+configure: config/configure.ac config/m4/*.m4
+	cd config; \
+		aclocal -I m4; \
+		autoconf; \
+		./configure $(CONFIGURE_ARGS)
 
 ###########################################################################
 #

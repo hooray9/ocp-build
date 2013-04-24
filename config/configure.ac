@@ -61,13 +61,10 @@ AC_SUBST(OCAML_POINT_VERSION)
 AC_SUBST(CONFIGURE_ARGS)
 AC_SUBST(VERSION)
 AC_CONFIG_FILES(
-  Makefile.config \
-  ocp-build-bundle.ocp \
+  Makefile \
+  ../src/ocp-build-bundle.ocp \
 )
 AC_OUTPUT
-
-echo Creating file ocp-build.root
-touch ocp-build.root
 
 echo
 echo Executables will be installed in ${bindir}
