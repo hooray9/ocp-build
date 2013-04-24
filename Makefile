@@ -59,11 +59,12 @@ installed:
 
 install:
 	$(OCPBUILD) -install \
-	  -install-bundle typerex \
+	  -install-bundle ocp-build-bundle \
           -install-lib $(LIBDIR) \
           -install-bin $(BINDIR) \
           -install-data $(TYPEREXDIR)
 
+# Only for tests
 install-destdir:
 	$(OCPBUILD) install \
 	  -install-destdir $(HOME)/typerex-root \
@@ -76,21 +77,60 @@ uninstall-destdir:
 	  -install-destdir $(HOME)/typerex-root \
           -install-lib $(LIBDIR) 
 
-#	mkdir -p $(TYPEREXDIR)
-#	mkdir -p $(BINDIR)
-#	$(foreach i,$(TO_INSTALL),cp _obuild/$(i)/$(i).asm $(BINDIR)/$(i);)
-#	rm -rf $(TYPEREXDIR)/ocp-edit-mode
-#	cp -PpR tools/ocp-edit-mode/files $(TYPEREXDIR)/ocp-edit-mode
-
-#install-emacs:
-#	cp tools/ocp-fix-errors/emacs/ocp-fix-errors.el $(HOME)/.emacs.d/
-
-install-manager:
-	sudo cp _obuild/ocaml-manager/ocaml-manager.asm /usr/bin/ocaml-manager
-	sudo ocaml-manager -update
-
 install-ocpbuild:
 	sudo cp _obuild/ocp-build/ocp-build.asm /usr/local/bin/ocp-build
+
+
+doc:
+	cd docs/user-manual; $(MAKE)
+
+
+
+configure: configure.ac m4/*.m4
+	aclocal -I m4
+	autoconf
+	./configure $(CONFIGURE_ARGS)
+
+###########################################################################
+#
+#
+#                           For OPAM
+#
+#
+###########################################################################
+
+## We need this tool installed to opamize ocp-build
+
+OCP_OPAMER=ocp-opamer
+
+tag:
+	git tag ocp-build.$(VERSION)
+	git push ocamlpro ocp-build.$(VERSION)
+
+force_tag:
+	git tag -f ocp-build.$(VERSION)
+	git push -f ocamlpro ocp-build.$(VERSION)
+
+opamize:
+	$(MAKE) opamize-ocp-build
+opamize-ocp-build:
+	$(OCP_OPAMER) \
+	 	-descr packages/opam/ocp-build.descr \
+		-opam packages/opam/ocp-build.opam  \
+		ocp-build $(VERSION) \
+		https://github.com/OCamlPro/ocp-build/tarball/ocp-build.$(VERSION)
+
+
+
+
+###########################################################################
+#
+#
+#                           For bootstrap
+#
+#
+###########################################################################
+OCP_BYTECODE=ocp-bytecode
 
 #
 #  Building $(BOOTSTRAP_OCPBUILD) is difficult, because it must run
@@ -98,9 +138,8 @@ install-ocpbuild:
 # from ocp-build and remove all unused primitives, using ocp-bytecode.
 #
 
-_obuild/ocp-bytecode/ocp-bytecode.byte \
 _obuild/ocp-build/ocp-build.byte:
-	$(OCPBUILD) -byte ocp-bytecode ocp-build
+	$(OCPBUILD) -byte ocp-build
 
 # We are happy with what we have generated, we just want it to be compiled
 # with ocaml-3.12.1
@@ -108,11 +147,10 @@ upgrade-ocp-build:
 	mv _obuild/ocp-build/ocp-build.asm boot/
 	ocaml-manager -set ocaml-3.12.1
 	./boot/ocp-build.asm -clean
-	./boot/ocp-build.asm -byte ocp-build ocp-bytecode
+	./boot/ocp-build.asm -byte ocp-build 
 
 # update boot/ with and check it works
 bootstrap-ready: \
-   _obuild/ocp-bytecode/ocp-bytecode.byte \
    _obuild/ocp-build/ocp-build.byte
 
 old-ocp-build:
@@ -123,7 +161,7 @@ bootstrap: old-ocp-build
 	mv boot Saved
 	mkdir boot
 	mv Saved boot/Saved
-	_obuild/ocp-bytecode/ocp-bytecode.byte _obuild/3.12.1/ocp-build/ocp-build.byte \
+	$(OCP_BYTECODE) _obuild/3.12.1/ocp-build/ocp-build.byte \
 	   -make-static \
 	   -filter-unused-prims \
 	   -remove-prims tools/ocp-build/remove-primitives.txt \
@@ -151,43 +189,3 @@ make-boot:
            ./_obuild/ocp-build-engine/ocp-build-engine.cma \
            ./_obuild/ocp-build-lib/ocp-build-lib.cma \
            ./_obuild/ocp-build/buildMain.cmo
-
-fabrice-upload:
-	git checkout fabrice-typerex
-	git push origin fabrice-typerex
-	git push ocamlpro fabrice-typerex
-
-doc:
-	cd docs/user-manual; $(MAKE)
-
-
-
-configure: configure.ac m4/*.m4
-	aclocal -I m4
-	autoconf
-	./configure $(CONFIGURE_ARGS)
-
-tag:
-	git tag typerex.$(VERSION)
-	git push ocamlpro typerex.$(VERSION)
-
-force_tag:
-	git tag -f typerex.$(VERSION)
-	git push -f ocamlpro typerex.$(VERSION)
-
-opamize:
-	$(MAKE) opamize-typerex
-	$(MAKE) opamize-ocp-build
-opamize-typerex:
-	./_obuild/ocp-opamer/ocp-opamer.asm \
-	 	-descr packages/opam/typerex.descr \
-		-opam packages/opam/typerex.opam  \
-		typerex $(VERSION) \
-		https://github.com/OCamlPro/typerex/tarball/typerex.$(VERSION)
-
-opamize-ocp-build:
-	./_obuild/ocp-opamer/ocp-opamer.asm -branch typerex \
-		-descr packages/opam/ocp-build.descr \
-		-opam packages/opam/ocp-build.opam \
-		 ocp-build $(VERSION) -no-url
-

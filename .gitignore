@@ -84,3 +84,5 @@ Makefile.config
 typerex.config
 typerex.ocp
 packages/opam/ocp-build.opam
+ocp-build-bundle.ocp
+debug.ocp
