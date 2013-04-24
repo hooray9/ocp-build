@@ -1,6 +1,6 @@
 #!/bin/sh
 
 cd config; ./configure $*
-
+cd ..
 echo Creating file ocp-build.root
 touch ocp-build.root
