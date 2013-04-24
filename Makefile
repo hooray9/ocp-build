@@ -7,13 +7,13 @@ include Makefile.config
 BOOTSTRAP_OCPBUILD=./boot/ocp-build.boot
 
 OCPBUILD=./boot/ocp-build
-OCPBUILD_FLAGS=
+OCPBUILD_FLAGS= -no-ocamlfind
 
 all: $(OCPBUILD)
 	$(OCPBUILD) build $(OCPBUILD_FLAGS) -scan
 init: $(OCPBUILD)
 	$(OCPBUILD) root
-	$(OCPBUILD_FLAGS) configure -scan
+	$(OCPBUILD) configure -scan
 verbose: $(OCPBUILD)
 	$(OCPBUILD) build $(OCPBUILD_FLAGS) -v 5
 byte: $(OCPBUILD)
@@ -24,8 +24,8 @@ noscan: $(OCPBUILD)
 	$(OCPBUILD) build $(OCPBUILD_FLAGS) -no-scan
 
 WIN32_FILES= \
-  libs/ocplib-win32/win32_waitpids_c.c \
-  libs/ocplib-win32/win32_fileinfo_c.c
+  src/win32/win32_waitpids_c.c \
+  src/win32/win32_fileinfo_c.c
 
 boot/win32_c.c: $(WIN32_FILES)
 	cat $(WIN32_FILES) > boot/win32_c.c

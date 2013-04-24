@@ -1,0 +1,33 @@
+(**************************************************************************)
+(*                                                                        *)
+(*                        TypeRex OCaml Tools                             *)
+(*                                                                        *)
+(*                             OCamlPro                                   *)
+(*                                                                        *)
+(*  Copyright 2011-2012 OCamlPro                                          *)
+(*  All rights reserved.  See accompanying files for the terms under      *)
+(*  which this file is distributed. In doubt, contact us at               *)
+(*  contact@ocamlpro.com (http://www.ocamlpro.com/)                       *)
+(**************************************************************************)
+
+
+begin library "ocp-build-ocplib"
+
+  files = [
+    pack BuildBase [
+      "debugVerbosity.ml"
+      "stdlib2.ml"
+      "ocamllexer.mll"
+      "linearToposort.ml"
+      "stringSubst.ml"
+
+      "reusedBuffers.ml"
+      "file.ml";
+      "configParser.ml"
+      "simpleConfig.ml" (pp = [ "camlp4o" ])
+
+      "subcommands.ml"
+    ]
+  ]
+  requires = [ "unix" ]
+end
