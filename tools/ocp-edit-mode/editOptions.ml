@@ -87,7 +87,7 @@ let require_final_newline = create_option config
 let auto_complete_key =  create_option config
   [ "auto_complete_key" ]
   [ "Key to use to trigger auto-completion";
-    "(\"None\" to use the system setting)" ]
+    "(\"None\" disables the auto-completion which comes with TypeRex)" ]
   (option_option string_option) (Some "TAB")
 
 let abbrevs = create_option config

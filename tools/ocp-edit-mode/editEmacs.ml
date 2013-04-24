@@ -65,6 +65,14 @@ let setq name body =
     List.map (fun s -> Printf.sprintf "  %s" s) body @
     [ ")" ]
 
+let if_set opt f = match !!opt with
+  | Some o -> f o
+  | None -> ""
+
+let if_set_else opt f e = match !!opt with
+  | Some o -> f o
+  | None   -> e
+
 let load_global_config () =
   let install_directory =
     if !!install_directory = "" then
@@ -84,9 +92,11 @@ let load_global_config () =
         (
           message "(concat \"typerex-mode called for \" (buffer-name))" @
             exec_on_buffer "-load-local-config"
-        ) @
-        [
-          "(autoload 'auto-complete-mode \"auto-complete\" \"Minor mode for completion\" t)";
+        ) @ [
+          if_set auto_complete_key (fun _ ->
+              "(autoload 'auto-complete-mode \"auto-complete\" \"Minor mode for \
+               completion\" t)")
+        ] @ [
           "(autoload 'tuareg-mode \"tuareg\" \"Major mode for editing Caml code\" t)";
           "(autoload 'caml-mode \"caml\" \"Major mode for editing OCaml code.\" t)";
           "(autoload 'ocp-fix-errors \"ocp-fix-errors.el\" \"Auto fix erros.\" t)";
@@ -136,10 +146,6 @@ let lisp_bool () = function
   | true ->  "t"
   | false -> "nil"
 
-let if_set opt f = match !!opt with
-  | Some o -> f o
-  | None -> ""
-
 let all_mode_hook mode filename =
   print_elist (
     [
@@ -174,21 +180,24 @@ let all_mode_hook mode filename =
         (Printf.sprintf "(setq column-number-mode %a)" lisp_bool);
       if_set require_final_newline
         (Printf.sprintf "(setq require-final-newline %a)" lisp_bool);
-      "(require 'auto-complete-config)";
-
-      "(defun ocp-candidates()";
-      "   (let ((ocp-local-name (buffer-file-name)))";
-      "     (let (result)";
-      "      (with-temp-buffer ";
-      "        (insert";
-      "          (shell-command-to-string";
-      "            (concat \"ocp-edit-mode candidates -infile \" ocp-local-name";
-      "              \" '\" ac-prefix \"'\")))";
-      "        (eval-buffer))";
-      "      result)";
-      "     )";
-      "   )";
-
+      ] @ (if_set_else auto_complete_key (fun _ ->
+        [
+          "(require 'auto-complete-config)";
+          "(defun ocp-candidates()";
+          "   (let ((ocp-local-name (buffer-file-name)))";
+          "     (let (result)";
+          "      (with-temp-buffer ";
+          "        (insert";
+          "          (shell-command-to-string";
+          "            (concat \"ocp-edit-mode candidates -infile \" ocp-local-name";
+          "              \" '\" ac-prefix \"'\")))";
+          "        (eval-buffer))";
+          "      result)";
+          "     )";
+            "   )";
+        ])
+        []
+      ) @ [
       "(defun ocp-documentation(candidate)";
       "   (let ((ocp-local-name (buffer-file-name)))";
       "     (let (result)";
@@ -210,20 +219,21 @@ let all_mode_hook mode filename =
          of the file *)
       "  (if point (1+ point)))))";
 
-      "(ac-define-source ocp-complete";
-      "  '((candidates . ocp-candidates)";
-      "    (prefix . ocp-prefix-longident)";
-      "    (document . ocp-documentation)";
-      "    ))";
-
-      "(setq ac-sources '(ac-source-ocp-complete))";
-
-      "(setq ac-auto-start nil)";
-      if_set auto_complete_key
-        (Printf.sprintf "(ac-set-trigger-key \"%s\")");
-
-      "(auto-complete-mode)";
-
+      ] @
+        if_set_else auto_complete_key (fun k ->
+            [
+              "(ac-define-source ocp-complete";
+              "  '((candidates . ocp-candidates)";
+              "    (prefix . ocp-prefix-longident)";
+              "    (document . ocp-documentation)";
+              "    ))";
+              "(setq ac-sources '(ac-source-ocp-complete))";
+              "(setq ac-auto-start nil)";
+              (Printf.sprintf "(ac-set-trigger-key \"%s\")" k);
+              "(auto-complete-mode)";
+            ])
+          []
+      @ [
       if_set indent_use_tabs
         (Printf.sprintf "(setq indent-tabs-mode %a)" lisp_bool);
       ] @
