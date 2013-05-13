@@ -11,7 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-
 open BuildBase
 open Stdlib2
 open BuildOCPVariable
@@ -100,7 +99,12 @@ let configs = Hashtbl.create 17
 
 
 let define_config config_name options = Hashtbl.add configs config_name options
-let find_config config_name = Hashtbl.find configs config_name
+let find_config config_name =
+  try
+    Hashtbl.find configs config_name
+  with Not_found ->
+    Printf.eprintf "Error: configuration %S not found\n" config_name;
+    exit 2
 
 let option_list_set options name list =
       StringMap.add name (OptionList list) options
