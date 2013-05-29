@@ -97,15 +97,12 @@ h1, h1 a,
 h2, h2 a,
 h3, h3 a {
   color: #672910;
-  background: #968d86;
-  background: #d66308;
   background: #ff9a0a;
 }
 a {
   color: #b94a48;
 }
 a:hover {
-  color: #f25d01;
   color: #91310b;
   background: #fccb0d;
 }
