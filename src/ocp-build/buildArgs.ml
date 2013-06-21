@@ -12,8 +12,8 @@
 (******************************************************************************)
 
 
-open BuildBase
-open Stdlib2
+(* open BuildBase *)
+(* open Stdlib2 *)
 (* TODO: we should save the version of ocaml used to build a project,
    so that we can detect changes and ask for a clean before building.
    Can we access the magic used by every compiler ? (we can compile an
@@ -39,6 +39,16 @@ open BuildTypes
 open BuildGlobals
 open BuildOptions
 
+type subcommand = {
+  sub_name : string;
+  sub_arg_list : (string * Arg.spec * string) list;
+  sub_arg_anon : (string -> unit) option;
+  sub_arg_usage : string list;
+  sub_action : (unit -> unit);
+  sub_help : string;
+}
+
+
 exception ExitStatus of int
 let exit n = raise (ExitStatus n)
 
@@ -55,9 +65,6 @@ let print_version () =
   Printf.fprintf stderr "%s\n%!" version;
   exit 0
 
-let set_verbosity v =
-  DebugVerbosity.increase_verbosity "B" v
-
 let t0 = Unix.gettimeofday ()
 
 let time s f x =
@@ -69,10 +76,6 @@ let time s f x =
     y
   else
     f x
-
-let time_steps = ref []
-let time_step (msg : string) =
-  time_steps := (msg , Unix.gettimeofday()) :: !time_steps
 
 let tests_arg = ref false
 let benchmarks_arg = ref false
@@ -94,7 +97,6 @@ let meta_verbose_arg = ref false
 let list_installed_arg = ref false
 let oasis_arg = ref false
 
-let color = BuildEngineDisplay.color
 let auto_uninstall = ref true
 
 (* if [query_global] is set, we don't load the project
@@ -284,8 +286,6 @@ let arg_list = short_arg_list @ [
 
   "-obuild", Arg.String (fun s -> build_dir_basename_arg := s),
   "DIRECTORY change _obuild directory";
-  "-arch", Arg.String (fun s -> arch_arg := Arch s),
-  "ARCH Set arch sub-directory of _obuild";
   "-auto-arch", Arg.Unit (fun () -> arch_arg := ArchAuto),
   " Set arch automatically";
   "-no-sanitize", Arg.Unit (fun () -> delete_orphans_arg := KeepOrphans),
@@ -312,9 +312,6 @@ let arg_list = short_arg_list @ [
 
   "-time", Arg.Set time_arg,
   " Print timings";
-
-  "-no-color", Arg.Unit (fun () -> color := false),
-  " Don't use color output";
 
   "-library-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name LibraryPackage
@@ -416,6 +413,9 @@ let arg_usage =
      "The following options are available:"
     ]
 
+let arg_anon_none s = raise (Arg.Bad s)
+let arg_anon s =  targets_arg := s :: !targets_arg
+
 (*
 
 ocp-build root       (* creates project root directory *)
@@ -429,7 +429,6 @@ ocp-build clean      (* clean project *)
 ocp-build query      (* query environment information *)
 ocp-build uninstall  (* uninstall installed packages *)
 
-*)
 
 let arg_map =
   let map = ref StringMap.empty in
@@ -469,7 +468,7 @@ let add_sub_command sub_name sub_help sub_action arg_list arg_anon arg_usage =
       (sub_action, (arg_list, arg_anon, arg_usage) ) !subcommands_map
 
 let arg_anon s = targets_arg := s :: !targets_arg
-let arg_anon_none s = raise (Arg.Bad s)
+
 
 let dup s = s,s
 
@@ -665,3 +664,5 @@ let parse_args () =
     Arg.usage short_arg_list arg_usage; exit 0
   | PrintLongArgList ->
     Arg.usage arg_list arg_usage; exit 0
+
+*)

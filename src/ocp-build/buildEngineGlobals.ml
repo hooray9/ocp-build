@@ -14,7 +14,7 @@
 (* open BuildRules *)
 
 
-open BuildBase
+(* open BuildBase *)
 open BuildEngineTypes
 
 let dependency_loaders = Hashtbl.create 17

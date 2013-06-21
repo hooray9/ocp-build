@@ -12,50 +12,14 @@
 (******************************************************************************)
 
 
-open BuildBase
-open Stdlib2
+(* open BuildBase *)
+(* open Stdlib2 *)
 open BuildEngineTypes
+open BuildTerm
 
 let verbose =
   DebugVerbosity.add_submodules "B" [ "BED" ];
   DebugVerbosity.verbose [ "BED" ] "BuildEngineDisplay"
-
-let need_escape =
-  try
-    ignore (Sys.getenv "TERM"); true
-  with Not_found ->
-    match Win32.os_type with
-      Win32.WINDOWS | Win32.CYGWIN -> true
-    | Win32.UNIX -> false
-
-let term_escape s =
-  if need_escape then String.escaped s else s
-
-let color = ref (Unix.isatty Unix.stderr)
-let columns =
-  try
-    (* terminfo *)
-    match BuildMisc.get_stdout_lines [ "tput"; "cols" ] [] with
-    | 0, line :: _ -> int_of_string line
-    | _ -> raise Not_found
-  with _ ->
-    try
-      (* GNU stty *)
-      match BuildMisc.get_stdout_lines [ "stty"; "size" ] [] with
-      | 0, line :: _ -> begin
-          match OcpString.split line ' ' with
-          | [_ ; v] -> int_of_string v
-          | _ -> failwith "stty"
-        end
-      | _ -> raise Not_found
-    with Unix.Unix_error _ | End_of_file | Failure _ ->
-      try
-        (* shell envvar *)
-        int_of_string (Sys.getenv "COLUMNS")
-      with Not_found | Failure _ ->
-        80
-
-let columns = ref columns
 
 let init _b = ()
 
@@ -80,33 +44,31 @@ let pretty_rule_name rule len =
   let dir = string_limit (len - curlen) dir in
   let curlen = curlen + String.length dir in
   let pad = if len > curlen then String.make (len - curlen) ' ' else "" in
-  if !color then
-    String.concat ""
-      ([ dir; Filename.dir_sep;
-         "\027[1m"; File.basename (File.chop_extension f); "\027[m.";
-         String.concat "." (File.extensions f) ]
-       @ [ pad ])
-  else
-    String.concat "" [dir; Filename.dir_sep; base; pad]
+  String.concat ""
+    [ dir; Filename.dir_sep;
+       term_bold (File.basename (File.chop_extension f)); ".";
+       String.concat "." (File.extensions f) ; pad ]
 
 let print_stat_line b proc =
-  if !color then begin
-    let npar = List.length b.build_stats_running_rules in
-    let current_rules =
-      string_limit (!columns - 13 - npar)
-        (String.concat " "
-           (List.rev_map
-              (fun (r,_) -> (Hashtbl.find b.build_rules r).rule_main_target.file_basename)
-              b.build_stats_running_rules))
-    in
+  let npar = List.length b.build_stats_running_rules in
+  let current_rules =
+    string_limit (term.esc_columns - 13 - npar)
+      (String.concat " "
+         (List.rev_map
+            (fun (r,_) -> (Hashtbl.find b.build_rules r).rule_main_target.file_basename)
+            b.build_stats_running_rules))
+  in
     Printf.eprintf
-      "\027[1m[%4d/%4d] \027[34m%s\027[m %s%!"
+      "%s[%4d/%4d] %s%s%s %s%s%s%!"
+      term.esc_bold
       b.build_stats_executed
       b.build_stats_to_execute
+      term.esc_blue_text
       (String.make npar '*')
-      current_rules;
-    Printf.eprintf "\r\027[K"
-  end
+      term.esc_end
+      current_rules
+      term.esc_linefeed
+      term.esc_killline
 
 let begin_command b proc =
   let r = proc.proc_rule in
@@ -117,7 +79,7 @@ let begin_command b proc =
   let cmd_args =
     (BuildEngineRules.command_of_command cmd) @ List.map (BuildEngineRules.argument_of_argument r) cmd.cmd_args
   in
-  if verbose 1 then print_stat_line b proc else
+  if verbose 1 && term.esc_ansi then print_stat_line b proc else
   if verbose 2 then begin
     Printf.eprintf "[%d.%d] BEGIN '%s' %s\n%!" r.rule_id proc.proc_step
       (term_escape (String.concat "' '" cmd_args))
@@ -172,18 +134,23 @@ let end_command b proc time status =
       end
       else
         if verbose 1 then
-          if !color then
-            Printf.eprintf "\027[36m%2.2fs\027[m %s %s\027[m\n"
-              time (pretty_rule_name r (!columns - 16))
-              (if status = 0 then
-                 if has_stderr then "\027[33m[ done ]" else "\027[32m[ done ]"
-               else "\027[31m[failed]")
-          else
+(*          if !color then *)
+            Printf.eprintf "%s%2.2fs%s %s %s%s%s\n"
+              term.esc_cyan_text time term.esc_end
+              (pretty_rule_name r (term.esc_columns - 16))
+              (match status, has_stderr with
+                 0, true -> term.esc_yellow_text
+               | 0, false -> term.esc_green_text
+               | _ -> term.esc_red_text)
+              (if status = 0 then "[ done ]"
+               else "[failed]")
+              term.esc_end
+(*          else
             let percent = b.build_stats_executed * 100 / b.build_stats_to_execute
             in
             Printf.eprintf "[%3d%%] %-50s %s\n%!" percent
               r.rule_main_target.file_basename
-              (if status = 0 then "   OK" else "ERROR")
+              (if status = 0 then "   OK" else "ERROR") *)
         else
           let point = b.build_stats_executed * 70 / b.build_stats_to_execute
           in
@@ -197,20 +164,19 @@ let end_command b proc time status =
         (Filename.basename
            (String.concat " " (BuildEngineRules.command_of_command cmd)))
     in
-    let color_begin, color_end =
-      if not !color then "", ""
-      else if status = 0 then "\027[33m", "\027[m"
-      else "\027[31m", "\027[m"
+    let color_begin =
+      if status = 0 then term.esc_yellow_text
+      else term.esc_red_text
     in
     if cmd.cmd_stdout_pipe = None then
       print_file
-        (Printf.sprintf "%s-- stdout of %s --%s" color_begin str_command color_end)
+        (Printf.sprintf "%s-- stdout of %s --%s" color_begin str_command term.esc_end)
         (temp_stdout b r);
     if has_stderr then
       print_file
-        (Printf.sprintf "%s-- stderr of %s --%s" color_begin str_command color_end)
+        (Printf.sprintf "%s-- stderr of %s --%s" color_begin str_command term.esc_end)
         (temp_stderr b r);
-    if !color then print_stat_line b proc;
+    if term.esc_ansi then print_stat_line b proc;
     if status <> 0 then
       errors :=
 	[

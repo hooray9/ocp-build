@@ -12,10 +12,10 @@
 (******************************************************************************)
 
 
-open BuildBase
+(* open BuildBase *)
 let verbose = DebugVerbosity.verbose [ "B" ] "BuildOCamlConfig"
 
-open Stdlib2
+(* open Stdlib2 *)
 open BuildMisc
 open BuildOCPVariable
 open SimpleConfig

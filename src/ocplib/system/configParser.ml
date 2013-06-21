@@ -11,7 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-open Stdlib2
 
 type t = {
   mutable sections : section StringMap.t;

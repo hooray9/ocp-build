@@ -12,8 +12,8 @@
 (******************************************************************************)
 
 
-open BuildBase
-open Stdlib2
+(* open BuildBase *)
+(* open Stdlib2 *)
 
 (*
   peerocaml:~/.opam/4.00.1/lib/ocaml%  ocamlfind printconf

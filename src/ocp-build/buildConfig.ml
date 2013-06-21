@@ -14,11 +14,11 @@
 (* Génération et lecture du fichier de configuration *)
 
 
-open BuildBase
+(* open BuildBase *)
 
 let verbose = DebugVerbosity.verbose [ "B" ] "BuildConfig"
 
-open Stdlib2
+(* open Stdlib2 *)
 (* open OcpLang *)
 
 (*

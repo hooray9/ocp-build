@@ -12,8 +12,8 @@
 (******************************************************************************)
 
 
-open BuildBase
-open Stdlib2
+(* open BuildBase *)
+(* open Stdlib2 *)
 open MetaTypes
 
 let verbose = DebugVerbosity.verbose ["B"] "BuildOCamlMeta"

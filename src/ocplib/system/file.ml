@@ -11,8 +11,8 @@
 (*                                                                            *)
 (******************************************************************************)
 
-(* open OcpLang *)
-open Stdlib2
+open OcpLang
+
 
 (****************************)
 (* Filename management *)
@@ -314,7 +314,7 @@ end = struct
   let default_buffer_size = 32768
 
   let copy_file f1 f2 =
-    let s = ReusedBuffers.get default_buffer_size in
+    let s = ReentrantBuffers.get default_buffer_size in
     let ic = open_in_bin f1 in
     let oc = open_out_bin f2 in
     let rec copy s ic oc =
@@ -323,10 +323,10 @@ end = struct
     in copy s ic oc;
     close_in ic;
     close_out oc;
-    ReusedBuffers.free s
+    ReentrantBuffers.free s
 
   let iter_blocks f file =
-    let s = ReusedBuffers.get 32768 in
+    let s = ReentrantBuffers.get 32768 in
     let ic = open_in_bin file in
     let rec iter f ic s =
       let nread = input ic s 0 32768 in
@@ -336,7 +336,7 @@ end = struct
         end
     in
     iter f ic s;
-    ReusedBuffers.free s
+    ReentrantBuffers.free s
 
   let iter_dir f dirname =
     let dir = Unix.opendir dirname in
@@ -440,14 +440,14 @@ end
 let cut_last_extension basename =
   try
     let pos = String.rindex basename '.' in
-    OcpString.before basename pos,
-    String.lowercase (OcpString.after basename pos)
+    String.before basename pos,
+    String.lowercase (String.after basename pos)
   with Not_found -> (basename, "")
 
 (* We use ReentrantBuffer to allow sharing this buffer with other
 functions that would need such buffers. *)
 let string_of_channel ic =
-  let s = ReusedBuffers.get 32768 in
+  let s = ReentrantBuffers.get 32768 in
   let b = Buffer.create 1000 in
   let rec iter ic b s =
     let nread = input ic s 0 32768 in
@@ -457,7 +457,7 @@ let string_of_channel ic =
     end
   in
   iter ic b s;
-  ReusedBuffers.free s;
+  ReentrantBuffers.free s;
   Buffer.contents b
 
 let string_of_file filename =

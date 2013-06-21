@@ -11,7 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-open Stdlib2
 module LowLevel = struct
 
 open Genlex
@@ -391,7 +390,7 @@ let with_help = ref false
 
 let comment s =
   Printf.sprintf "(* %s *)"
-    (String.concat " *)\n(* " (OcpString.split s '\n'))
+    (OcpString.replace_chars s  ['\n', " *)\n(* "])
 
 let compact_string oc f =
   let b = Buffer.create 100 in

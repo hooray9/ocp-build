@@ -31,7 +31,7 @@ other files. For now, it is better to declare all options here.
 *)
 
 
-open BuildBase
+(* open BuildBase *)
 open SimpleConfig
 
 (* 3 configuration files:
@@ -55,6 +55,7 @@ type config_input = {
   mutable cin_meta_dirnames : string list;
   mutable cin_ocps_dirnames : string list;
 
+  mutable cin_color : bool;
   mutable cin_autoscan : bool;
   mutable cin_digest : bool;
   mutable cin_verbosity : int;
@@ -73,6 +74,7 @@ type arg_action =
   | LoadFile of SimpleConfig.config_file * string
   | SaveFile of SimpleConfig.config_file * string
   | SetInt of int SimpleConfig.config_option * int
+  | SetIntOption of int option SimpleConfig.config_option * int
   | SetBool of bool SimpleConfig.config_option * bool
   | SetBoolOption of bool option SimpleConfig.config_option * bool
   | SetFalse of bool SimpleConfig.config_option
@@ -98,26 +100,44 @@ let arg_set_int int_option =
   ("-" ^ argumentize (LowLevel.shortname int_option),
     Arg.Int (fun n ->
       arguments := (SetInt (int_option, n)) :: !arguments;
-    ), " " ^LowLevel.get_help int_option)
+    ), "NNN " ^LowLevel.get_help int_option)
+
+let arg_set_int_option int_option =
+  ("-" ^ argumentize (LowLevel.shortname int_option),
+    Arg.Int (fun n ->
+      arguments := (SetIntOption (int_option, n)) :: !arguments;
+    ), "NNN " ^LowLevel.get_help int_option)
+
+let arg_set_true_option int_option =
+  ("-" ^ argumentize (LowLevel.shortname int_option),
+    Arg.Unit (fun () ->
+      arguments := (SetBoolOption (int_option, true)) :: !arguments;
+    ), " Set option to true.\n" ^LowLevel.get_help int_option)
+
+let arg_set_false_option int_option =
+  ("-no-" ^ argumentize (LowLevel.shortname int_option),
+    Arg.Unit (fun () ->
+      arguments := (SetBoolOption (int_option, false)) :: !arguments;
+    ), " Set option to false.\n" ^LowLevel.get_help int_option)
 
 let arg_set_true bool_option =
   ("-" ^ argumentize (LowLevel.shortname bool_option),
     Arg.Unit (fun () ->
       arguments := (SetBool (bool_option, true)) :: !arguments;
-    ), " " ^LowLevel.get_help bool_option)
+    ), " Set option to true.\n" ^LowLevel.get_help bool_option)
 
 let arg_set_true2 bool_option bool_option2 =
   ("-" ^ argumentize (LowLevel.shortname bool_option),
     Arg.Unit (fun () ->
       arguments := (SetBool (bool_option, true)) :: !arguments;
       arguments := (SetBoolOption (bool_option2, true)) :: !arguments;
-    ), " " ^LowLevel.get_help bool_option)
+    ), " Set option to false. " ^LowLevel.get_help bool_option)
 
 let arg_set_false bool_option =
   ("-no-" ^ argumentize (LowLevel.shortname bool_option) ,
     Arg.Unit (fun () ->
       arguments := (SetFalse bool_option) :: !arguments;
-    ), " Unset option. " ^ LowLevel.get_help bool_option)
+    ), " Set option to false.\n" ^ LowLevel.get_help bool_option)
 
 let arg_set_false2 bool_option bool_option2 =
   ("-no-" ^ argumentize (LowLevel.shortname bool_option),
@@ -131,6 +151,12 @@ let arg_set_strings option =
     Arg.String (fun s ->
       arguments := (SetStrings (option,s)) :: !arguments;
     ), "STRING " ^ LowLevel.get_help option)
+
+let arg_set_string int_option =
+  ("-" ^ argumentize (LowLevel.shortname int_option),
+    Arg.String (fun n ->
+      arguments := (SetString (int_option, n)) :: !arguments;
+    ), "STRING " ^LowLevel.get_help int_option)
 
 let arg_set_string_option option =
   ("-" ^ argumentize (LowLevel.shortname option),
@@ -159,6 +185,14 @@ let load_config config filename =
         "Warning: Exception %S while loading config file %S\n%!"
         (Printexc.to_string e) (File.to_string filename)
 
+let save_config config =
+  try SimpleConfig.save_with_help config
+  with e ->
+    Printf.eprintf "Warning: exception %S while saving config %S\n%!"
+      (Printexc.to_string e)
+      (File.to_string (SimpleConfig.config_file config))
+
+
 
 let apply_arguments () =
   List.iter (fun arg_action ->
@@ -168,6 +202,7 @@ let apply_arguments () =
     | SaveFile (config, filename) ->
       save_configs := (config, filename) :: !save_configs
     | SetInt (option,n) -> option =:= n
+    | SetIntOption (option, t) -> option =:= Some t
     | SetBool (option, t) -> option =:= t
     | SetBoolOption (option, t) -> option =:= Some t
     | SetFalse option -> option =:= false
@@ -195,6 +230,7 @@ let ocaml_config_dir =
 let ocaml_config_filename =
   Filename.concat ocaml_config_dir "ocp-build.conf"
 
+let project_build_dirname = "_obuild"
 let project_config_basename = "ocp-build.root"
 
 
@@ -203,14 +239,18 @@ let project_config_basename = "ocp-build.root"
 
 module UserOptions = struct
 
+  let default_filename = user_config_filename
+
   let must_save_config = ref false
   let user_config_file = File.of_string user_config_filename
   let user_config = SimpleConfig.create_config_file user_config_file
+  let config_file = user_config
 
   let njobs_option =
     SimpleConfig.create_option user_config
       [ "njobs" ]
-      ["Maximal number of jobs started in parallel (0 = auto-detect)" ]
+      ["Maximal number of jobs started in parallel";
+       " (0 = auto-detect)" ]
       int_option 0
 
   let verbosity_option =
@@ -223,14 +263,19 @@ module UserOptions = struct
 
   let autoscan_option =
     SimpleConfig.create_option user_config
-      [ "autoscan" ] ["If set, always scan for new .ocp files" ]
+      [ "autoscan" ] ["If true, always scan for new .ocp files" ]
+      bool_option true
+
+  let color_option =
+    SimpleConfig.create_option user_config
+      [ "color" ] ["If true, use color if terminal is ok" ]
       bool_option true
 
   let digest_option =
     SimpleConfig.create_option user_config
       [ "digest" ]
-      ["If set, use content digest change to trigger recompilation";
-       "If not set, use timestamps + inode numbers" ]
+      ["If true, use content digest change to trigger recompilation";
+       "If false, use timestamps + inode numbers" ]
       bool_option false
 
   let bytecode_option =
@@ -347,14 +392,15 @@ module ProjectOptions = struct
 
   let must_save_config = ref false
   let project_config = SimpleConfig.create_config_file (File.of_string "")
+  let config_file = project_config
 
   (*** First, lets override user's preferences *****)
 
   let digest_option =
     SimpleConfig.create_option project_config
       [ "digest" ]
-      ["If set, use content digest change to trigger recompilation";
-       "If not set, use timestamps + inode numbers" ]
+      ["If true, use content digest change to trigger recompilation";
+       "If false, use timestamps + inode numbers" ]
       (option_option bool_option) None
 
   let verbosity_option =
@@ -398,24 +444,24 @@ module ProjectOptions = struct
       ["An alternative root directory for installation"]
       (option_option string_option) None
 
-  let install_bin_option =
+  let install_bindir_option =
     SimpleConfig.create_option project_config
-      [ "install_bin" ]  ["where programs should be installed"]
+      [ "install_bindir" ]  ["where programs should be installed"]
       (option_option string_option) None
 
-  let install_lib_option =
+  let install_libdir_option =
     SimpleConfig.create_option project_config
-      [ "install_lib" ]  ["where libraries should be installed"]
+      [ "install_libdir" ]  ["where libraries should be installed"]
       (option_option string_option) None
 
-  let install_data_option =
+  let install_datadir_option =
     SimpleConfig.create_option project_config
-      [ "install_data" ]  ["where multi-arch data should be installed"]
+      [ "install_datadir" ]  ["where multi-arch data should be installed"]
       (option_option string_option) None
 
-  let install_doc_option =
+  let install_docdir_option =
     SimpleConfig.create_option project_config
-      [ "install_doc" ]  ["where documentation files should be installed"]
+      [ "install_docdir" ]  ["where documentation files should be installed"]
       (option_option string_option) None
 
   let ocamllib_option =
@@ -484,12 +530,78 @@ let install_bin_arg = ref None
 let install_lib_arg = ref None
 let install_doc_arg = ref None
 let install_data_arg = ref None
+let color_arg = ref None
 
 (* Delay actions on project options after loading the project file *)
 let delay f =
   arguments := Apply f :: !arguments
 
-let arg_list () =
+let arg_list1 =
+  [
+    "-color", Arg.Unit (fun () -> color_arg := Some true),
+    " Use color if available";
+    "-no-color", Arg.Unit (fun () -> color_arg := Some false),
+    " Don't use color even if available";
+
+    "-asm", Arg.Unit (fun () ->
+      asm_arg := Some true), " Compile in native code";
+    "-no-asm", Arg.Unit (fun () ->
+      asm_arg := Some true), " Do not compile in native code";
+
+    "-byte", Arg.Unit (fun () ->
+      byte_arg := Some true), " Compile in bytecode";
+    "-no-byte", Arg.Unit (fun () ->
+      byte_arg := Some true), " Do not compile in bytecode";
+
+    "-scan", Arg.Unit (fun () ->
+      scan_arg := Some true), " Scan sub-directories";
+    "-no-scan", Arg.Unit (fun () ->
+      scan_arg := Some false), " Don't scan sub-directories";
+
+    "-digest", Arg.Unit (fun () ->
+      digest_arg := Some true),
+    " Use check-sums";
+    "-no-digest", Arg.Unit (fun () ->
+      digest_arg := Some false),
+    " Do not use checksums";
+
+    "-njobs", Arg.Int (fun n ->
+      njobs_arg := Some n),
+    "NUM Number of processes to start in parallel";
+    "-verbosity", Arg.Int (fun n ->
+      verbosity_arg := Some n),
+    "NUM Verbosity level";
+
+    "-use-ocamlfind", Arg.Unit (fun () ->
+      use_ocamlfind_arg := Some true),
+    " Try to Use ocamlfind to locate META files";
+    "-no-use-ocamlfind", Arg.Unit (fun () ->
+      use_ocamlfind_arg := Some false),
+    " Don't try to use ocamlfind to locate META files";
+
+
+    "-meta-dir", Arg.String (fun s ->
+      meta_dirnames_arg := !meta_dirnames_arg @ [s]),
+    " DIR Add directory to search for META descriptions";
+    "-install-destdir", Arg.String (fun s ->
+      install_destdir_arg := Some s),
+    "FILENAME Directory root where installation should be done";
+    "-install-bin", Arg.String (fun s ->
+      install_bin_arg := Some s),
+    "FILENAME Directory where binaries should be installed";
+    "-install-lib", Arg.String (fun s ->
+      install_lib_arg := Some s),
+    "FILENAME Directory where libraries should be installed";
+    "-install-doc", Arg.String (fun s ->
+      install_doc_arg := Some s),
+    "FILENAME Directory where documentation should be installed";
+    "-install-data", Arg.String (fun s ->
+      install_data_arg := Some s),
+    "FILENAME Directory where data files should be installed";
+
+  ]
+
+let arg_list () = arg_list1 @
   [
 
 (* user preferences *)
@@ -517,10 +629,6 @@ let arg_list () =
 
 (**** asm option ****)
 
-    "-asm", Arg.Unit (fun () ->
-      asm_arg := Some true), " Compile in native code";
-    "-no-asm", Arg.Unit (fun () ->
-      asm_arg := Some true), " Do not compile in native code";
     "-project-asm", Arg.Unit (fun () ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -534,10 +642,6 @@ let arg_list () =
 
 (**** byte option ****)
 
-    "-byte", Arg.Unit (fun () ->
-      byte_arg := Some true), " Compile in bytecode";
-    "-no-byte", Arg.Unit (fun () ->
-      byte_arg := Some true), " Do not compile in bytecode";
     "-project-byte", Arg.Unit (fun () ->
       delay (fun () ->
       ProjectOptions.must_save_config := true;
@@ -551,10 +655,6 @@ let arg_list () =
 
 (**** autoscan option ****)
 
-    "-scan", Arg.Unit (fun () ->
-      scan_arg := Some true), " Scan sub-directories";
-    "-no-scan", Arg.Unit (fun () ->
-      scan_arg := Some false), " Don't scan sub-directories";
     "-project-autoscan", Arg.Unit (fun () ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -568,12 +668,6 @@ let arg_list () =
 
 (**** digest option ****)
 
-    "-digest", Arg.Unit (fun () ->
-      digest_arg := Some true),
-    " Use check-sums";
-    "-no-digest", Arg.Unit (fun () ->
-      digest_arg := Some false),
-    " Do not use checksums";
     "-project-digest", Arg.Unit (fun () ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -587,9 +681,6 @@ let arg_list () =
 
 (**** njobs option ****)
 
-    "-njobs", Arg.Int (fun n ->
-      njobs_arg := Some n),
-    "NUM Number of processes to start in parallel";
     "-project-njobs", Arg.Int (fun n ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -598,9 +689,6 @@ let arg_list () =
 
 (**** verbosity option ****)
 
-    "-verbosity", Arg.Int (fun n ->
-      verbosity_arg := Some n),
-    "NUM Verbosity level";
     "-project-verbosity", Arg.Int (fun n ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -609,12 +697,6 @@ let arg_list () =
 
 (**** use-ocamlfind option ****)
 
-    "-use-ocamlfind", Arg.Unit (fun () ->
-      use_ocamlfind_arg := Some true),
-    " Try to Use ocamlfind to locate META files";
-    "-no-use-ocamlfind", Arg.Unit (fun () ->
-      use_ocamlfind_arg := Some false),
-    " Don't try to use ocamlfind to locate META files";
     "-project-use-ocamlfind", Arg.Unit (fun () ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -628,9 +710,6 @@ let arg_list () =
 
 (**** meta-dir option ****)
 
-    "-meta-dir", Arg.String (fun s ->
-      meta_dirnames_arg := !meta_dirnames_arg @ [s]),
-    " DIR Add directory to search for META descriptions";
 
     "-project-meta-dir", Arg.String (fun s ->
       delay (fun () ->
@@ -641,9 +720,6 @@ let arg_list () =
 
 (**** install-destdir option ****)
 
-    "-install-destdir", Arg.String (fun s ->
-      install_destdir_arg := Some s),
-    "FILENAME Directory root where installation should be done";
     "-project-install-destdir", Arg.String (fun s ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
@@ -651,47 +727,34 @@ let arg_list () =
     "FILENAME Directory root where installation should be done\n  (project option)";
 
 (**** install-bin option ****)
-
-    "-install-bin", Arg.String (fun s ->
-      install_bin_arg := Some s),
-    "FILENAME Directory where binaries should be installed";
     "-project-install-bin", Arg.String (fun s ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
-        ProjectOptions.install_bin_option =:= Some s)),
+        ProjectOptions.install_bindir_option =:= Some s)),
     "FILENAME Directory where binaries should be installed\n  (project option)";
 
 (**** install-lib option ****)
 
-    "-install-lib", Arg.String (fun s ->
-      install_lib_arg := Some s),
-    "FILENAME Directory where libraries should be installed";
     "-project-install-lib", Arg.String (fun s ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
-        ProjectOptions.install_lib_option =:= Some s)),
+        ProjectOptions.install_libdir_option =:= Some s)),
     "FILENAME Directory where libraries should be installed\n  (project option)";
 
 (**** install-doc option ****)
 
-    "-install-doc", Arg.String (fun s ->
-      install_doc_arg := Some s),
-    "FILENAME Directory where documentation should be installed";
     "-project-install-doc", Arg.String (fun s ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
-        ProjectOptions.install_doc_option =:= Some s)),
+        ProjectOptions.install_docdir_option =:= Some s)),
     "FILENAME Directory where documentation should be installed\n  (project option)";
 
 (**** install-data option ****)
 
-    "-install-data", Arg.String (fun s ->
-      install_data_arg := Some s),
-    "FILENAME Directory where data files should be installed";
     "-project-install-data", Arg.String (fun s ->
       delay (fun () ->
         ProjectOptions.must_save_config := true;
-        ProjectOptions.install_data_option =:= Some s)),
+        ProjectOptions.install_datadir_option =:= Some s)),
     "FILENAME Directory where data files should be installed\n  (project option)";
 
     arg_set_true            OCamlOptions.ocps_in_ocamllib_option;
@@ -708,7 +771,6 @@ let arg_list () =
 
   ]
 
-
 let must_save_project () =
   ProjectOptions.must_save_config := true
 
@@ -722,12 +784,7 @@ let load project_dir =
 
   if !load_user_prefs_arg then UserOptions.load ();
   if !load_ocaml_config_arg then OCamlOptions.load ();
-  begin
-    match project_dir with
-      None -> ()
-    | Some project_dir ->
-      ProjectOptions.load project_dir
-  end;
+  ProjectOptions.load project_dir;
 
   apply_arguments ();
 
@@ -755,6 +812,7 @@ let load project_dir =
       some_or_default ProjectOptions.native_option UserOptions.native_option,
       some_or_default ProjectOptions.bytecode_option UserOptions.bytecode_option
   in
+
   let cin_digest =
     match !digest_arg with
     None ->
@@ -787,25 +845,28 @@ let load project_dir =
   in
 
   let cin_install_bin = match !install_bin_arg with
-      None -> !!ProjectOptions.install_bin_option
+      None -> !!ProjectOptions.install_bindir_option
     | arg -> arg
   in
 
   let cin_install_lib = match !install_lib_arg with
-      None -> !!ProjectOptions.install_lib_option
+      None -> !!ProjectOptions.install_libdir_option
     | arg -> arg
   in
 
   let cin_install_doc = match !install_doc_arg with
-      None -> !!ProjectOptions.install_doc_option
+      None -> !!ProjectOptions.install_docdir_option
     | arg -> arg
   in
 
   let cin_install_data = match !install_data_arg with
-      None -> !!ProjectOptions.install_data_option
+      None -> !!ProjectOptions.install_datadir_option
     | arg -> arg
   in
-
+  let cin_color = match !color_arg with
+      None -> !!UserOptions.color_option
+    | Some arg -> arg
+  in
   let cin_meta_dirnames =
     !meta_dirnames_arg @
       !!ProjectOptions.meta_dirnames_option @
@@ -816,6 +877,7 @@ let load project_dir =
     cin_native;
     cin_autoscan;
 
+    cin_color;
     cin_njobs;
     cin_digest;
     cin_verbosity;
@@ -861,3 +923,29 @@ let rec shortcut_arg new_name old_name list =
         (new_name, f,
          Printf.sprintf "%s\n    (shortcut for %s)" help old_name)
       else shortcut_arg new_name old_name list
+
+let find_project_root () =
+  Printf.eprintf "find_project_root\n%!";
+  try
+    BuildOCP.find_root (File.X.getcwd()) [ project_build_dirname ]
+  with  Not_found ->
+    Printf.eprintf "Error: could not find project root (%s/ directory)\n"
+      project_build_dirname;
+    Printf.eprintf "  Did you run 'ocp-build init' ?\n%!";
+    exit 2
+
+module StringSet = Set.Make(String)
+
+let merge lists =
+  let args = ref [] in
+  let map = ref StringSet.empty in
+  List.iter (fun list ->
+    List.iter (fun ( (arg, _, _ ) as item) ->
+      if not (StringSet.mem arg !map) then begin
+        map := StringSet.add arg !map;
+        args := item :: !args
+      end
+    ) list;
+  )  lists;
+  List.rev !args
+

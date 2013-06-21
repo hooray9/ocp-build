@@ -18,7 +18,7 @@ open BuildMisc
 open BuildOCPVariable
 
 
-open BuildBase
+(* open BuildBase *)
 open Ocamllexer
 open BuildOCPParser
 

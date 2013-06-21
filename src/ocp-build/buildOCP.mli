@@ -12,7 +12,7 @@
 (******************************************************************************)
 
 
-open BuildBase
+(* open BuildBase *)
 open BuildOCPTypes
 
 val init_packages : unit -> BuildOCPInterp.state

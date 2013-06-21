@@ -19,8 +19,6 @@
 (*                                                           *)
 (*************************************************************)
 
-open Stdlib2
-
 type config_file
 
 val create_config_file : File.t -> config_file

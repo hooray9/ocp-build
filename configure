@@ -2,5 +2,5 @@
 
 cd config; ./configure $*
 cd ..
-echo Creating file ocp-build.root
-touch ocp-build.root
+echo Creating root directory _obuild/
+mkdir -p _obuild

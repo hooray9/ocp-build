@@ -11,8 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-open Stdlib2
-
 let verbose = DebugVerbosity.verbose [ "OcpLang" ] "LinearToposort"
 
 type node = {

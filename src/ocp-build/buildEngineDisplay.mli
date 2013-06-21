@@ -26,4 +26,3 @@ val add_error : string list -> unit
 val has_error : unit -> bool
 val errors : unit -> string list list
 val finish : unit -> unit
-val color : bool ref

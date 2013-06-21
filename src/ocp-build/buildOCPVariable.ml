@@ -11,9 +11,8 @@
 (*                                                                            *)
 (******************************************************************************)
 
-
-open BuildBase
-open Stdlib2
+(* open BuildBase *)
+(* open Stdlib2 *)
 
 type options = option_value StringMap.t
 

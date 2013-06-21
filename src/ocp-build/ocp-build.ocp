@@ -25,9 +25,11 @@ begin library "ocp-build-misc"
     "buildScanner.ml"; (* Scan directories looking for files with particular properties *)
     "buildSubst.ml"
       "buildFind.ml"
+    "buildTerm.ml"
   ]
 
-   requires =  [ "ocp-build-ocplib"; "unix" "ocp-build-win32"; ]
+   requires =  [
+    "ocplib-lang"; "unix" "ocp-build-win32"; "ocplib-system" ]
 
 end
 
@@ -87,7 +89,6 @@ begin library "ocp-build-lib"
     "buildConfig.ml";           (* Values stored in the configuration file. *)
 (*    "buildOCFGen.ml"; *)
     "buildAutogen.ml";          (* Generate .ocp from directory content *)
-    "buildActions.ml";          (* Main possible actions *)
   ]
 
   requires = [ "unix"; "ocp-build-engine"; "ocplib-project";
@@ -143,7 +144,7 @@ begin library "ocp-build-oasis"
   files = [
     "buildOasis.ml"
   ]
-  requires = [ "ocp-build-ocplib" "ocp-build-ocaml" "ocplib-project" ]
+  requires = [ "ocp-build-ocaml" "ocplib-project" ]
 end
 
 begin program "ocp-build"
@@ -154,6 +155,15 @@ begin program "ocp-build"
   install = true
   files = [
     "buildArgs.ml"
+    "buildActions.ml";          (* Main possible actions *)
+    "buildActionRoot.ml"
+    "buildActionPrefs.ml"
+    "buildActionConfigure.ml"
+    "buildActionBuild.ml"
+    "buildActionInstall.ml"
+    "buildActionClean.ml"
+    "buildActionTests.ml"
+    "buildActionUninstall.ml"
     "buildMain.ml" (* Driver of program *)
   ]
   requires = [ "ocp-build-lib" "ocp-build-ocaml-plugin"  "ocplib-ocamlfind"
@@ -167,7 +177,7 @@ begin program "ocp-project"
   files = [
     "projectMain.ml"
   ]
-  requires = [ "ocplib-project" "ocp-build-ocplib" ]
+  requires = [ "ocplib-project" ]
 end
 
 begin test "ocp-build.test"

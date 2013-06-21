@@ -12,5 +12,5 @@
 (******************************************************************************)
 
 
-open BuildBase
+(* open BuildBase *)
 val create_package : string -> BuildOCPTree.package_type -> File.t -> unit

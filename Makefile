@@ -7,7 +7,7 @@ include config/Makefile
 BOOTSTRAP_OCPBUILD=./boot/ocp-build.boot
 
 OCPBUILD=./boot/ocp-build
-OCPBUILD_FLAGS= -no-ocamlfind
+OCPBUILD_FLAGS= -no-use-ocamlfind
 
 all: $(OCPBUILD)
 	$(OCPBUILD) build $(OCPBUILD_FLAGS) -scan
@@ -43,8 +43,10 @@ ocpbuild: $(OCPBUILD)
 clean-temps:
 
 clean: clean-temps $(OCPBUILD)
-	$(OCPBUILD) -clean
-distclean: clean
+	$(OCPBUILD) clean
+
+distclean:
+	$(OCPBUILD) clean -distclean
 	(cd boot; $(MAKE) clean)
 	rm -f config/Makefile config/config.*
 	rm -rf autom4te.cache ocp-build.root*
@@ -150,7 +152,7 @@ _obuild/ocp-build/ocp-build.byte:
 upgrade-ocp-build:
 	mv _obuild/ocp-build/ocp-build.asm boot/
 	ocaml-manager -set ocaml-3.12.1
-	./boot/ocp-build.asm -clean
+	./boot/ocp-build.asm clean
 	./boot/ocp-build.asm -byte ocp-build 
 
 # update boot/ with and check it works
@@ -158,10 +160,10 @@ bootstrap-ready: \
    _obuild/ocp-build/ocp-build.byte
 
 old-ocp-build:
-	OCAML_VERSION=ocaml-3.12.1 ocp-build -no-color -arch 3.12.1 ocp-build
+	OCAML_VERSION=ocaml-3.12.1 ocp-build -arch 3.12.1 ocp-build
 
 bootstrap: old-ocp-build
-	$(OCP_BYTECODE) _obuild/3.12.1/ocp-build/ocp-build.byte \
+	$(OCP_BYTECODE) _obuild/_other_archs/3.12.1/ocp-build/ocp-build.byte \
 	   -make-static \
 	   -filter-unused-prims \
 	   -remove-prims boot/remove-primitives.txt \

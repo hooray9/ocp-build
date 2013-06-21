@@ -11,7 +11,7 @@
 (*                                                                            *)
 (******************************************************************************)
 
-open BuildBase
+(* open BuildBase *)
 
 val putenv : string -> string -> unit
 val add_to_subst : string -> string -> unit
