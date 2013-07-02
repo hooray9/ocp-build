@@ -54,13 +54,13 @@ distclean:
 TO_INSTALL = ocp-build  ocp-build-infer-env
 
 uninstall:
-	$(OCPBUILD) -uninstall
+	$(OCPBUILD) uninstall
 
 installed:
-	$(OCPBUILD) -installed
+	$(OCPBUILD) installed
 
 install:
-	$(OCPBUILD) -install \
+	$(OCPBUILD) install \
 	  -install-bundle ocp-build-bundle \
           -install-lib $(LIBDIR) \
           -install-bin $(BINDIR) \

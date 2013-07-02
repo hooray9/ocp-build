@@ -115,6 +115,10 @@ let arg_list =
   BuildOptions.merge
     [
       [
+  "-install-bundle", Arg.String (fun s ->
+    Printf.eprintf "Warning: option -install-bundle is obsolete\n%!"
+    ),
+  "BUNDLE Install a bundle packages to uninstall all\n  packages at once";
 
       ];
       BuildActionBuild.arg_list

@@ -278,10 +278,6 @@ let arg_list = short_arg_list @ [
   "-no-auto-uninstall", Arg.Unit (fun () -> auto_uninstall := false),
   " If trying to install already installed packages, fail rather than uninstall them";
 
-  "-install-bundle", Arg.String (fun s ->
-    Printf.eprintf "Warning: option -install-bundle is obsolete\n%!"
-    ),
-  "BUNDLE Install a bundle packages to uninstall all\n  packages at once";
   "-clean", Arg.Set clean_arg, " Clean all compiled files and exit";
 
   "-obuild", Arg.String (fun s -> build_dir_basename_arg := s),
