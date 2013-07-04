@@ -270,17 +270,22 @@ let do_print_fancy_project_info pj =
         | Some l -> l
         | None -> assert false
       in
+(*TODO: these are only errors if the corresponding packages have
+ been specified as targets. *)
       Printf.eprintf
-        "\027[31mERROR\027[m: circular dependency between:\n";
+        "%sERROR%s: circular dependency between:\n"
+        term.esc_red_text term.esc_end;
       List.iter
-        (fun (n1,n2) -> Printf.eprintf "  - \027[1m%s\027[m depends on %s\n" n1 n2)
+        (fun (n1,n2) -> Printf.eprintf "  - %s%s%s depends on %s\n"
+            term.esc_bold n1 term.esc_end n2)
         (List.combine cycle (List.tl cycle @ [List.hd cycle]));
       cycle @ cantbuild
     end else begin
       Printf.eprintf
-        "\027[31mERROR\027[m: the following packages are \027[1mmissing\027[m:\n";
+        "%sERROR%s: the following packages are %smissing%s:\n"
+        term.esc_red_text term.esc_end  term.esc_bold term.esc_end;
       List.iter (fun (name,_) ->
-        Printf.eprintf "  - \027[1m%s\027[m\n" name
+        Printf.eprintf "  - %s%s%s\n" term.esc_bold name term.esc_end
       ) missing_roots;
       List.map fst missing_roots @ cantbuild
     end
@@ -298,12 +303,16 @@ let do_print_fancy_project_info pj =
         Printf.eprintf
           "Additional packages %s can't be built.\n"
           (String.concat ", "
-             (List.map (fun pk -> Printf.sprintf "\027[1m%s\027[m" pk.package_name)
+             (List.map (fun pk -> Printf.sprintf "%s%s%s"
+                  term.esc_bold pk.package_name term.esc_end)
                 additional));
       List.map (fun pk -> pk.package_name) additional @ cantbuild
     end
   in
-  if cantbuild <> [] then exit 1
+  if cantbuild <> [] then
+    (* TODO: we should (exit 1) only if one of the provided targets
+cannot be built ! *)
+    ()
 
 let do_init_project_building cfg project_dir pj =
   let build_dir_basename = !build_dir_basename_arg in
@@ -447,14 +456,15 @@ let do_compile b cin ncores projects =
     Printf.eprintf
       "%s in %.2fs. %d jobs (parallelism %.1fx), %d files generated.\n%!"
       (if errors = [] then
-         if term.esc_ansi then "\027[32mBuild Successful\027[m"
+         if term.esc_ansi then
+           Printf.sprintf "%sBuild Successful%s"
+             term.esc_green_text term.esc_end
          else "Build Successful"
        else
-         Printf.sprintf "%s%d error%s%s"
-           (if term.esc_ansi then "\027[31m" else "")
+         Printf.sprintf "%s%d error%s%s" term.esc_red_text
            nerrors
            (if nerrors > 1 then "s" else "")
-           (if term.esc_ansi then "\027[m" else ""))
+           term.esc_end)
       (t1 -. t0)
       !BuildEngine.stats_command_executed
       (!BuildEngine.stats_total_time /. (t1 -. t0))

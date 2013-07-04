@@ -127,8 +127,6 @@ let arg_list =
 
 
 let action () =
-  let targets = List.rev !targets_arg in
-
   let p = BuildActions.load_project () in
   let (b, projects) = BuildActionBuild.do_build p in
 
