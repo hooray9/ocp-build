@@ -694,6 +694,22 @@ let arg_list = [
   "ARCH Set arch sub-directory of _obuild";
 ] @ arg_list1
 
+let add_synomyms arg_list1 synonyms =
+  arg_list1 @ List.map (fun (s1, s2) ->
+    let rec iter list =
+      match list with
+      [] -> assert false
+      | (s, action, help) :: tail when s = s2 -> (s1, action, help)
+      | _ :: tail -> iter tail
+    in
+    iter arg_list1
+  ) synonyms
+
+let arg_list = add_synomyms arg_list
+    [ "-v", "-verbosity";
+      "-j", "-njobs";
+    ]
+
 let arg_usage = [ "Build" ]
 
 let subcommand = {
