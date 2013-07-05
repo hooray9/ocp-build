@@ -168,6 +168,9 @@ let end_command b proc time status =
       if status = 0 then term.esc_yellow_text
       else term.esc_red_text
     in
+    if status <> 0 then
+      Printf.eprintf "%s[%d.%d] Command failed:%s '%s'\n" term.esc_red_text r.rule_id proc.proc_step term.esc_end
+	     (term_escape (String.concat "' '" cmd_args)) ;
     if cmd.cmd_stdout_pipe = None then
       print_file
         (Printf.sprintf "%s-- stdout of %s --%s" color_begin str_command term.esc_end)
