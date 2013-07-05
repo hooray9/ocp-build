@@ -69,6 +69,7 @@ let subcommands =  [
     BuildActionClean.subcommand;
 
     BuildActionPrefs.subcommand;
+    BuildActionQuery.subcommand;
 
   ]
 

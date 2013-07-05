@@ -164,6 +164,7 @@ begin program "ocp-build"
     "buildActionClean.ml"
     "buildActionTests.ml"
     "buildActionUninstall.ml"
+    "buildActionQuery.ml"
     "buildMain.ml" (* Driver of program *)
   ]
   requires = [ "ocp-build-lib" "ocp-build-ocaml-plugin"  "ocplib-ocamlfind"

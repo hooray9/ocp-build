@@ -118,30 +118,6 @@ let do_load_project_files cin project_dir state =
   in
   if nerrors > 0 then exit 2
 
-let do_reply_to_queries pj =
-
-  List.iter (fun p ->
-    Array.iter (fun pk ->
-      if pk.package_name = p then begin
-        Printf.printf "%s\n" pk.package_dirname;
-        exit 0
-      end
-    ) pj.project_sorted;
-    Printf.eprintf "Error: no package %S\n%!" p;
-    exit 2
-  ) !query_include_dir;
-
-  List.iter (fun p ->
-    try
-      Array.iter (fun pk ->
-        if pk.package_name = p then raise Exit
-      ) pj.project_sorted;
-      Printf.eprintf "Error: no package %S\n%!" p;
-      exit 2
-    with Exit ->
-      Printf.printf "Package %S is present\n%!" p
-  ) !query_has_package_args
-
 
 let do_print_project_info pj =
 
@@ -484,10 +460,55 @@ let do_compile b cin ncores projects =
 
 
 
+let do_read_env p =
 
+  let project_dir = p.project_dir in
+  let cin = p.cin in
+  let cout = p.cout in
+  let cfg = p.cfg in
+  let install_where = p.install_where in
 
+  BuildOCamlConfig.set_global_config cout;
+
+  (* Don't modify default values from now on, since they have been included
+     in the default configuration ! *)
+
+  let env_ocp_dirs = ref cin.cin_ocps_dirnames in
+  let env_ocp_files = ref [] in
+  if cin.cin_ocps_in_ocamllib then
+    env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
+
+  time_step "Scanning env for .ocp files...";
+  List.iter (fun dir ->
+    if verbose 3 then
+      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
+    let dir = File.of_string dir in
+    env_ocp_files := ( BuildOCP.scan_root dir) @ !env_ocp_files
+  ) !env_ocp_dirs;
+  time_step "   Done scanning env for .ocp files";
+
+  let state = BuildOCP.init_packages () in
+  time_step "Loading METAs...";
+  List.iter (fun dirname ->
+    BuildOCamlMeta.load_META_files state cfg dirname
+  ) cout.cout_meta_dirnames;
+
+  time_step "   Done Loading METAs";
+
+  time_step "Loading .ocp files from env...";
+
+  let _nerrors1 =
+    let config = BuildOCP.generated_config () in
+    BuildOCP.load_ocp_files config state  !env_ocp_files
+  in
+
+  time_step "   Done Loading .ocp files from env";
+
+  state
 
 let do_prepare_build p =
+
+  let state = do_read_env p in
 
   let targets = List.rev !targets_arg in
   time_step "Arguments parsed.";
@@ -527,42 +548,6 @@ let do_prepare_build p =
       Printf.eprintf "Package %S is not installed\n%!" p;
       exit 2
   end;
-
-  BuildOCamlConfig.set_global_config cout;
-
-  (* Don't modify default values from now on, since they have been included
-     in the default configuration ! *)
-
-  let env_ocp_dirs = ref cin.cin_ocps_dirnames in
-  let env_ocp_files = ref [] in
-  if cin.cin_ocps_in_ocamllib then
-    env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
-
-  time_step "Scanning env for .ocp files...";
-  List.iter (fun dir ->
-    if verbose 3 then
-      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
-    let dir = File.of_string dir in
-    env_ocp_files := ( BuildOCP.scan_root dir) @ !env_ocp_files
-  ) !env_ocp_dirs;
-  time_step "   Done scanning env for .ocp files";
-
-  let state = BuildOCP.init_packages () in
-  time_step "Loading METAs...";
-  List.iter (fun dirname ->
-    BuildOCamlMeta.load_META_files state cfg dirname
-  ) cout.cout_meta_dirnames;
-
-  time_step "   Done Loading METAs";
-
-  time_step "Loading .ocp files from env...";
-
-  let _nerrors1 =
-    let config = BuildOCP.generated_config () in
-    BuildOCP.load_ocp_files config state  !env_ocp_files
-  in
-
-  time_step "   Done Loading .ocp files from env";
 
 (*
   if !move_to_project then begin
@@ -618,8 +603,9 @@ let do_prepare_build p =
 
     time_step "   Done sorting packages";
 
+(*
     do_reply_to_queries pj;
-
+*)
 
     if !query_global then begin
       Printf.eprintf "Error: reached query-global end point.\n%!";
@@ -690,11 +676,13 @@ let do_build p =
 
 
 let action () =
+(*
   if !init_arg && not (Sys.file_exists "ocp-build.root") then begin
     let oc = open_out "ocp-build.root" in
     close_out oc
   end;
   if !root_arg then exit 0;
+*)
   let p = BuildActions.load_project () in
   let (_b, _projects) = do_build p in
   ()
