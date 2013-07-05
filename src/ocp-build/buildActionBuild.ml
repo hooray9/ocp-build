@@ -469,7 +469,7 @@ let do_compile b cin ncores projects =
       !BuildEngine.stats_command_executed
       (!BuildEngine.stats_total_time /. (t1 -. t0))
       !BuildEngine.stats_files_generated;
-    if errors <> [] && not (verbose 1 && term.esc_ansi) then begin
+    if errors <> [] (* && not (verbose 1 && term.esc_ansi) *) then begin
       Printf.eprintf "Error log:\n";
       List.iter (fun lines ->
         Printf.eprintf "Error:\n";
