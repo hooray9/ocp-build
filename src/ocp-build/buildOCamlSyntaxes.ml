@@ -304,9 +304,9 @@ let get_pp lib basename options =
             && dep.dep_link
             && not (StringSet.mem p.lib_name !already_linked_map)
             && (p.lib_sources <> [] || p.lib_installed)
-            (* && not p.lib_meta *) (* TODO *)
           then begin
             pp_requires := (execution_dependencies p "byte") @ !pp_requires;
+            if not p.lib_meta then
             pp_args := !pp_args @
               [ S "-I"; BD p.lib_dst_dir ] @
               (match p.lib_type with
@@ -315,7 +315,7 @@ let get_pp lib basename options =
               | ObjectsPackage ->
                 List.map (fun s -> BF s) p.lib_cmo_objects
               | LibraryPackage ->
-                [ S (p.lib_name ^ ".cma") ]
+                [ S (p.lib_archive ^ ".cma") ]
               | SyntaxPackage -> []
               )
             end

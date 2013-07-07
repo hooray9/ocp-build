@@ -1745,7 +1745,7 @@ let add_package b build_tests pk =
         pk.package_dirname
     in
 
-
+    if verbose 7 then Printf.eprintf "\tfrom %s\n" package_dirname;
     let src_dir = add_directory b (absolute_filename package_dirname) in
     if verbose 7 then Printf.eprintf "\tfrom %s\n" src_dir.dir_fullname;
 

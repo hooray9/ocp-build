@@ -462,11 +462,9 @@ let do_compile b cin ncores projects =
 
 let do_read_env p =
 
-  let project_dir = p.project_dir in
   let cin = p.cin in
   let cout = p.cout in
   let cfg = p.cfg in
-  let install_where = p.install_where in
 
   BuildOCamlConfig.set_global_config cout;
 
@@ -517,7 +515,6 @@ let do_prepare_build p =
 
   let project_dir = p.project_dir in
   let cin = p.cin in
-  let cout = p.cout in
   let cfg = p.cfg in
   let install_where = p.install_where in
 
