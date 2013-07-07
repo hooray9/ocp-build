@@ -147,13 +147,13 @@ let perform_redirections new_stdin new_stdout new_stderr =
 let create_process error_handler cmd args new_stdin new_stdout new_stderr =
   match fork() with
     0 ->
-      begin try
-        perform_redirections new_stdin new_stdout new_stderr;
-        execvp cmd args
-      with e ->
-        error_handler e;
-        exit 127
-      end
+    begin try
+      perform_redirections new_stdin new_stdout new_stderr;
+      execvp cmd args
+    with e ->
+      error_handler e;
+      exit 127
+    end
   | id -> id
 
 
@@ -186,8 +186,8 @@ let win_find_in_path cmd =
   try Hashtbl.find in_path cmd with Not_found ->
     let rec iter path cmd =
       match path with
-        [] -> Printf.eprintf "File %s not found in PATH\n%!" cmd;
-              exit 2
+        [] ->
+        failwith (Printf.sprintf "BuildMisc.win_find_in_path: file %s not found in PATH\n%!" cmd)
        | dir :: tail ->
           let test1 = Filename.concat dir cmd in
 (*          test test1; *)
