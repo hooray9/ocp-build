@@ -81,44 +81,54 @@ let load_META_files pj cfg top_dirname =
             String.lowercase name
             in  *)
           let fullname = path ^ name in
-          let has_asm = ref false in
-          let asm_archive = ref "" in
-          let has_byte = ref false in
-          let byte_archive = ref "" in
+          let has_asm = ref None in
+          let has_byte = ref None in
+          let has_syntax = ref None in
+
           StringMap.iter (fun _ var ->
             match var.metavar_preds, var.metavar_value with
               (* TODO: handle multiple files (objects) *)
-              [ "byte", true ], [ archive ]
+
+            | [ "byte", true ], [ archive ]
               when Filename.check_suffix archive ".cma"
               ->
-              has_byte := true;
-              byte_archive := Filename.chop_suffix archive ".cma"
+              has_byte := Some (Filename.chop_suffix archive ".cma")
+
+            | [ "syntax", true; "preprocessor", true ], [ archive ]
+              when Filename.check_suffix archive ".cma"
+              ->
+              has_syntax := Some (Filename.chop_suffix archive ".cma")
+
             | [ "native", true ], [ archive ]
               when Filename.check_suffix archive ".cmxa"
               ->
-              has_asm := true;
-              asm_archive := Filename.chop_suffix archive ".cmxa"
+              has_asm := Some (Filename.chop_suffix archive ".cmxa")
 
             | _ -> ()
           ) meta.meta_archive;
 
           let archive = match !has_asm, !has_byte with
-              false, false -> None
-            | true, true ->
-              if !asm_archive = !byte_archive then
-                Some !byte_archive
+              None, None -> None
+            | Some asm_archive, Some byte_archive ->
+              if asm_archive = byte_archive then
+                Some byte_archive
               else begin
                 Printf.eprintf "Warning: no common name for asm and byte in %S\n%!" fullname;
                 None
               end
-            | true, _ -> Some !asm_archive
-            | _ , true -> Some !byte_archive
+            | archive, None
+            | None , archive -> archive
           in
 
           let requires = ref [] in
           StringMap.iter (fun _ var ->
             match var.metavar_preds with
-            | [] -> requires := var.metavar_value
+            | [] ->
+              requires := List.map (fun s ->
+                  match s with
+                  "camlp4" -> "camlp4lib"
+                  | s -> s
+                ) var.metavar_value
 
             (*
                   | [ "byte", true ] ->
@@ -131,15 +141,17 @@ let load_META_files pj cfg top_dirname =
 
           (* for objects, we should set   pk.package_sources <- source_files; *)
 
-          let pk = BuildOCPInterp.new_package pj fullname dirname
-              meta_filename BuildOCPTree.LibraryPackage in
+          let create_package fullname kind requires archive =
 
-          pk.package_source_kind <- "meta";
-          List.iter (fun s ->
+            let pk = BuildOCPInterp.new_package pj fullname dirname
+                meta_filename kind in
+            pk.package_source_kind <- "meta";
+
+          List.iter (fun (s, link) ->
             let ( dep :  'a package_dependency) =
               BuildOCPInterp.new_package_dep pk s in
-            dep.dep_link <- true
-          ) !requires;
+            dep.dep_link <- link
+          ) requires;
 
           (* this package has already been generated *)
           pk.package_options <- StringMap.add "generated"
@@ -161,6 +173,42 @@ let load_META_files pj cfg top_dirname =
             | Some archive ->
               pk.package_options <- StringMap.add "archive"
                   (OptionList [archive]) pk.package_options;
+          end;
+
+          in
+
+
+(* For syntaxes, we need to do some black magic, since we need to create two to three
+   different packages.
+   - 2 packages if (archive = None, syntax = Some _) || (archive = syntax = Some _)
+   - 3 packages if archive = Some x, syntax = Some y, x <> y
+   TODO: we should do a pass, before verify_packages, to fix problems introduced by this
+     heuristic. In particular, since one META package can generate several OCP packages,
+     we must discriminate the dependencies of other META packages to choose between the
+     OCP packages.
+
+  TODO: I am not completely happy with this behavior. We might want to have a more aggressive
+    behavior, based on using a combination of META and ocamlobjinfo, to fix information
+    from META.
+*)
+          begin match !has_syntax with
+            | None ->
+              create_package fullname BuildOCPTree.LibraryPackage
+                (List.map (fun l -> (l,true)) !requires) archive;
+            | Some syntax_archive ->
+              match archive with
+              | None ->
+                create_package (fullname ^ ".ocp-syntax-library") BuildOCPTree.LibraryPackage
+                  (List.map (fun l -> (l,true)) !requires) (Some syntax_archive);
+                create_package fullname BuildOCPTree.SyntaxPackage
+                  [fullname ^ ".ocp-syntax-library", true] None;
+              | Some archive ->
+                create_package fullname BuildOCPTree.LibraryPackage
+                  (List.map (fun l -> (l,true)) !requires) (Some archive);
+                create_package (fullname ^ ".ocp-syntax-library") BuildOCPTree.LibraryPackage
+                  (List.map (fun l -> (l,true)) !requires) (Some syntax_archive);
+                create_package (fullname ^ ".ocp-syntax") BuildOCPTree.SyntaxPackage
+                  [fullname ^ ".ocp-syntax-library", true] None;
           end;
           List.iter (fun (name, meta) ->
             add_meta dirname pj (fullname ^ ".") name meta) meta.meta_package;
