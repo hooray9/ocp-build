@@ -89,8 +89,20 @@ CAMLprim value win32_waitpids_ml(value ncount_v, value pid_reqs_v)
 
 #else
 
-CAMLprim value win32_waitpids_ml(value ncount_v, value pid_reqs_v){
+value win32_waitpids_ml(value ncount_v, value pid_reqs_v){
    uerror("win32_waitpids_ml", Nothing);
+}
+
+value win_create_process_native(value cmd, value cmdline, value env,
+                                value fd1, value fd2, value fd3)
+{
+   uerror("win_create_process_native", Nothing);
+}
+
+CAMLprim value win_create_process(value * argv, int argn)
+{
+  return win_create_process_native(argv[0], argv[1], argv[2],
+                                   argv[3], argv[4], argv[5]);
 }
 
 #endif
