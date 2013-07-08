@@ -50,7 +50,15 @@ begin
   if ocaml_major_version = "4" then {
 
     dirname = [ "%{OCAMLLIB}%/compiler-libs" ]
+
+    begin library "compiler-libs"
+      meta = true
+    end
     begin library "ocamlcommon"
+    end
+    begin library "compiler-libs.common"
+      meta = true
+      requires = [ "ocamlcommon" ]
     end
     begin library "ocamlbytecomp"
       requires = [ "ocamlcommon" ]
