@@ -1731,6 +1731,20 @@ let add_program b lib =
   end;
   ()
 
+let fix_windows_directory s =
+  let len = String.length s in
+  for i = 0 to len - 1 do
+    if s.[i] = '\\' then s.[i] <- '/'
+  done;
+  let rec iter i =
+    if i = 0 then "." else
+    if s.[i-1] = '/' then iter (i-1)
+    else
+    if i = len then s else
+      String.sub s 0 i
+  in
+  iter len
+
 let add_package b build_tests pk =
   try
     if verbose 7 then Printf.eprintf "Adding %s\n" pk.package_name;
@@ -1744,6 +1758,8 @@ let add_package b build_tests pk =
       with Not_found ->
         pk.package_dirname
     in
+
+    let package_dirname = fix_windows_directory package_dirname in
 
     if verbose 7 then Printf.eprintf "\tfrom %s\n" package_dirname;
     let src_dir = add_directory b (absolute_filename package_dirname) in
