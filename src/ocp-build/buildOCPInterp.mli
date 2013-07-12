@@ -22,19 +22,14 @@ type state
 val initial_state : unit -> state
 val final_state : state -> package array
 
-val empty_config :(BuildOCPVariable.option_value StringMap.t ->
-            BuildOCPVariable.option_value StringMap.t)
-    list -> config
+val empty_config :config
+val generated_config :config
 
-val generated_config :(BuildOCPVariable.option_value StringMap.t ->
-            BuildOCPVariable.option_value StringMap.t)
-    list -> config
-
-val translate_options :
-  BuildOCPVariable.options ->
-  BuildOCPTree.set_option list -> BuildOCPVariable.options
+val add_primitive : string -> (BuildOCPVariable.env -> BuildOCPVariable.plist) -> unit
 
 (*
+val translate_expression :
+  BuildOCPVariable.env -> BuildOCPTree.expression -> BuildOCPVariable.plist
 val add_project_dep: BuildOCPTypes.package -> bool -> string ->  unit
   (* string package_dependency *)
 *)

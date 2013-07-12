@@ -43,11 +43,11 @@ open BuildOCPTree
 %token SYNTAX
 %token PROGRAM
 %token CONFIG
+%token RULES
+%token BANG
 %token EQUAL
 %token LPAREN
 %token RPAREN
-%token FILES
-%token REQUIRES
 %token TYPE
 %token USE
 %token PACK
@@ -61,7 +61,8 @@ open BuildOCPTree
 %token CAMLP4
 %token CAMLP5
 %token TEST
-%token TESTS
+%token PERCENT
+/* %token TESTS */
 
 %start main
 %type <BuildOCPTree.statement list> main
@@ -85,17 +86,19 @@ package_type:
 | TEST    { TestPackage }
 | OBJECTS { ObjectsPackage }
 | SYNTAX  { SyntaxPackage }
+| RULES   { RulesPackage }
 ;
 
 toplevel_statement:
-| BEGIN CONFIG STRING options END { StmtDefineConfig ($3, $4) }
+| BEGIN CONFIG STRING list_of_set_options END { StmtDefineConfig ($3, $4) }
 | BEGIN package_type STRING statements END { StmtDefinePackage ($2, $3, $4) }
 | BEGIN toplevel_statements END { StmtBlock $2 }
 | IF condition THEN one_toplevel_statement maybe_else_one_toplevel_statement { StmtIfThenElse($2,$4,$5) }
 | simple_statement { $1 }
 
-/* for backward compatibility */
+/* for backward compatibility
 | BEGIN STRING TYPE EQUAL package_type statements END { StmtDefinePackage ($5, $2, $6) }
+*/
 ;
 
 one_toplevel_statement:
@@ -121,76 +124,7 @@ one_statement:
 ;
 
 simple_statement:
-| simple_option { StmtOption $1 }
-| FILES EQUAL list_of_files { StmtFilesSet $3 }
-| FILES PLUSEQUAL list_of_files { StmtFilesAppend $3 }
-
-| TESTS EQUAL list_of_files { StmtTestsSet $3 }
-| TESTS PLUSEQUAL list_of_files { StmtTestsAppend $3 }
-
-| REQUIRES list_of_requires { StmtRequiresAppend $2 }
-| REQUIRES EQUAL list_of_requires { StmtRequiresSet $3 }
-| REQUIRES PLUSEQUAL list_of_requires { StmtRequiresAppend $3 }
-;
-
-list_of_files:
-| list_of_string_attributes { $1 }
-;
-
-list_of_requires:
-| list_of_string_attributes {
-  List.map (fun (x, options) -> (x, OptionBoolSet("link", true) :: options)) $1 }
-;
-
-/*
-list_of_syntaxes:
-| list_of_string_attributes {
-  List.map (fun (x, options) -> (x, OptionBoolSet("syntax", true) :: options)) $1 }
-;
-*/
-
-camlp4_or_camlp5:
-| CAMLP4 { Camlp4 }
-| CAMLP5 { Camlp5 }
-;
-
-simple_option:
-| USE STRING { OptionConfigSet $2 }
-| lhs EQUAL string_or_list { OptionListSet ($1,$3) }
-| lhs PLUSEQUAL string_or_list { OptionListAppend ($1,$3) }
-| lhs MINUSEQUAL string_or_list { OptionListRemove ($1,$3) }
-| lhs EQUAL TRUE { OptionBoolSet ($1, true) }
-| lhs EQUAL FALSE { OptionBoolSet ($1, false) }
-/* | SYNTAX EQUAL STRING { OptionListSet ("syntax", [$3]) } */
-| lhs { OptionBoolSet ($1, true) }
-;
-
-lhs:
-| IDENT { $1 }
-| SYNTAX { "syntax" }
-| TEST { "test" }
-;
-
-string_or_list:
-| INT { [ string_of_int $1 ] }
-| STRING { [$1] }
-| list_of_strings { $1 }
-;
-
-option:
-| BEGIN options END { OptionBlock $2 }
-| IF condition THEN one_option maybe_else_one_option { OptionIfThenElse($2, $4, $5) }
-| simple_option { $1 }
-;
-
-one_option:
-| option { [$1] }
-| LBRACE options RBRACE { $2 }
-;
-
-maybe_else_one_option:
-| { None }
-| ELSE one_option { Some $2 }
+| set_option { StmtOption $1 }
 ;
 
 maybe_else_one_statement:
@@ -220,61 +154,31 @@ condition1:
 condition0:
 | NOT condition0 { NotCondition $2 }
 | LPAREN condition RPAREN { $2 }
-| IDENT EQUAL string_or_list { IsEqualStringList($1, $3) }
-| IDENT { IsTrue $1 }
+| expression EQUAL expression { IsEqual($1, $3) }
+| expression { IsNonFalse $1 }
 ;
 
-options:
+expression:
+| simple_expression { [ $1 ] }
+| LBRACKET list_of_simple_expressions RBRACKET { $2 }
+;
+
+list_of_simple_expressions:
 | { [] }
-| option options { $1 :: $2 }
-| SEMI options { $2 }
-;
-
-list_of_options:
-|                        { [] }
-|  LPAREN options RPAREN { $2 }
-;
-
-list_of_strings:
-| LBRACKET strings RBRACKET { $2 }
-;
-
-strings:
- { [] }
-| STRING strings { $1 :: $2 }
-| IDENT strings { $1 :: $2 }
-| SEMI strings { $2 }
-;
-
-list_of_string_attributes:
-| LBRACKET files RBRACKET { $2 }
-;
-
-packer:
-| PACK STRING { $2 }
-| PACK IDENT  { let s = $2 in s.[0] <- Char.lowercase s.[0]; s ^ ".ml" }
-;
-
-/* TODO: currently, we use this rule both for "files" and "requires".
-This is bad, as "pack" has no meaning for "requires". Thus, we should
-use a different rule. */
-
-files:
- { [] }
-| IDENT list_of_options files { ($1, $2) :: $3 }
-| STRING list_of_options files { ($1, $2) :: $3 }
-| SEMI files { $2 }
-| BEGIN list_of_options files END files
-   { let shared_options = $2 in
+| SEMI list_of_simple_expressions { $2 }
+| simple_expression list_of_simple_expressions { $1 :: $2 }
+| BEGIN set_option_list list_of_simple_expressions END set_option_list list_of_simple_expressions
+   { let begin_options = $2 in
      let inner_files = $3 in
-     let outter_files = $5 in
+     let end_options = $5 in
+     let outter_files = $6 in
      let inner_files =
        List.map (fun (file, file_options) ->
-	 (file, shared_options @ file_options)
+	 (file, begin_options @ file_options @ end_options)
        ) inner_files in
      inner_files @ outter_files
    }
-| packer list_of_options list_of_files list_of_options files {
+| packer set_option_list expression set_option_list list_of_simple_expressions {
   let packname = $1 in
   let pack_options1 = $2 in
   let files = $3 in
@@ -287,19 +191,76 @@ files:
   let modnames = ref [] in
   let packed_files =
     List.map (fun (file, file_options) ->
+      match file with
+      | ValueVariable _ -> assert false (* TODO *)
+      | ValuePrimitive _ -> assert false (* TODO *)
+      | ValueString file ->
       if not (List.exists (function
-            OptionListAppend ( "packed", _ )  -> true
+            OptionVariableAppend ( "packed", _ )  -> true
           | _ -> false
           ) file_options) then
         modnames := Filename.basename file :: !modnames;
-      (file, OptionListAppend ("packed", [packmodname]) ::
+      (ValueString file, OptionVariableAppend ("packed", [ ValueString packmodname, [] ]) ::
          pack_options @ file_options)
   ) files;
   in
   packed_files @
-    [ packname, OptionListSet ("pack", List.rev !modnames) :: pack_options] @
+    [ ValueString packname,
+      OptionVariableSet ("pack",
+        List.map (fun s -> ValueString s,[]) (List.rev !modnames)) :: pack_options] @
     other_files
 }
+;
+
+simple_expression:
+| PERCENT IDENT set_option_list { ValuePrimitive $2, $3 }
+| IDENT set_option_list { ValueVariable $1, $2 }
+| STRING  set_option_list { ValueString   $1, $2 }
+| INT     set_option_list { ValueString (string_of_int  $1), $2 }
+| LBRACE list_of_simple_expressions RBRACE set_option_list
+  { ValueString "", (OptionVariableSet ("value", $2)) :: $4 }
+;
+
+set_option_list:
+|   { [] }
+| LPAREN list_of_set_options RPAREN { $2 }
+;
+
+list_of_set_options:
+| { [] }
+| SEMI list_of_set_options { $2 }
+| set_option list_of_set_options { $1 :: $2 }
+;
+
+set_option:
+| USE STRING { OptionConfigUse $2 }
+| ident EQUAL expression { OptionVariableSet ($1,$3) }
+| ident PLUSEQUAL expression { OptionVariableAppend ($1,$3) }
+| ident EQUAL TRUE { OptionVariableSet ($1, [ ValueString "true", [] ]) }
+| ident EQUAL FALSE { OptionVariableSet ($1, []) }
+| IF condition THEN one_set_option maybe_else_one_set_option { OptionIfThenElse($2, $4, $5) }
+;
+
+ident:
+| STRING { $1 }
+| IDENT  { $1 }
+| SYNTAX { "syntax" }
+| RULES  { "rules" }
+;
+
+maybe_else_one_set_option:
+| { None }
+| ELSE one_set_option { Some $2 }
+;
+
+one_set_option:
+| set_option { $1  }
+| LBRACE list_of_set_options RBRACE { OptionBlock $2 }
+;
+
+packer:
+| PACK STRING { $2 }
+| PACK IDENT  { let s = $2 in s.[0] <- Char.lowercase s.[0]; s ^ ".ml" }
 ;
 
 %%

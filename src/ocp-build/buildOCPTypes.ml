@@ -91,11 +91,11 @@ type package = {
   mutable package_has_asm_profile : bool;  (* unused: TODO *)
 
 
-  mutable package_raw_files : string_with_attributes list;
-  mutable package_raw_tests : string_with_attributes list;
+  mutable package_raw_files : expression;
+  mutable package_raw_tests : expression;
     (* the sources of the project, plus the flags to compile them. *)
-  mutable package_files : (string * BuildOCPVariable.options) list;
-  mutable package_tests : (string * BuildOCPVariable.options) list;
+  mutable package_files : BuildOCPVariable.plist;
+  mutable package_tests : BuildOCPVariable.plist;
 
 
 
@@ -106,7 +106,7 @@ type package = {
   mutable package_requires : package package_dependency list;
   mutable package_added : bool;
 
-  mutable package_options : BuildOCPVariable.options;
+  mutable package_options : BuildOCPVariable.env;
 }
 
 and 'a package_dependency =
@@ -139,48 +139,4 @@ let incomplete_projects = ref ([] : BuildTypes.package_info list)
 
 
 
-
-let rec string_of_condition cond =
-  match cond with
-    | IsEqualStringList (name, list) ->
-      Printf.sprintf "%s = [ %s ]" name (String.concat ";" (List.map (fun s -> Printf.sprintf "%S" s) list))
-    | IsTrue name ->
-      Printf.sprintf "%s" name
-    | NotCondition cond ->
-      Printf.sprintf "not ( %s )" (string_of_condition cond)
-    | AndConditions (cond1, cond2) ->
-      Printf.sprintf "( %s ) && ( %s )" (string_of_condition cond1) (string_of_condition cond2)
-    | OrConditions (cond1, cond2) ->
-      Printf.sprintf "( %s ) || ( %s )" (string_of_condition cond1) (string_of_condition cond2)
-
-let rec string_of_set_option option =
-  match option with
-    | OptionListSet (x, list) ->
-      Printf.sprintf "%s = [ %s ]" x (String.concat " " (List.map (fun s ->
-        Printf.sprintf "\"%s\"" (String.escaped s)) list))
-  | OptionListAppend (x, list) ->
-      Printf.sprintf "%s += [ %s ]" x (String.concat " " (List.map (fun s ->
-        Printf.sprintf "\"%s\"" (String.escaped s)) list))
-  | OptionListRemove (x, list) ->
-    Printf.sprintf "%s -= [ %s ]" x (String.concat " " (List.map (fun s ->
-      Printf.sprintf "\"%s\"" (String.escaped s)) list))
-  | OptionBoolSet (x, y) -> Printf.sprintf "%s = %b" x y
-  | OptionConfigSet c -> Printf.sprintf "config \"%s\"" c
-  | OptionIfThenElse (cond, ifthen, ifelse) ->
-    Printf.sprintf "if %s then %s%s"
-      (string_of_condition cond)
-      (string_of_one_option ifthen)
-      (match ifelse with None -> ""
-        | Some ifelse -> Printf.sprintf " else %s"
-          (string_of_one_option ifelse))
-  | OptionBlock options ->
-    Printf.sprintf "begin\n%s\nend"
-      (String.concat "\n" (List.map string_of_set_option options))
-
-and string_of_one_option options =
-  match options with
-      [ option ] -> string_of_set_option option
-    | options ->
-      Printf.sprintf "{\n%s\n}"
-        (String.concat "\n" (List.map string_of_set_option options))
 

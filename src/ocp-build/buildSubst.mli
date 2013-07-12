@@ -14,8 +14,10 @@
 (* open BuildBase *)
 
 val putenv : string -> string -> unit
-val add_to_subst : string -> string -> unit
+val add_to_global_subst : string -> string -> unit
 
-val env_subst : StringSubst.subst
 val subst : StringSubst.subst -> string -> string
-val subst_env : string -> string
+val subst_global : string -> string
+
+val global_subst : StringSubst.subst
+val add_to_local_subst : StringSubst.subst -> string -> string -> StringSubst.subst

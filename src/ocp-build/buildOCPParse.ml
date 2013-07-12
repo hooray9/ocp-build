@@ -13,7 +13,6 @@
 
 (* open SafeCaml *)
 open Genlex
-open BuildOCPTree
 open BuildMisc
 open BuildOCPVariable
 
@@ -21,14 +20,16 @@ open BuildOCPVariable
 (* open BuildBase *)
 open Ocamllexer
 open BuildOCPParser
+open BuildOCPTree
 
   let lexer = Ocamllexer.make_lexer
     [ "begin"; "end"; "true"; "false";
       "library"; "syntax"; "program"; "objects"; "config"; "include"; "type";
-      "files"; "requires"; "use"; "pack"; "test"; "tests";
+(*      "files"; "requires";  "tests"; *)
+      "use"; "pack"; "test"; "rules";
       "if"; "then"; "else";
-      "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+=";
-      "not"; "&&"; "||"
+      "["; "]"; ";"; "("; ")"; "{"; "}"; "="; "+="; "!";
+      "not"; "&&"; "||"; "%"
     ]
 
 let rec read_ocamlconf filename =
@@ -44,32 +45,32 @@ let rec read_ocamlconf filename =
 	  | Int i -> INT i
 	  | Char c -> CHAR c
 	  | Kwd ";" -> SEMI
+	  | Kwd "%" -> PERCENT
 	  | Kwd "[" -> LBRACKET
 	  | Kwd "]" -> RBRACKET
 	  | Kwd "(" -> LPAREN
 	  | Kwd ")" -> RPAREN
           | Kwd "{" -> LBRACE
           | Kwd "}" -> RBRACE
+          | Kwd "!" -> BANG
 	  | Kwd "begin" -> BEGIN
 	  | Kwd "end" -> END
 	  | Kwd "objects" -> OBJECTS
 	  | Kwd "library" -> LIBRARY
 	  | Kwd "test" -> TEST
-	  | Kwd "tests" -> TESTS
+(*	  | Kwd "tests" -> TESTS *)
 	  | Kwd "syntax" -> SYNTAX
 	  | Kwd "config" -> CONFIG
 	  | Kwd "use" -> USE
 	  | Kwd "program" -> PROGRAM
 	  | Kwd "type" -> TYPE
 	  | Kwd "include" -> INCLUDE
+	  | Kwd "rules" -> RULES
 	  | Kwd "=" -> EQUAL
 	  | Kwd "+=" -> PLUSEQUAL
 	  | Kwd "-=" -> MINUSEQUAL
 	  | Kwd "true" -> TRUE
 	  | Kwd "false" -> FALSE
-	  | Kwd "files" -> FILES
-(*	  | Kwd "file" -> FILE *)
-	  | Kwd "requires" -> REQUIRES
 	  | Kwd "pack" -> PACK
 	  | Kwd "if" -> IF
 	  | Kwd "then" -> THEN
@@ -81,7 +82,10 @@ let rec read_ocamlconf filename =
 (*          | Kwd "camlp4" -> CAMLP4 *)
 (*          | Kwd "camlp5" -> CAMLP5 *)
 	  | Ident s -> IDENT s
-	  | Kwd _ -> assert false
+	  | Kwd s ->
+
+     Printf.eprintf "Internal error: %S should not be a keyword\n%!" s;
+     IDENT s
   in
   let dir = Filename.dirname filename in
   let trap_include lexbuf =
@@ -121,4 +125,4 @@ let rec read_ocamlconf filename =
       exit 2
   in
   close_in ic;
-  StmtOption (OptionListSet("dirname", [dir])) ::  ast
+  StmtOption (OptionVariableSet("dirname", [ValueString dir, []])) ::  ast

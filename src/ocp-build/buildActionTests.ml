@@ -47,6 +47,7 @@ let do_test b ncores projects =
     | LibraryPackage
     | ObjectsPackage
     | SyntaxPackage
+    | RulesPackage
       -> ()
   ) projects;
   BuildOCamlTest.finish stats ncores;

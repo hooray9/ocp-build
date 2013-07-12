@@ -39,7 +39,7 @@ let init () =
   }
 
 let check_output options subst output  option_name output_name =
-  let output_check = list_option_with_default options
+  let output_check = get_strings_with_default options
       option_name []
   in
   if output_check <> [] then
@@ -87,8 +87,8 @@ let serial_workqueue = Queue.create ()
 
 
 let find_binaries b cwd lib =
-  let has_asm = bool_option_true lib.lib_options asm_option in
-  let has_byte = bool_option_true lib.lib_options byte_option in
+  let has_asm = get_bool_with_default lib.lib_options "asm" true in
+  let has_byte = get_bool_with_default lib.lib_options "byte" true in
   let get_binary ext =
     let binary_basename =
       lib.lib_name ^ ext
@@ -131,7 +131,7 @@ let test_package b stats lib only_benchmarks =
           begin
             match !program with
               None ->
-              let cmd = list_option_with_default lib.lib_options
+              let cmd = get_strings_with_default lib.lib_options
                   "test_cmd" [] in
               if cmd = [] then begin
                 Printf.eprintf "Error: test %S has no source files.\n%!"
@@ -156,7 +156,8 @@ let test_package b stats lib only_benchmarks =
       find_binaries b cwd lib, tests
     | (ObjectsPackage
       | LibraryPackage
-      | SyntaxPackage), _
+      | SyntaxPackage
+      | RulesPackage), _
       -> assert false
   in
   if tests <> [] then begin
@@ -168,8 +169,8 @@ let test_package b stats lib only_benchmarks =
       in
       let tests_result_dir = Filename.concat cwd (File.to_string tests_dir) in
       List.iter (fun (test, options) ->
-        let test_asm = bool_option_with_default options "test_asm" true in
-        let test_byte = bool_option_with_default options "test_byte" true in
+        let test_asm = get_bool_with_default options "test_asm" true in
+        let test_byte = get_bool_with_default options "test_byte" true in
         let do_test =
           match kind with
           | "asm" -> test_asm
@@ -188,7 +189,7 @@ let test_package b stats lib only_benchmarks =
 
         let test_name = Printf.sprintf "%s/tests/%s" lib.lib_name test_basename
         in
-        let subst = BuildSubst.env_subst in
+        let subst = BuildSubst.global_subst in
         let subst = StringSubst.add_to_copy subst "%{variant}%" variant in
         let subst = StringSubst.add_to_copy subst "%{kind}%" kind in
         let subst = StringSubst.add_to_copy subst "%{test}%" test in
@@ -201,10 +202,10 @@ let test_package b stats lib only_benchmarks =
             (File.to_string lib.lib_src_dir.dir_file) in
         let subst = StringSubst.add_to_copy subst "%{results}%"
             test_result_dir in
-        let cmd = list_option_with_default options
+        let cmd = get_strings_with_default options
             "test_cmd" [ "%{binary}%" ]
         in
-        let cmd_args = list_option_with_default options
+        let cmd_args = get_strings_with_default options
             "test_args" []
         in
         let cmd_args = cmd @ cmd_args in
@@ -215,16 +216,16 @@ let test_package b stats lib only_benchmarks =
         let result_out = Filename.concat test_result_dir "result.out" in
         let result_err = Filename.concat test_result_dir "result.err" in
 
-        let test_stdin = list_option_with_default options "test_stdin" [] in
+        let test_stdin = get_strings_with_default options "test_stdin" [] in
         let test_stdin = match test_stdin with
             [] -> None
           | stdin ->
             Some ( BuildSubst.subst subst (String.concat "/" stdin) ) in
 
-        let test_rundir = list_option_with_default options "test_dir" [ "." ] in
+        let test_rundir = get_strings_with_default options "test_dir" [ "." ] in
         let test_rundir = String.concat "/" test_rundir in
         let test_rundir = BuildSubst.subst subst test_rundir in
-        let expected_status = string_option_with_default options
+        let expected_status = get_string_with_default options
             "test_exit" "0"
         in
         let expected_status = try
@@ -236,18 +237,19 @@ let test_package b stats lib only_benchmarks =
         in
         let benchmark =
           try
-            match StringMap.find "test_benchmark" options with
-              OptionBool bool -> bool
-            | OptionList list ->
+            let v = get options "test_benchmark" in
+            if v = true_value then true else
+            if v = false_value then false else
+              let list = strings_of_plist v in
               let test_name =
-                string_option_with_default options "test_benchmarked"
+               get_string_with_default options "test_benchmarked"
                   test_name
               in
               let test_name = BuildSubst.subst subst test_name in
               List.mem test_name list
           with Not_found -> false
         in
-        let serialized = bool_option_with_default options
+        let serialized = get_bool_with_default options
             "test_serialized" false in
 
 
@@ -266,13 +268,11 @@ let test_package b stats lib only_benchmarks =
             (String.concat "\" \"" cmd_args);
           close_out oc;
 
-          Unix.chdir test_rundir;
-          let pid = BuildMisc.create_process cmd_args
+          let pid = BuildMisc.create_process cmd_args (Some test_rundir)
               test_stdin (Some result_out) (Some result_err)
           in
           if verbose 2 then
             Printf.eprintf "Test started. Waiting...\n%!";
-          Unix.chdir cwd;
           pid
         in
 
@@ -312,7 +312,7 @@ let test_package b stats lib only_benchmarks =
                  else parallel_workqueue)
             end
           )
-            (list_option_with_default options
+            (get_strings_with_default options
             "test_variants" [ "" ])
       ) tests
     ) binaries;

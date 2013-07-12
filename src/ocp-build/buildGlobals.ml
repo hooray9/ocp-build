@@ -87,16 +87,17 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       | ProgramPackage
       | LibraryPackage
       | ObjectsPackage
+      | RulesPackage
       | SyntaxPackage -> true
     ) &&
-    bool_option_with_default pk.package_options "install" true in
+    get_bool_with_default pk.package_options "install" true in
 
   let lib =
     {
       lib_context = b;
       lib_source_kind = pk.package_source_kind;
-      lib_archive = string_option_with_default pk.package_options "archive" pk.package_name;
-      lib_meta = bool_option_with_default pk.package_options "meta" false;
+      lib_archive = get_string_with_default pk.package_options "archive" pk.package_name;
+      lib_meta = get_bool_with_default pk.package_options "meta" false;
       lib_id = pk.package_id;
       lib_name = pk.package_name;
       lib_version = pk.package_version;
@@ -109,6 +110,8 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_missing_deps = pk.package_missing_deps;
       lib_requires = List.map (fun dep ->
         let pd = try
+(*          Printf.eprintf "Adding dep %d to %S (link = %b)\n%!"
+            dep.dep_project.package_id pk.package_name dep.dep_link; *)
           Hashtbl.find all_projects dep.dep_project.package_id
         with Not_found ->
           Printf.eprintf "Unknown dependency %d of package %S\n%!"
@@ -141,6 +144,8 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_includes = None;
       lib_sources = pk.package_files;
       lib_tests = pk.package_tests;
+
+      lib_build_targets = [];
 
       lib_installed;
       lib_install;

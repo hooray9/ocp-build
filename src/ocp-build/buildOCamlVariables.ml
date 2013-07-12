@@ -64,7 +64,7 @@ let plugin_of_option = new_strings_option "plugin_of" ([] : string list)
 let ppflags_option = new_strings_option "ppflags" ([] : string list)
 let pplink_option = new_strings_option "pplink" ([] : string list)
 
-let package_option = new_strings_option "package" ([] : string list)
+let package_option = new_string_option "package" ""
 
 (*
 let install_interface_option = new_bool_option "install_cmi" true
@@ -72,4 +72,10 @@ let install_interface_option = new_bool_option "install_cmi" true
 let dirname_option = new_strings_option "dirname" ([] : string list)
 let subdir_option = new_strings_option "subdir" ([] : string list)
 let cclib_option = new_strings_option "cclib" ([] : string list)
+
+
+let install_option = new_bool_option "install" true
+
+let generated_option = new_bool_option "generated" false
+let installed_option = new_bool_option "installed" false
 

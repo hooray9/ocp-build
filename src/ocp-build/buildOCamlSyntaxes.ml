@@ -95,6 +95,7 @@ let execution_dependencies pk kind =
         pk.lib_cmo_objects
       else
         assert false (* TODO *)
+    | RulesPackage -> assert false
     | SyntaxPackage ->
       (* TODO: what shall we do ? *)
       []
@@ -166,11 +167,11 @@ let add_pp_requires r pp =
 let get_pp lib basename options =
 (*  Printf.eprintf "get_pp %S\n%!" lib.lib_name; *)
   let pp_flags =
-    List.map (fun s -> S s) (strings_option options ppflags_option) in
-  match strings_option options syntax_option with
+    List.map (fun s -> S s) (ppflags_option.get options) in
+  match  syntax_option.get options with
   |  [] ->
-    let pp_requires = strings_option options pp_requires_option in
-    let pp_option = strings_option options pp_option in
+    let pp_requires =  pp_requires_option.get options in
+    let pp_option = pp_option.get options in
     let pp_requires =
       List.map (add_pp_require lib) pp_requires
     in
@@ -230,6 +231,7 @@ let get_pp lib basename options =
       | TestPackage -> assert false
       | LibraryPackage
       | ObjectsPackage
+      | RulesPackage
       | SyntaxPackage -> ()
     ) pksy.lib_requires;
     begin
@@ -317,6 +319,7 @@ let get_pp lib basename options =
               | LibraryPackage ->
                 [ S (p.lib_archive ^ ".cma") ]
               | SyntaxPackage -> []
+              | RulesPackage -> []
               )
             end
         ) lib_requires;

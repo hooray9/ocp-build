@@ -90,12 +90,13 @@ let new_command cmd args = {
   cmd_command = cmd;
   cmd_args = args;
   cmd_stdout_pipe = None;
+  cmd_move_to_dir = None;
 }
 
 let string_of_argument arg =
   match arg with
-      S s -> BuildSubst.subst_env s
-    | T s -> "${temp}/" ^ BuildSubst.subst_env s
+      S s -> BuildSubst.subst_global s
+    | T s -> "${temp}/" ^ BuildSubst.subst_global s
     | F f -> File.to_string f
     | BF f -> File.to_string f.file_file
     | BD d -> d.dir_fullname
@@ -105,24 +106,24 @@ let rule_temp_dir r =
 
 let file_of_argument r arg =
   match arg with
-      S s -> File.of_string (BuildSubst.subst_env s)
-    | T s -> File.add_basename (rule_temp_dir r) (BuildSubst.subst_env s)
+      S s -> File.of_string (BuildSubst.subst_global s)
+    | T s -> File.add_basename (rule_temp_dir r) (BuildSubst.subst_global s)
     | F f -> f
     | BF f -> f.file_file
     | BD d -> d.dir_file
 
 let argument_of_argument r arg =
   match arg with
-      S s -> BuildSubst.subst_env s
+      S s -> BuildSubst.subst_global s
     | T s -> File.to_string (
-                 File.add_basename (rule_temp_dir r) (BuildSubst.subst_env s))
+                 File.add_basename (rule_temp_dir r) (BuildSubst.subst_global s))
     | F f -> File.to_string f
     | BF f -> File.to_string f.file_file
     | BD d -> d.dir_fullname
 
 
 let command_of_command cmd =
-  List.map BuildSubst.subst_env cmd.cmd_command
+  List.map BuildSubst.subst_global cmd.cmd_command
 
 let argument_of_string s = S s
 
@@ -145,6 +146,11 @@ let add_command_pipe cmd filename =
 let print_indented_command cmd =
   match cmd with
   | Execute cmd ->
+    begin match cmd.cmd_move_to_dir with
+      None -> ()
+      | Some chdir ->
+        Printf.eprintf "\tcd %S\n" chdir;
+    end;
 	Printf.eprintf "\t%s %s"  (String.concat " " cmd.cmd_command) (String.concat " " (List.map string_of_argument cmd.cmd_args));
 	begin
 	  match cmd.cmd_stdout_pipe with

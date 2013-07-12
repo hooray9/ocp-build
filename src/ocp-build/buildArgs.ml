@@ -234,17 +234,11 @@ let arg_list = short_arg_list @ [
     let (name, valeur) = OcpString.cut_at s '=' in
       match valeur with
         | "true" | "" ->
-          let (_  : bool BuildOCPVariable.source_option) =
-            BuildOCPVariable.new_initial_bool_option s true in
-          ()
+          BuildOCPVariable.set_global s (BuildOCPVariable.plist_of_bool true)
         | "false" ->
-          let (_ : bool BuildOCPVariable.source_option) =
-            BuildOCPVariable.new_initial_bool_option s false in
-          ()
+          BuildOCPVariable.set_global s (BuildOCPVariable.plist_of_bool false)
         | _ ->
-          let (_  : string list BuildOCPVariable.source_option) =
-            BuildOCPVariable.new_initial_strings_option s [valeur] in
-          ()
+          BuildOCPVariable.set_global s (BuildOCPVariable.plist_of_string valeur)
   ),
   "OPTION define an initial option";
 

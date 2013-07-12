@@ -63,7 +63,7 @@ and package_info = {
 
   mutable lib_requires : package_info package_dependency list;
   mutable lib_added : bool;
-  mutable lib_options : BuildOCPVariable.options;
+  mutable lib_options : BuildOCPVariable.env;
 
   lib_loc : string * int * string;
   lib_src_dir : build_directory;
@@ -74,6 +74,7 @@ and package_info = {
     (build_directory *
     ((module_origin * string) StringMap.t ref)) StringsMap.t;
   mutable lib_byte_targets : (build_file * target_kind) list;
+  mutable lib_build_targets : build_file list;
   mutable lib_cmo_objects : build_file list;
   mutable lib_bytecomp_deps : build_file list;
   mutable lib_bytelink_deps : build_file list;
@@ -85,8 +86,8 @@ and package_info = {
   mutable lib_clink_deps : build_file list;
   mutable lib_dep_deps : build_file IntMap.t;
   mutable lib_includes : string list option;
-  mutable lib_sources : (string * BuildOCPVariable.options) list;
-  mutable lib_tests : (string * BuildOCPVariable.options) list;
+  mutable lib_sources : BuildOCPVariable.plist;
+  mutable lib_tests : BuildOCPVariable.plist;
   mutable lib_archive : string;
 
   mutable lib_installed : bool;

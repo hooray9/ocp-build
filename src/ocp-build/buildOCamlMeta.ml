@@ -154,8 +154,7 @@ let load_META_files pj cfg top_dirname =
           ) requires;
 
           (* this package has already been generated *)
-          pk.package_options <- StringMap.add "generated"
-              (OptionBool true) pk.package_options;
+          pk.package_options <- set_bool pk.package_options "generated" true ;
 
           begin
             match meta.meta_version with
@@ -166,13 +165,11 @@ let load_META_files pj cfg top_dirname =
           begin
             match archive with
               None ->
-              pk.package_options <- StringMap.add "meta"
-                  (OptionBool true) pk.package_options;
+              pk.package_options <- set_bool pk.package_options "meta"  true ;
               if verbose 4 then
                 Printf.eprintf "Warning: package %S is meta\n%!" fullname
             | Some archive ->
-              pk.package_options <- StringMap.add "archive"
-                  (OptionList [archive]) pk.package_options;
+              pk.package_options <- set_string pk.package_options "archive" archive;
           end;
 
           in

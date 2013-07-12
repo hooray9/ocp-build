@@ -42,14 +42,14 @@ type file_kind =
 module DigestMap = Map.Make(struct
   type t = Digest.t let compare = compare
 end)
-
+type loc = string * int * string
 
 type build_rule = {
   rule_id : int;
   rule_main_target : build_file;
   mutable rule_forced : bool;
   mutable rule_commands :  build_action list;
-  rule_loc : string * int * string; (* project_info *)
+  rule_loc : loc; (* project_info *)
   mutable rule_sources :  build_file IntMap.t;
 
 (* rule_time_dependencies: dependencies that are not required, but if the rules that generate them
@@ -79,6 +79,7 @@ and build_command = {
   cmd_command : string list;
   mutable cmd_args : command_argument list;
   mutable cmd_stdout_pipe : string option;
+  mutable cmd_move_to_dir : string option;
 }
 
 and command_argument =
@@ -90,7 +91,8 @@ and command_argument =
 
 and  build_file = {
   file_id : int;
-  file_kind : file_kind;
+  mutable file_kind : file_kind; (* mutable because we sometimes discover that
+    a file is virtual afterwards. *)
   file_dir :  build_directory;
   file_file : File.t;
   file_basename : string;

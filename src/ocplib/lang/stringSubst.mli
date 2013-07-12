@@ -23,7 +23,6 @@
    applications where performance matters.
 *)
 
-
 type subst
 
 val empty_subst : unit -> subst

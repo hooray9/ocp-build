@@ -122,7 +122,7 @@ let expanse_dependencies list =
 
 (* load_dependencies: the old way, i.e. path to files in the load_path *)
 
-let load_dependencies filename =
+let load_make_dependencies filename =
   Buffer.clear b;
   let ic = open_in filename in
   begin
@@ -134,8 +134,29 @@ let load_dependencies filename =
     with End_of_file -> ()
   end;
   close_in ic;
-  expanse_dependencies (
-    parse_dependencies (Buffer.contents b))
+  parse_dependencies (Buffer.contents b)
+
+
+let print_make_dependencies deps =
+  List.iter (fun (dep, deps) ->
+    Printf.eprintf "%s: " dep;
+    List.iter (fun x -> Printf.eprintf "%s " x ) deps;
+    Printf.eprintf "\n%!";
+  ) deps
+
+let load_make_dependencies filename =
+  try
+    let deps = load_make_dependencies filename in
+    print_make_dependencies deps;
+    deps
+  with e ->
+    Printf.eprintf "Warning: exception %s in load_make_dependencies\n%!"
+      (Printexc.to_string e);
+    raise e
+
+
+let load_dependencies filename =
+  expanse_dependencies (load_make_dependencies filename)
 
 
 (* Another solution:
@@ -184,7 +205,7 @@ let modname_of_file options force filename =
   let is_ml =
     Filename.check_suffix filename ".ml"
       || force = Force_IMPL
-    || bool_option_true options ml_file_option
+    || get_bool_with_default options "ml" false
   in
   let basename = Filename.chop_extension filename in
   let modname = String.capitalize basename in
@@ -195,7 +216,7 @@ let filter_deps options option modules =
     let nodeps = ref StringSet.empty in
     List.iter (fun modname ->
       nodeps := StringSet.add modname !nodeps)
-      (strings_option options option);
+      (option.get options);
     !nodeps
   in
   List.filter (fun modname ->
@@ -206,7 +227,7 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
     Printf.eprintf "load_modules_dependencies %s\n" filename;
   let source, modules = load_ocamldep_modules filename in
   let modules =
-    if bool_option_true options nopervasives then modules
+    if nopervasives.get options then modules
     else "Pervasives" :: modules
   in
 

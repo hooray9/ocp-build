@@ -41,6 +41,9 @@ open BuildArgs
 open BuildTerm
 open BuildActions
 
+type target =
+  | TargetPackage of package_info
+
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
 let print_installed install_where =
@@ -360,6 +363,7 @@ let do_compile b cin ncores projects =
         targets := List.map fst lib.lib_byte_targets @ !targets;
       if cin.cin_native then
         targets := List.map fst lib.lib_asm_targets @ !targets;
+      targets := lib.lib_build_targets @ !targets;
       map := StringMap.add lib.lib_name lib !map;
       List.iter (fun dep ->
         if dep.dep_link || dep.dep_syntax then

@@ -91,6 +91,7 @@ let do_list_packages pj =
        | TestPackage -> "test"
        | ObjectsPackage -> "objects"
        | SyntaxPackage -> "syntax"
+       | RulesPackage -> "rules"
       )
       pk.package_dirname;
     Printf.printf "    ";

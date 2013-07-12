@@ -14,7 +14,6 @@
 open BuildOCPTypes
 open BuildOCPVariable
 
-
 (* These values are modified by reading the configuration *)
 val ocamlc_cmd : string list source_option
 val ocamlcc_cmd : string list source_option
@@ -39,10 +38,9 @@ val libdirs : (string * string) list ref
 val ocaml_config_version : string list source_option
 val ocaml_config_system : string list source_option
 val ocaml_config_architecture :  string list source_option
-val ocaml_config_ext_obj :  string list source_option
-val ocaml_config_ext_lib :  string list source_option
-val ocaml_config_ext_dll :  string list source_option
-
+val ocaml_config_ext_obj :  string source_option
+val ocaml_config_ext_lib :  string source_option
+val ocaml_config_ext_dll :  string source_option
 
 
 module TYPES : sig

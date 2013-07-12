@@ -409,11 +409,8 @@ let load_project pj filename =
   print_oasis lines;
   let opj = parse_oasis filename lines in
 
-  let po =
-    List.fold_left (fun vars f -> f vars)
-      StringMap.empty !BuildOCPVariable.options
-  in
-  let po = StringMap.add "sort" (OptionBool true) po in
+  let po = empty_env in
+  let po = set_bool po "sort" true in
 
 (*  let _local_packages = ref StringMap.empty in *)
 (*
@@ -446,6 +443,7 @@ let load_project pj filename =
           | TestPackage -> assert false
           | ObjectsPackage -> assert false
           | SyntaxPackage -> assert false
+          | RulesPackage -> assert false
       in
       Printf.eprintf "  name = %S\n%!" name;
 
@@ -463,19 +461,21 @@ let load_project pj filename =
         dep.dep_link <- true
       ) opj.opj_build_depends;
 
+(* TODO
       let external_options = [] in
-      let internal_options =
+      let internal_options = set
         (OptionBoolSet ("install", false)) ::
           external_options in
       pk.package_raw_files <-
         List.map (fun s -> (s, external_options)) opk.opk_modules @
           List.map (fun s -> (s, internal_options)) opk.opk_internal_modules @
           List.map (fun s -> (s, external_options)) opk.opk_main_is;
-
+      assert false;
       let po = StringMap.add "install" (OptionBool opk.opk_install) po in
       let po = StringMap.add "has_byte" (OptionBool opk.opk_byte) po in
       let po = StringMap.add "has_asm" (OptionBool opk.opk_asm) po in
       let po = StringMap.add "archive" (OptionList [ opk.opk_archive]) po in
+*)
 
       pk.package_options <- po
   ) opj.opj_packages;

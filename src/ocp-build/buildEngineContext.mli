@@ -57,4 +57,6 @@ val add_virtual_file :
   build_directory ->
   string -> build_file
 
+val make_virtual_file : BuildEngineTypes.build_file -> unit
+
 val create : string -> string -> build_context

@@ -307,6 +307,9 @@ let add_any_file b dir basename file_kind =
 let add_virtual_file b dir basename =
   add_any_file b dir basename FILE_VIRTUAL
 
+let make_virtual_file f =
+  f.file_kind <- FILE_VIRTUAL
+
 let add_temp_file b dir basename =
   add_any_file b dir basename FILE_TEMPORARY
 

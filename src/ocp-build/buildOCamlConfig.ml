@@ -295,57 +295,57 @@ let check_config cin =
   cout
 
 
-let ocamldep_cmd = new_initial_strings_option "ocamldep" [ "ocamldep.opt" ]
-let ocamlc_cmd = new_initial_strings_option "ocamlc" [ "ocamlc.opt" ]
-let ocamlcc_cmd = new_initial_strings_option "ocamlcc" [ "ocamlc.opt" ]
-let ocamlopt_cmd = new_initial_strings_option "ocamlopt" [ "ocamlopt.opt" ]
-let ocamllex_cmd = new_initial_strings_option "ocamllex" [ "ocamllex.opt" ]
-let ocamlyacc_cmd = new_initial_strings_option "ocamlyacc" [ "ocamlyacc" ]
+let ocamldep_cmd = new_strings_option "ocamldep" [ "ocamldep.opt" ]
+let ocamlc_cmd = new_strings_option "ocamlc" [ "ocamlc.opt" ]
+let ocamlcc_cmd = new_strings_option "ocamlcc" [ "ocamlc.opt" ]
+let ocamlopt_cmd = new_strings_option "ocamlopt" [ "ocamlopt.opt" ]
+let ocamllex_cmd = new_strings_option "ocamllex" [ "ocamllex.opt" ]
+let ocamlyacc_cmd = new_strings_option "ocamlyacc" [ "ocamlyacc" ]
 
 
-let ocaml_config_version = new_initial_strings_option "ocaml_version" []
-let ocaml_major_version = new_initial_strings_option "ocaml_major_version" [ ]
-let ocaml_minor_version = new_initial_strings_option "ocaml_minor_version" [ "00" ]
-let ocaml_point_version = new_initial_strings_option "ocaml_point_version" [ "0" ]
-let ocaml_config_system = new_initial_strings_option "system" []
-let ocaml_config_architecture = new_initial_strings_option "architecture" []
-let ocaml_config_ext_obj = new_initial_strings_option "ext_obj" [ ".o" ]
-let ocaml_config_ext_lib = new_initial_strings_option "ext_lib" [ ".a" ]
-let ocaml_config_ext_dll = new_initial_strings_option "ext_dll" [ ".so" ]
-let ocaml_config_os_type = new_initial_strings_option "os_type" [ ]
+let ocaml_config_version = new_strings_option "ocaml_version" []
+let ocaml_major_version = new_strings_option "ocaml_major_version" [ ]
+let ocaml_minor_version = new_strings_option "ocaml_minor_version" [ "00" ]
+let ocaml_point_version = new_strings_option "ocaml_point_version" [ "0" ]
+let ocaml_config_system = new_strings_option "system" []
+let ocaml_config_architecture = new_strings_option "architecture" []
+let ocaml_config_ext_obj = new_string_option "ext_obj"  ".o"
+let ocaml_config_ext_lib = new_string_option "ext_lib"  ".a"
+let ocaml_config_ext_dll = new_string_option "ext_dll"  ".so"
+let ocaml_config_os_type = new_strings_option "os_type" [ ]
 
 let set_global_config cout =
   (match cout.cout_ocamlc with None -> () | Some cmd ->
-    set_strings_option ocamlc_cmd cmd);
+    ocamlc_cmd.set cmd);
   (match cout.cout_ocamlopt with None -> () | Some cmd ->
-    set_strings_option ocamlopt_cmd cmd);
+    ocamlopt_cmd.set cmd);
   (match cout.cout_ocamlcc with None -> () | Some cmd ->
-    set_strings_option ocamlcc_cmd cmd);
+    ocamlcc_cmd.set cmd);
   (match cout.cout_ocamldep with None -> () | Some cmd ->
-    set_strings_option ocamldep_cmd cmd);
+    ocamldep_cmd.set cmd);
   (match cout.cout_ocamllex with None -> () | Some cmd ->
-    set_strings_option ocamllex_cmd cmd);
+    ocamllex_cmd.set cmd);
   (match cout.cout_ocamlyacc with None -> () | Some cmd ->
-    set_strings_option ocamlyacc_cmd cmd);
+    ocamlyacc_cmd.set cmd);
 
   let cfg = match cout.cout_ocaml with
       None -> assert false (* TODO : for now *)
     | Some cfg -> cfg
   in
 
-  set_strings_option ocaml_config_ext_lib [cfg.ocaml_ext_lib];
-  set_strings_option ocaml_config_ext_obj [cfg.ocaml_ext_obj];
-  set_strings_option ocaml_config_version [cfg.ocaml_version];
-  set_strings_option ocaml_major_version [ cfg.ocaml_version_major ];
-  set_strings_option ocaml_minor_version [ cfg.ocaml_version_minor ];
-  set_strings_option ocaml_point_version [ cfg.ocaml_version_point ];
+  ocaml_config_ext_lib.set cfg.ocaml_ext_lib;
+  ocaml_config_ext_obj.set cfg.ocaml_ext_obj;
+  ocaml_config_version.set [cfg.ocaml_version];
+  ocaml_major_version.set [ cfg.ocaml_version_major ];
+  ocaml_minor_version.set [ cfg.ocaml_version_minor ];
+  ocaml_point_version.set [ cfg.ocaml_version_point ];
 
-  set_strings_option ocaml_config_system [cfg.ocaml_system];
-  set_strings_option ocaml_config_architecture [cfg.ocaml_architecture];
-  set_strings_option ocaml_config_os_type [cfg.ocaml_os_type];
-  set_strings_option ocaml_config_ext_dll [cfg.ocaml_ext_dll];
+  ocaml_config_system.set [cfg.ocaml_system];
+  ocaml_config_architecture.set [cfg.ocaml_architecture];
+  ocaml_config_os_type.set [cfg.ocaml_os_type];
+  ocaml_config_ext_dll.set cfg.ocaml_ext_dll;
 
-  BuildSubst.add_to_subst "OCAMLLIB" cfg.ocaml_ocamllib;
+  BuildSubst.add_to_global_subst "OCAMLLIB" cfg.ocaml_ocamllib;
 
 (*  Printf.fprintf stderr "SYSTEM = %s\n%!" cfg.ocaml_system; *)
 ()

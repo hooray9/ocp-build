@@ -37,8 +37,8 @@ let normalized_dir dir =
 let compare_packages pk1 pk2 =
   let o1 = pk1.package_options in
   let o2 = pk2.package_options in
-  let pk1_generated = bool_option_with_default o1 "generated" false in
-  let pk2_generated = bool_option_with_default o2 "generated" false in
+  let pk1_generated = get_bool_with_default o1 "generated" false in
+  let pk2_generated = get_bool_with_default o2 "generated" false in
   match pk1_generated, pk2_generated with
     false, false ->
       PackageConflict
@@ -159,13 +159,7 @@ let rec validate_project s pk =
   end
 
 let is_enabled options =
-  try
-    match StringMap.find "enabled" options with
-    | OptionBool bool -> bool
-    | OptionList list ->
-      (* TODO: find if one of the tags is enabled *)
-      assert false
-  with Not_found -> true
+  get_bool_with_default options "enabled" true
 
 let check_project s pk =
   if is_enabled pk.package_options then begin
@@ -336,6 +330,7 @@ let update_deps pj =
     | ProgramPackage
     | ObjectsPackage
     | TestPackage
+    | RulesPackage
       -> false
   in
   List.iter (fun dep ->
@@ -351,6 +346,7 @@ let update_deps pj =
         end
       | LibraryPackage
       | ObjectsPackage
+      | RulesPackage
         -> ()
       | TestPackage ->
         Printf.eprintf "Error: Test %S appears in requirements of %S\n%!"
@@ -493,9 +489,9 @@ let init_packages () =
   let packages = BuildOCPInterp.initial_state () in
   packages
 
-let empty_config () = BuildOCPInterp.empty_config !BuildOCPVariable.options
+let empty_config () = BuildOCPInterp.empty_config (* !BuildOCPVariable.options *)
 let generated_config () =
-  BuildOCPInterp.generated_config !BuildOCPVariable.options
+  BuildOCPInterp.generated_config (* !BuildOCPVariable.options *)
 
 let load_ocp_files global_config packages files =
 
@@ -549,6 +545,7 @@ let load_ocp_files global_config packages files =
   iter [ "", global_config ] files;
   !nerrors
 
+let requires_keep_order_option = new_bool_option "requires_keep_order" false
 
 let verify_packages packages =
   let packages = BuildOCPInterp.final_state packages in
@@ -598,7 +595,7 @@ let verify_packages packages =
 
     begin
     (* a list of packages that should appear before this package *)
-    let is_after = list_option_with_default pk.package_options "is_after"  []
+    let is_after = get_strings_with_default pk.package_options "is_after"  []
     in
     List.iter (fun name ->
       try
@@ -615,7 +612,7 @@ let verify_packages packages =
 
 begin
     (* a list of packages that should appear after this package *)
-    let is_before = list_option_with_default pk.package_options "is_before" []
+    let is_before = get_strings_with_default pk.package_options "is_before" []
     in
     List.iter (fun name ->
       try
@@ -640,12 +637,8 @@ end;
   List.iter (fun pk ->
     (* TODO: now that we know which package is available, we should
        set flags before processing file attributes. *)
-    pk.package_files <- List.map (fun (file, options) ->
-      (file, BuildOCPInterp.translate_options pk.package_options options)
-    ) pk.package_raw_files;
-    pk.package_tests <- List.map (fun (file, options) ->
-      (file, BuildOCPInterp.translate_options pk.package_options options)
-    ) pk.package_raw_tests;
+    pk.package_files <- (try get_local pk.package_options "files" with Not_found -> []);
+    pk.package_tests <- (try get_local pk.package_options "tests" with Not_found -> []);
   ) project_sorted;
 
   let npackages = Array.length packages in
@@ -669,7 +662,7 @@ also duplicated packages. *)
      someone wants, because you might want to have a different link
      order than the one globally inferred.  *)
   Array.iter (fun pk ->
-    if bool_option_true pk.package_options  requires_keep_order_option then
+    if requires_keep_order_option.get pk.package_options  then
       let (sorted, cycle, _ ) = PackageLinkSorter.sort pk.package_requires in
       assert (cycle = []);
       pk.package_requires <- sorted
@@ -809,7 +802,7 @@ let find_package pj file =
           check_file pk (filename ^ ".ml");
           check_file pk (filename ^ ".mli")
         | _ -> ()
-    ) pk.package_raw_files
+    ) pk.package_files
   ) pj.project_sorted;
 
   !list

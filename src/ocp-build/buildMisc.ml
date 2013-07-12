@@ -64,7 +64,7 @@ module Unix2 : sig
   type error_handler = exn -> unit
 
   val create_process : error_handler ->
-    string -> string array -> file_descr -> file_descr -> file_descr -> int
+    string -> string array -> string option -> file_descr -> file_descr -> file_descr -> int
 
 (*
   val create_process_env : error_handler ->
@@ -144,11 +144,17 @@ let perform_redirections new_stdin new_stdout new_stderr =
   dup2 newnewstdout stdout; close newnewstdout;
   dup2 newnewstderr stderr; close newnewstderr
 
-let create_process error_handler cmd args new_stdin new_stdout new_stderr =
+let create_process error_handler cmd args maybe_chdir new_stdin new_stdout new_stderr =
   match fork() with
     0 ->
     begin try
       perform_redirections new_stdin new_stdout new_stderr;
+      begin
+        match maybe_chdir with
+          None -> ()
+        | Some dir ->
+          Unix.chdir dir
+      end;
       execvp cmd args
     with e ->
       error_handler e;
@@ -205,8 +211,8 @@ module Win32Unix = struct
 (* High-level process management (system, popen) *)
 
 external win_create_process : string -> string -> string option ->
-                              file_descr -> file_descr -> file_descr -> int
-                            = "win_create_process" "win_create_process_native"
+                              file_descr -> file_descr -> file_descr -> string option -> int
+                            = "win32_create_process" "win32_create_process_native"
 
 let make_cmdline args =
   let maybe_quote f =
@@ -215,25 +221,25 @@ let make_cmdline args =
     else f in
   String.concat " " (List.map maybe_quote (Array.to_list args))
 
-let create_process prog args fd1 fd2 fd3 =
-  win_create_process prog (make_cmdline args) None fd1 fd2 fd3
+let create_process prog args maybe_chdir fd1 fd2 fd3 =
+  win_create_process prog (make_cmdline args) None fd1 fd2 fd3 maybe_chdir
 end
 
-let create_process error_handler cmd args fd1 fd2 fd3 =
+let create_process error_handler cmd args maybe_chdir fd1 fd2 fd3 =
   if os_type = Win32.WINDOWS then
     let cmd = if Filename.is_implicit cmd then win_find_in_path cmd
       else cmd in
-    Win32Unix.create_process cmd args fd1 fd2 fd3
+    Win32Unix.create_process cmd args maybe_chdir fd1 fd2 fd3
   else
-    create_process error_handler cmd args fd1 fd2 fd3
+    create_process error_handler cmd args maybe_chdir fd1 fd2 fd3
 end
 
 let open_for_pipe filename =
   let oc = open_out_bin filename in
   Unix.descr_of_out_channel oc
 
-let create_process list stdin stdout stderr =
-  match list with
+let create_process cmd maybe_chdir stdin stdout stderr =
+  match cmd with
       [] -> assert false
     | cmd :: args ->
       let stdin_fd = match stdin with
@@ -255,7 +261,7 @@ let create_process list stdin stdout stderr =
         Printf.eprintf "  exception %s\n%!" (Printexc.to_string e);
       in
 
-      let pid = Unix2.create_process error_handler cmd (Array.of_list (cmd :: args))
+      let pid = Unix2.create_process error_handler cmd (Array.of_list (cmd :: args)) maybe_chdir
 	stdin_fd stdout_fd stderr_fd in
       (match stdin with None -> () | Some _ -> Unix.close stdin_fd);
       (match stdout with None -> () | Some _ -> Unix.close stdout_fd);
@@ -336,7 +342,7 @@ let rename fa1 fa2 =
 let b = Buffer.create 10000
 let get_stdout_lines cmd args =
   let temp_file = Filename.temp_file "ocp-build-" ".out" in
-  let pid = create_process (cmd@args) None (Some temp_file) None in
+  let pid = create_process (cmd@args) None None (Some temp_file) None in
   let status = wait_command pid in
   let lines = ref [] in
   begin try

@@ -234,7 +234,7 @@ let install where what lib installdir =
 
     meta.meta_version <- Some lib.lib_version;
     meta.meta_description <- Some
-      (string_option_with_default lib.lib_options "description" lib.lib_name);
+      (get_string_with_default lib.lib_options "description" lib.lib_name);
     List.iter (fun dep ->
       if dep.dep_link then
         MetaFile.add_requires meta [] [dep.dep_project.lib_name]
@@ -323,7 +323,7 @@ let install where what lib installdir =
         let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
         copy_file where log src_file dst_file
       )
-        (list_option_with_default lib.lib_options "data_files" []);
+        (get_strings_with_default lib.lib_options "data_files" []);
 
     end;
 
@@ -335,7 +335,7 @@ let install where what lib installdir =
       let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
       copy_file where log src_file dst_file
     )
-      (list_option_with_default lib.lib_options "lib_files" []);
+      (get_strings_with_default lib.lib_options "lib_files" []);
 
     List.iter (fun file ->
       safe_mkdir where log installbin;
@@ -344,7 +344,7 @@ let install where what lib installdir =
       let src_file = Filename.concat (File.to_string lib.lib_dirname) file in
       copy_file where log src_file dst_file
     )
-      (list_option_with_default lib.lib_options "bin_files" []);
+      (get_strings_with_default lib.lib_options "bin_files" []);
 
   (* What kind of META file do we create ? *)
     let topdir_list = split_dir (Filename.dirname installdir) in
