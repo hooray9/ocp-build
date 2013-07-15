@@ -18,11 +18,24 @@ let ccopt_option = new_strings_option "ccopt" ([] : string list)
 (* should we remove implicit dependencies towards Pervasives *)
 let nopervasives = BuildOCPVariable.new_bool_option "nopervasives" false
 
+(* should we remove implicit dependencies towards Pervasives *)
+let nointernaldeps = BuildOCPVariable.new_bool_option "nointernaldeps" false
+
 (* dependencies inferred by ocamldep that should be removed (cyclic) *)
 let nodeps_option = BuildOCPVariable.new_strings_option "nodeps" []
 
 (* cmx dependencies inferred by ocamldep that should be removed (cyclic) *)
 let nocmxdeps_option = BuildOCPVariable.new_strings_option "noimpldeps" []
+
+
+(* these should be fully-qualified files *)
+let ocamlc_deps = BuildOCPVariable.new_strings_option "ocamlc_deps" []
+let ocamlopt_deps = BuildOCPVariable.new_strings_option "ocamlopt_deps" []
+let ocamldep_deps = BuildOCPVariable.new_strings_option "ocamldep_deps" []
+let ocamllex_deps = BuildOCPVariable.new_strings_option "ocamllex_deps" []
+let ocamlyacc_deps = BuildOCPVariable.new_strings_option "ocamlyacc_deps" []
+
+
 
 
 let bytelink_option = new_strings_option "bytelink" ([] : string list)

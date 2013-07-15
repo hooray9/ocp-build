@@ -40,7 +40,7 @@ let get env name =
     try
       StringMap.find name !global_env
     with e ->
-(*      Printf.eprintf "get_local %S failed\n%!" name; *)
+(*      Printf.eprintf "get_global %S failed\n%!" name; *)
       raise e
 
 let true_value =  [ ".", { env = StringMap.empty } ]
@@ -61,6 +61,9 @@ let strings_of_plist list =
 let plist_of_string s = [ s, { env = StringMap.empty } ]
 let string_of_plist list = String.concat " " (strings_of_plist list)
 
+let plist_of_path s = [ s, { env = StringMap.empty } ]
+let path_of_plist list = String.concat "/" (strings_of_plist list)
+
 let set_bool env name v = set env name (plist_of_bool v)
 let get_bool env name = bool_of_plist (get env name)
 
@@ -70,6 +73,9 @@ let get_strings env name = strings_of_plist (get env name)
 let set_string env name v = set env name (plist_of_string v)
 let get_string env name = string_of_plist (get env name)
 
+let set_path env name v = set env name (plist_of_path v)
+let get_path env name = path_of_plist (get env name)
+
 let get_bool_with_default env name bool =
   try get_bool env name with Not_found -> bool
 
@@ -78,6 +84,9 @@ let get_strings_with_default env name s =
 
 let get_string_with_default env name s =
   try get_string env name with Not_found -> s
+
+let get_path_with_default env name s =
+  try get_path env name with Not_found -> s
 
 (*
 
@@ -192,4 +201,11 @@ let new_string_option name v =
   {
     get = (fun env -> get_string env name);
     set = (fun v -> set_global name (plist_of_string v));
+  }
+
+let new_path_option name v =
+  set_global name (plist_of_path v);
+  {
+    get = (fun env -> get_path env name);
+    set = (fun v -> set_global name (plist_of_path v));
   }

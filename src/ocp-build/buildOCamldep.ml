@@ -231,10 +231,20 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
     else "Pervasives" :: modules
   in
 
+  let (is_ml, modname, basename) = modname_of_file options force source in
+
+  let modules =
+    if not is_ml || nointernaldeps.get options then modules
+    else
+      "CamlinterlLazy" ::
+      "CamlinterlOO" ::
+      "CamlinterlMod" ::
+        modules
+  in
+
   let modules = filter_deps options nodeps_option modules in
   let cmx_modules = filter_deps options nocmxdeps_option modules in
 
-  let (is_ml, modname, basename) = modname_of_file options force source in
   (*  let is_ml = Filename.check_suffix source ".ml" in *)
   (*  let full_basename = Filename.chop_extension source in *)
   (*  let basename = Filename.basename full_basename in *)

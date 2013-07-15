@@ -34,7 +34,7 @@ let new_rule b loc main_target commands =
     rule_sources = IntMap.empty;
     rule_time_dependencies = IntMap.empty;
     rule_temporaries = [];
-    rule_targets = [main_target];
+    rule_targets = IntMap.empty;
     rule_missing_sources = 0;
     rule_state = RULE_INACTIVE;
 
@@ -42,6 +42,7 @@ let new_rule b loc main_target commands =
   } in
   Hashtbl.add b.build_rules r.rule_id r;
   main_target.file_target_of <- r :: main_target.file_target_of;
+  r.rule_targets <- IntMap.add main_target.file_id main_target r.rule_targets;
   r
 
 let add_rule_source r file =
@@ -60,10 +61,12 @@ let add_rule_sources r files =
   List.iter (add_rule_source r) files
 
 let add_rule_target r file =
-  r.rule_targets <- file :: r.rule_targets;
-  if verbose 4 && file.file_target_of <> [] then
+  if not (IntMap.mem file.file_id r.rule_targets) then begin
+    r.rule_targets <- IntMap.add file.file_id file r.rule_targets;
+    if verbose 4 && file.file_target_of <> [] then
     Printf.eprintf "Warning: file %s targetted by multiple rules\n" (file_filename file);
-  file.file_target_of <- r :: file.file_target_of
+    file.file_target_of <- r :: file.file_target_of
+  end
 
 let add_rule_targets r files =
   List.iter (add_rule_target r) files
@@ -89,7 +92,9 @@ let add_rule_temporaries r files =
 let new_command cmd args = {
   cmd_command = cmd;
   cmd_args = args;
+  cmd_stdin_pipe = None;
   cmd_stdout_pipe = None;
+  cmd_stderr_pipe = None;
   cmd_move_to_dir = None;
 }
 
@@ -171,6 +176,8 @@ let print_indented_command cmd =
       Printf.eprintf "\tDynamicAction %s\n" s
     | NeedTempDir ->
       Printf.eprintf "\tNeedTempDir\n"
+    | Function (name, _, _) ->
+      Printf.eprintf "\tFunction %s\n" name
 
 let string_of_rule_state r =
 match r.rule_state with
@@ -196,7 +203,7 @@ let print_rule r =
       (if file.file_exists then "(exists)" else "(not available)")
   ) r.rule_sources;
   List.iter print_indented_command r.rule_commands;
-  List.iter (fun file ->
+  IntMap.iter (fun _ file ->
     Printf.eprintf "\t\tTARGET %s\n" (file_filename file)
   ) r.rule_targets;
   ()

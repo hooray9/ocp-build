@@ -15,6 +15,8 @@
 (* open BuildBase *)
 open BuildOCPTypes
 
+val print_loaded_ocp_files : bool ref
+
 val init_packages : unit -> BuildOCPInterp.state
 val load_ocp_files :
   BuildOCPInterp.config ->

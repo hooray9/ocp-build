@@ -44,3 +44,16 @@ let subst_global = subst global_subst
 
 let add_to_local_subst env var vv =
   add_to_copy env  (Printf.sprintf "%%{%s}%%" var) vv
+
+let create_substituter list =
+  let subst = M.empty_subst () in
+  List.iter (fun (name, f) ->
+    M.add_to_subst subst ("%{" ^ name ^ "}%") f
+  ) list;
+  subst
+
+let apply_substituter subst s info =
+  let _, s1 = M.iter_subst subst s info in
+(*  Printf.eprintf "apply_substituter: %S -> %S\n%!" s s1; *)
+  s1
+

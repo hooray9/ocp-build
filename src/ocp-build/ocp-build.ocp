@@ -26,6 +26,7 @@ begin library "ocp-build-misc"
     "buildSubst.ml"
       "buildFind.ml"
     "buildTerm.ml"
+    "ocamldot.ml"
   ]
 
    requires =  [

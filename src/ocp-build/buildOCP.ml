@@ -263,8 +263,14 @@ let new_dep pk =
     dep_optional = false;
   }
 
-(* Do a closure of all dependencies for this project. Called only on
-validated_projects *)
+(*
+Do a closure of all dependencies for this project. Called only on
+validated_projects. The closure is useful in two cases:
+ - for libraries, we need to include directories (-I) and link.
+ - for syntaxes, we need also to include directories (-I) and link them,
+    when calling the preprocessor.
+ - we don't need more than that.
+ *)
 let update_deps pj =
 
   if verbose 5 then print_deps "BEFORE update_deps" pj;
@@ -323,36 +329,23 @@ let update_deps pj =
       dep
   in
 
-  let is_syntax =
-    match pj.package_type with
-      SyntaxPackage  -> true
-    | LibraryPackage
-    | ProgramPackage
-    | ObjectsPackage
-    | TestPackage
-    | RulesPackage
-      -> false
-  in
   List.iter (fun dep ->
-    if dep.dep_link then
-      match dep.dep_project.package_type with
-      | SyntaxPackage
-      | ProgramPackage ->
-        if is_syntax then
-          dep.dep_link <- true
-        else begin
-          dep.dep_syntax <- true;
-          dep.dep_link <- false;
-        end
-      | LibraryPackage
-      | ObjectsPackage
-      | RulesPackage
-        -> ()
-      | TestPackage ->
-        Printf.eprintf "Error: Test %S appears in requirements of %S\n%!"
-          dep.dep_project.package_name
-          pj.package_name;
-          exit 2;
+    match dep.dep_project.package_type with
+    | SyntaxPackage ->
+      dep.dep_syntax <- true;
+      dep.dep_link <- false;
+    | RulesPackage
+    | ProgramPackage ->
+      dep.dep_syntax <- false;
+      dep.dep_link <- false;
+    | LibraryPackage
+    | ObjectsPackage
+      -> ()
+    | TestPackage ->
+      Printf.eprintf "Error: Test %S appears in requirements of %S\n%!"
+        dep.dep_project.package_name
+        pj.package_name;
+      exit 2;
   ) pj.package_requires;
 
   (* add all link dependencies, transitively *)
@@ -372,8 +365,8 @@ let update_deps pj =
   in
   add_link_deps pj;
 
-    (* add syntax dependencies, and their link dependencies
-       transformed into syntax dependencies *)
+  (* add syntax dependencies, and their link dependencies
+     transformed into syntax dependencies *)
   let rec add_link_as_syntax_deps pj =
     List.iter (fun dep ->
       if dep.dep_link then
@@ -493,59 +486,66 @@ let empty_config () = BuildOCPInterp.empty_config (* !BuildOCPVariable.options *
 let generated_config () =
   BuildOCPInterp.generated_config (* !BuildOCPVariable.options *)
 
+let print_loaded_ocp_files = ref false
+let print_dot_packages = ref (Some "_obuild/packages.dot")
+
 let load_ocp_files global_config packages files =
 
-(*
-  let pj =
-  {
-   (*
- project_config = config_file;
-    project_file = file_t;
-    project_dir = File.dirname file_t;
-   *)
-    project_files = files;
-    project_packages = IntMap.empty;
-    project_npackages = 0;
-    project_disabled = [];
-    project_incomplete = [];
-    project_sorted = [];
-    project_missing = [];
-  }
-  in
-*)
-
-
-(*  let config = BuildOCPInterp.empty_config !BuildOCPVariable.options in *)
-
   let nerrors = ref 0 in
-
   let rec iter parents files =
     match files with
-	[] -> ()
-      | file :: next_files ->
-	match parents with
-	    [] -> assert false
-	  | (parent, config) :: next_parents ->
-            let file = File.to_string file in
-	    if OcpString.starts_with file parent then
-	      let dirname = Filename.dirname file in
-	      if verbose 5 then
-	        Printf.eprintf "Reading %s with context from %s\n%!" file parent;
-	      let config =
-		try
-		  BuildOCPInterp.read_ocamlconf packages config file
-		with BuildMisc.ParseError ->
-		  incr nerrors;
-		  config
-	      in
-	      iter ( (dirname, config) :: parents ) next_files
-	    else
-	      iter next_parents files
+      [] -> ()
+    | file :: next_files ->
+      match parents with
+	[] -> assert false
+      | (parent, filename, config) :: next_parents ->
+        let file = File.to_string file in
+	if OcpString.starts_with file parent then
+	  let dirname = Filename.dirname file in
+	  if verbose 5 || !print_loaded_ocp_files then
+	    Printf.eprintf "Reading %s with context from %s\n%!" file filename;
+(*
+   begin try
+     let requires = BuildOCPInterp.config_get config "requires" in
+     Printf.eprintf "REQUIRES SET\n%!";
+   with Not_found ->
+     Printf.eprintf "REQUIRES NOT SET\n%!";
+   end;
+*)
+	  let config =
+	    try
+	      BuildOCPInterp.read_ocamlconf packages config file
+	    with BuildMisc.ParseError ->
+	      incr nerrors;
+	      config
+	  in
+	  iter ( (dirname, file, config) :: parents ) next_files
+	else
+	  iter next_parents files
   in
-  iter [ "", global_config ] files;
+  iter [ "", "<root>", global_config ] files;
   !nerrors
 
 let requires_keep_order_option = new_bool_option "requires_keep_order" false
+
+let dump_dot_packages filename pj =
+  let graph = Ocamldot.create "Packages" [] in
+  let nodes = ref StringMap.empty in
+  Array.iter (fun pk ->
+    let node = Ocamldot.node graph pk.package_name [] in
+    nodes := StringMap.add pk.package_name node !nodes
+  ) pj.project_sorted;
+  Array.iter (fun pk0 ->
+    let node0 = StringMap.find pk0.package_name !nodes in
+    List.iter (fun dep ->
+      let pk1 = dep.dep_project in
+      let node1 = StringMap.find pk1.package_name !nodes in
+      let (_ : Ocamldot.edge) = Ocamldot.edge node0 node1 [] in
+      Printf.eprintf "%s -> %s\n%!" pk0.package_name pk1.package_name;
+      ()
+    ) pk0.package_requires
+  ) pj.project_sorted;
+  Ocamldot.save graph filename
 
 let verify_packages packages =
   let packages = BuildOCPInterp.final_state packages in
@@ -685,6 +685,12 @@ also duplicated packages. *)
 
   reset_package_ids pj.project_incomplete;
   reset_package_ids pj.project_disabled;
+
+  begin match !print_dot_packages with
+    None -> ()
+    | Some filename ->
+      dump_dot_packages filename pj
+  end;
 
   pj
 

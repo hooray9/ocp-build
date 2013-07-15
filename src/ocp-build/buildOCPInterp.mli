@@ -27,6 +27,11 @@ val generated_config :config
 
 val add_primitive : string -> (BuildOCPVariable.env -> BuildOCPVariable.plist) -> unit
 
+val filesubst : (string * BuildOCPVariable.env) StringSubst.M.subst
+val subst_basename : string -> string
+
+val config_get : config -> string -> BuildOCPVariable.plist
+
 (*
 val translate_expression :
   BuildOCPVariable.env -> BuildOCPTree.expression -> BuildOCPVariable.plist

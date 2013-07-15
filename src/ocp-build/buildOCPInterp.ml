@@ -32,6 +32,9 @@ type state = {
 }
 
 
+let config_get config name =
+  get config.config_env name
+
 let meta_options = [
   "o",      [ "dep"; "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
   "oc",      [ "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
@@ -130,8 +133,7 @@ let find_config config config_name =
   try
     StringMap.find config_name config.config_configs
   with Not_found ->
-    Printf.eprintf "Error: configuration %S not found\n" config_name;
-    exit 2
+    failwith (Printf.sprintf "Error: configuration %S not found\n" config_name)
 
 (*
 let option_list_set options name list =
@@ -341,8 +343,12 @@ and translate_toplevel_statement pj config stmt =
   (*  (fun old_options -> translate_options old_options options); *)
   | StmtDefinePackage (package_type, library_name, simple_statements) ->
     begin
-      let config = translate_statements pj config simple_statements in
-      define_package pj library_name config package_type
+      try
+        let config = translate_statements pj config simple_statements in
+        define_package pj library_name config package_type
+      with e ->
+        Printf.eprintf "Error while interpreting package %S:\n%!" library_name;
+        raise e
     end;
     config
   | StmtBlock statements ->
@@ -458,8 +464,7 @@ and translate_option config env op =
     List.fold_left (fun env name ->
       let exp1 = try get env name
       with Not_found ->
-        Printf.eprintf "Variable %S is undefined (in +=)\n%!" name;
-        exit 2
+        failwith (Printf.sprintf "Variable %S is undefined (in +=)\n%!" name)
       in
       set env name (exp1 @ exp2)
     ) env vars
@@ -498,31 +503,65 @@ and translate_expression config env exp =
 
 let read_ocamlconf pj config filename =
   let ast = BuildOCPParse.read_ocamlconf filename in
-  translate_toplevel_statements pj
-    { config with
+  let config = { config with
       config_dirname = Filename.dirname filename;
       config_filename = filename;
-    } ast
+    }
 
+  in
+  try
+    translate_toplevel_statements pj config ast
+  with e ->
+    Printf.eprintf "Error while interpreting file %S:\n%!" filename;
+    Printf.eprintf "\t%s\n%!" (Printexc.to_string e);
+    exit 2
+
+
+open StringSubst
+
+let subst_basename filename =
+  let basename = Filename.basename filename in
+  try
+    let pos = String.index basename '.' in
+    String.sub basename 0 pos
+  with Not_found -> basename
+
+let filesubst = BuildSubst.create_substituter
+    [
+      "file", (fun (file,env) -> file);
+      "basename", (fun (file, env) -> subst_basename file);
+      "dirname", (fun (file, env) -> Filename.dirname file);
+      "extensions", (fun (file, env) ->
+        try
+          let pos = String.index file '.' in
+          String.sub file pos (String.length file - pos)
+        with Not_found -> "");
+    ]
 
 let _ =
   add_primitive "subst_ext"
     (fun env ->
       let files = get_local env "files" in
       let from_ext = strings_of_plist (get_local env "from_ext") in
-      let to_ext = strings_of_plist (get_local env "to_ext") in
-      let to_ext = match to_ext with
-          [ to_ext ] -> to_ext
-        | _ -> failwith "%subst_ext: to_ext must specify only one extension"
+      let to_ext = get_strings_with_default env "to_ext" [] in
+      let to_file = match to_ext with
+          [ to_ext ] -> "%{dirname}%/%{basename}%" ^ to_ext
+        | _ ->
+          try
+            string_of_plist (get_local env "to_file")
+          with Not_found ->
+            failwith "%subst_ext: to_ext must specify only one extension"
       in
-      let keep = try bool_of_plist (get_local env "keep_others") with _ -> false in
+      let keep = get_bool_with_default env "keep_others" false in
       let files = List.fold_left (fun files (file, env) ->
           try
             let pos = String.index file '.' in
             let ext = String.sub file pos (String.length file - pos) in
             if List.mem ext from_ext then
-              let file = String.sub file 0 pos in
-              (file ^ to_ext, env) :: files
+                let file = BuildSubst.apply_substituter filesubst to_file (file,env)
+                in
+                Printf.eprintf "subst to %S\n%!" file;
+                (file, env) :: files
             else raise Not_found
           with Not_found ->
             if keep then
@@ -531,4 +570,26 @@ let _ =
         ) [] files in
       List.rev files
 
+    );
+
+  add_primitive "path"
+    (fun env ->
+      let path = get_strings env "path" in
+      let s =
+        match path with
+          [] -> ""
+        | dirname :: other_files ->
+          List.fold_left (fun path file ->
+            Filename.concat path file
+          ) dirname other_files
+      in
+      [ s, env ]
+    );
+
+  add_primitive "string"
+    (fun env ->
+      let path = get_strings env "strings" in
+      let sep = get_string_with_default env "sep" "" in
+      [ String.concat sep path, env ]
     )
+

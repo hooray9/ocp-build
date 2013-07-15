@@ -38,3 +38,24 @@ val subst_of_list : (string * string) list -> subst
 
 val subst : subst -> string -> int * string
 val iter_subst : subst -> string -> int * string
+
+module M : sig
+
+  type 'a subst
+
+  val empty_subst : unit -> 'a subst
+
+(* [add_to_subst subst src dst] mutates [subst] to add
+ a transition from [src] to [dst]. *)
+  val add_to_subst : 'a subst -> string -> ('a -> string) -> unit
+
+(* [add_to_copy subst src dst] returns a copy of [subst] with a
+   transition from [src] to [dst]. *)
+  val add_to_copy : 'a subst -> string -> ('a -> string) -> 'a subst
+
+
+  val subst_of_list : (string * ('a -> string)) list -> 'a subst
+  val subst : 'a subst -> string -> 'a -> int * string
+  val iter_subst : 'a subst -> string -> 'a -> int * string
+
+end

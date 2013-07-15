@@ -21,3 +21,10 @@ val subst_global : string -> string
 
 val global_subst : StringSubst.subst
 val add_to_local_subst : StringSubst.subst -> string -> string -> StringSubst.subst
+
+
+val create_substituter :
+  (string * ('a -> string)) list -> 'a StringSubst.M.subst
+val apply_substituter :
+  'a StringSubst.M.subst -> string -> 'a -> string
+

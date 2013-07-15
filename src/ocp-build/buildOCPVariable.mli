@@ -34,6 +34,10 @@ val set_string : env -> string -> string -> env
 val get_string : env -> string -> string
 val get_string_with_default : env -> string -> string -> string
 
+val set_path : env -> string -> string -> env
+val get_path : env -> string -> string
+val get_path_with_default : env -> string -> string -> string
+
 val is_already_installed : env -> bool
 
 type 'a source_option = {

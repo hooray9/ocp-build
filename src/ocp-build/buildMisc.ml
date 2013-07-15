@@ -360,3 +360,19 @@ let get_stdout_lines cmd args =
     with _ -> ()
   end;
   (status, List.rev !lines)
+
+let getcwd_cache = ref None
+
+let getcwd () =
+  match !getcwd_cache with
+    None ->
+    let dir = Unix.getcwd () in
+    getcwd_cache := Some dir;
+    dir
+  | Some dir -> dir
+
+let chdir dir =
+  Unix.chdir dir;
+  getcwd_cache := None
+
+

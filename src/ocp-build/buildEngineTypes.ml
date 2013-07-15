@@ -56,7 +56,7 @@ type build_rule = {
 are active, they should be executed before. *)
   mutable rule_time_dependencies :  build_file IntMap.t;
   mutable rule_temporaries : build_file list;
-  mutable rule_targets :  build_file list;
+  mutable rule_targets :  build_file IntMap.t;
   mutable rule_state : rule_state;
   mutable rule_missing_sources : int;
 
@@ -74,11 +74,16 @@ and  build_action =
     * command_argument option (* create a link ? *)
   | DynamicAction of string * (build_action list Lazy.t)
   | NeedTempDir
+  | Function of string  (* name, for debug *)
+      * (Buffer.t -> unit)  (* a printer for the command to compute digests *)
+      * (unit -> unit)  (* the function itself *)
 
 and build_command = {
   cmd_command : string list;
   mutable cmd_args : command_argument list;
   mutable cmd_stdout_pipe : string option;
+  mutable cmd_stdin_pipe : string option;
+  mutable cmd_stderr_pipe : string option;
   mutable cmd_move_to_dir : string option;
 }
 

@@ -44,6 +44,8 @@ open BuildActions
 type target =
   | TargetPackage of package_info
 
+let load_installed_ocp = ref true
+
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
 let print_installed install_where =
@@ -481,6 +483,7 @@ let do_read_env p =
     env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
 
   time_step "Scanning env for .ocp files...";
+  if !load_installed_ocp then
   List.iter (fun dir ->
     if verbose 3 then
       Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
@@ -567,7 +570,7 @@ let do_prepare_build p =
 *)
         let dir = File.to_string project_dir in
         if Unix.getcwd () <> dir then begin
-          Unix.chdir dir;
+          BuildMisc.chdir dir;
           Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
             (File.to_string project_dir);
           add_finally (fun () ->
@@ -693,6 +696,13 @@ let arg_list = [
   "-arch", Arg.String (fun s ->
     arch_arg := Arch ("_other_archs/" ^ s)),
   "ARCH Set arch sub-directory of _obuild";
+
+  "-print-loaded-ocp-files", Arg.Set
+    BuildOCP.print_loaded_ocp_files,
+  " Print loaded ocp files";
+  "-no-installed-ocp", Arg.Clear load_installed_ocp,
+  " Do not load installed .ocp files";
+
 ] @ arg_list1
 
 let add_synomyms arg_list1 synonyms =

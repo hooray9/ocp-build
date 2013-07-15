@@ -164,10 +164,9 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
   end;
   lib
 
-
 let absolute_filename dirname =
   if Filename.is_relative dirname then
-    Filename.concat (Unix.getcwd ()) dirname
+    Filename.concat (BuildMisc.getcwd ()) dirname
   else dirname
 
 let installed_files = ref []
