@@ -25,9 +25,12 @@ val final_state : state -> package array
 val empty_config :config
 val generated_config :config
 
-val add_primitive : string -> (BuildOCPVariable.env -> BuildOCPVariable.plist) -> unit
+val add_primitive : string ->
+  (BuildOCPVariable.env list -> (* all surrounding env, including the second argument ! *)
+   BuildOCPVariable.env ->
+   BuildOCPVariable.plist) -> unit
 
-val filesubst : (string * BuildOCPVariable.env) StringSubst.M.subst
+val filesubst : (string * BuildOCPVariable.env list) StringSubst.M.subst
 val subst_basename : string -> string
 
 val config_get : config -> string -> BuildOCPVariable.plist

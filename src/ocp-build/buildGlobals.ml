@@ -79,7 +79,7 @@ let get_project name = StringMap.find name !projects
 
 let new_library b pk package_dirname src_dir dst_dir mut_dir =
 
-  let lib_installed = is_already_installed pk.package_options in
+  let lib_installed = is_already_installed [pk.package_options] in
   let lib_install =
     not lib_installed &&
     (match pk.package_type with
@@ -90,14 +90,14 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       | RulesPackage
       | SyntaxPackage -> true
     ) &&
-    get_bool_with_default pk.package_options "install" true in
+    get_bool_with_default [pk.package_options] "install" true in
 
   let lib =
     {
       lib_context = b;
       lib_source_kind = pk.package_source_kind;
-      lib_archive = get_string_with_default pk.package_options "archive" pk.package_name;
-      lib_meta = get_bool_with_default pk.package_options "meta" false;
+      lib_archive = get_string_with_default [pk.package_options] "archive" pk.package_name;
+      lib_meta = get_bool_with_default [pk.package_options] "meta" false;
       lib_id = pk.package_id;
       lib_name = pk.package_name;
       lib_version = pk.package_version;
@@ -172,10 +172,3 @@ let absolute_filename dirname =
 let installed_files = ref []
 let register_installed (file : string) =
   installed_files := file :: !installed_files
-
-(* TODO
-let register_project pk =
-  Hashtbl.add all_projects pk.lib_id pk
-*)
-
-

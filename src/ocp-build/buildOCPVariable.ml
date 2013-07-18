@@ -17,7 +17,7 @@ type env = { env : plist StringMap.t }
 and plist = (string * env) list
 
 type 'a source_option = {
-  get : env -> 'a;
+  get : env list -> 'a;
   set : 'a -> unit;
 }
 
@@ -27,15 +27,19 @@ let set_global name v =
   global_env := StringMap.add name v !global_env
 
 let set env name v = { env = StringMap.add name v env.env }
-let get_local env name =
-  try
-    StringMap.find name env.env
-  with e ->
-(*    Printf.eprintf "get_local %S failed\n%!" name; *)
-    raise e
+let rec get_local envs name =
+  match envs with
+    [] ->
+      (*    Printf.eprintf "get_local %S failed\n%!" name; *)
+    raise Not_found
+  | env :: envs ->
+    try
+      StringMap.find name env.env
+    with Not_found ->
+      get_local envs name
 
-let get env name =
-  try get_local env name
+let get envs name =
+  try get_local envs name
   with Not_found ->
     try
       StringMap.find name !global_env

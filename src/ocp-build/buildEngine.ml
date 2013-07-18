@@ -416,10 +416,12 @@ let init b targets =
       f.file_exists <- false;
       List.iter kill_rule f.file_target_of;
       List.iter (fun r ->
-	if r.rule_state <> RULE_INACTIVE then
-	  r.rule_missing_sources <- r.rule_missing_sources + 1;
-(*	Printf.eprintf "Killed %s =>\n%!" (file_filename f); *)
-(*	Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
+	if r.rule_state <> RULE_INACTIVE then begin
+   r.rule_missing_sources <- r.rule_missing_sources + 1;
+   (*	Printf.eprintf "Killed %s =>\n%!" (file_filename f); *)
+   if verbose 7 then
+	Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources;
+ end;
 	kill_rule r
       ) f.file_source_for;
     end
@@ -498,6 +500,8 @@ let print_waiting_queue max_print =
         IntMap.iter (fun _ f ->
 	  if not f.file_exists then
 	    Printf.eprintf "\t\tSOURCE %s missing\n%!" (file_filename f)
+	  else
+	    Printf.eprintf "\t\tSOURCE %s ok\n%!" (file_filename f)
         ) r.rule_sources;
         decr max_print; if !max_print <= 0 then raise Exit;
       ) !queue_waiting
@@ -724,52 +728,52 @@ exception EmptyListOfDependencies
 
 let rec add_dependency b r target_file filenames =
   match filenames with
-      [] -> raise EmptyListOfDependencies
-    | filename :: other_filenames ->
-      if verbose 7 then Printf.eprintf "\tDEP %s\n%!" filename;
-      let dirname = Filename.dirname filename in
-      (*      let pj = r.rule_lib.lib_project in *)
-      let dirname = cross_dirname b dirname in
-      let dir = BuildEngineContext.add_directory b dirname in
-      let basename = Filename.basename filename in
-      let src_file =
-	try Some (BuildEngineContext.find_file dir basename)
-	with Not_found ->
-	  unmanaged_dependencies := filename :: !unmanaged_dependencies;
-	  None
-      in
-      match src_file with
-	  None -> ()
-	| Some src_file ->
-	  if
-     src_file.file_target_of <> [] &&
-     List.for_all (fun r -> r.rule_state = RULE_INACTIVE)
-       src_file.file_target_of then begin
-	    if verbose 7 then
-	      Printf.eprintf "\t\tDisabled. Trying next.\n";
-	    add_dependency b r target_file other_filenames
-	  end else
-	    if not (IntMap.mem src_file.file_id r.rule_sources) then
-	      begin
-		if verbose 7 then
-		  Printf.eprintf "\t\tAdding dependency\n";
-		r.rule_sources <-
-		  IntMap.add src_file.file_id src_file r.rule_sources;
-		src_file.file_source_for <- r :: src_file.file_source_for;
-		if not src_file.file_exists then begin
-		    (*			Printf.eprintf "Missing new dep %s =>\n%!" (file_filename src_file); *)
-		    (*			Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
+    [] -> raise EmptyListOfDependencies
+  | filename :: other_filenames ->
+    if verbose 7 then Printf.eprintf "\tDEP %s\n%!" filename;
+    let dirname = Filename.dirname filename in
+    (*      let pj = r.rule_lib.lib_project in *)
+    let dirname = cross_dirname b dirname in
+    let dir = BuildEngineContext.add_directory b dirname in
+    let basename = Filename.basename filename in
+    let src_file =
+      try Some (BuildEngineContext.find_file dir basename)
+      with Not_found ->
+	unmanaged_dependencies := filename :: !unmanaged_dependencies;
+	None
+    in
+    match src_file with
+      None -> ()
+    | Some src_file ->
+      if
+        src_file.file_target_of <> [] &&
+        List.for_all (fun r -> r.rule_state = RULE_INACTIVE)
+          src_file.file_target_of then begin
+	if verbose 7 then
+	  Printf.eprintf "\t\tDisabled. Trying next.\n";
+	add_dependency b r target_file other_filenames
+      end else
+      if not (IntMap.mem src_file.file_id r.rule_sources) then
+	begin
+	  if verbose 7 then
+	    Printf.eprintf "\t\tAdding dependency\n";
+	  r.rule_sources <-
+	    IntMap.add src_file.file_id src_file r.rule_sources;
+	  src_file.file_source_for <- r :: src_file.file_source_for;
+	  if not src_file.file_exists then begin
+	    (*			Printf.eprintf "Missing new dep %s =>\n%!" (file_filename src_file); *)
+	    (*			Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
 
-		  if verbose 7 then
-		    Printf.eprintf "\t\t\trule %d: missing %d -> %d\n" r.rule_id r.rule_missing_sources (r.rule_missing_sources + 1);
-		  r.rule_missing_sources <- r.rule_missing_sources + 1;
-		  if r.rule_missing_sources = 1 then
-		    queue_waiting := IntMap.add r.rule_id r !queue_waiting
-		end else begin
-		  if verbose 7 then Printf.eprintf "Adding useless dependency to %s\n%!"
-		    (file_filename src_file);
-		end
-	      end
+	    if verbose 7 then
+	      Printf.eprintf "\t\t\trule %d: missing %d -> %d\n" r.rule_id r.rule_missing_sources (r.rule_missing_sources + 1);
+	    r.rule_missing_sources <- r.rule_missing_sources + 1;
+	    if r.rule_missing_sources = 1 then
+	      queue_waiting := IntMap.add r.rule_id r !queue_waiting
+	  end else begin
+	    if verbose 7 then Printf.eprintf "Adding useless dependency to %s\n%!"
+		(file_filename src_file);
+	  end
+	end
 
 let add_dependency b r target_file filenames =
   try

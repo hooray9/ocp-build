@@ -69,7 +69,7 @@ let do_install install_where install_what projects =
       projects_to_install :=
         StringMap.add pj.lib_name pj !projects_to_install;
       let bundle =
-        BuildOCPVariable.get_strings_with_default pj.lib_options
+        BuildOCPVariable.get_strings_with_default [pj.lib_options]
           "bundle" [] in
       List.iter (fun name ->
         try

@@ -23,7 +23,8 @@ val load_modules_dependencies : BuildTypes.package_info -> BuildOCPVariable.env 
   BuildEngineTypes.build_directory -> string list -> string -> (string * string list list) list
 
 
-val modname_of_file : BuildOCPVariable.env ->            BuildOCamlTypes.force_kind ->
-string -> bool * string * string
+val modname_of_file : BuildOCPVariable.env list ->
+  BuildOCamlTypes.force_kind ->
+  string -> bool * string * string
 
 val load_make_dependencies : string -> (string * string list) list

@@ -19,29 +19,29 @@ val string_of_plist : plist -> string
 val plist_of_string : string -> plist
 
 val set : env -> string -> plist -> env
-val get : env -> string -> plist
-val get_local : env -> string -> plist (* only local *)
+val get : env list -> string -> plist
+val get_local : env list -> string -> plist (* only local *)
 
 val set_bool : env -> string -> bool -> env
-val get_bool : env -> string -> bool
-val get_bool_with_default : env -> string -> bool -> bool
+val get_bool : env list -> string -> bool
+val get_bool_with_default : env list -> string -> bool -> bool
 
 val set_strings : env -> string -> string list -> env
-val get_strings : env -> string -> string list
-val get_strings_with_default : env -> string -> string list -> string list
+val get_strings : env list -> string -> string list
+val get_strings_with_default : env list -> string -> string list -> string list
 
 val set_string : env -> string -> string -> env
-val get_string : env -> string -> string
-val get_string_with_default : env -> string -> string -> string
+val get_string : env list -> string -> string
+val get_string_with_default : env list -> string -> string -> string
 
 val set_path : env -> string -> string -> env
-val get_path : env -> string -> string
-val get_path_with_default : env -> string -> string -> string
+val get_path : env list -> string -> string
+val get_path_with_default : env list -> string -> string -> string
 
-val is_already_installed : env -> bool
+val is_already_installed : env list -> bool
 
 type 'a source_option = {
-  get : env -> 'a;
+  get : env list -> 'a;
   set : 'a -> unit;
 }
 

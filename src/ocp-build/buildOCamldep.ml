@@ -147,7 +147,7 @@ let print_make_dependencies deps =
 let load_make_dependencies filename =
   try
     let deps = load_make_dependencies filename in
-    print_make_dependencies deps;
+(*    print_make_dependencies deps; *)
     deps
   with e ->
     Printf.eprintf "Warning: exception %s in load_make_dependencies\n%!"
@@ -223,27 +223,31 @@ let filter_deps options option modules =
     not (StringSet.mem modname nodeps)) modules
 
 let load_modules_dependencies lib options force dst_dir pack_for filename =
+  let envs = [options; lib.lib_options] in
+  let has_asm = asm_option.get envs in
+  let has_byte = byte_option.get envs in
+
   if verbose 5 then
     Printf.eprintf "load_modules_dependencies %s\n" filename;
   let source, modules = load_ocamldep_modules filename in
   let modules =
-    if nopervasives.get options then modules
+    if nopervasives.get envs then modules
     else "Pervasives" :: modules
   in
 
-  let (is_ml, modname, basename) = modname_of_file options force source in
+  let (is_ml, modname, basename) = modname_of_file envs force source in
 
   let modules =
-    if not is_ml || nointernaldeps.get options then modules
+    if not is_ml || nointernaldeps.get envs then modules
     else
       "CamlinterlLazy" ::
-      "CamlinterlOO" ::
-      "CamlinterlMod" ::
+        "CamlinterlOO" ::
+        "CamlinterlMod" ::
         modules
   in
 
-  let modules = filter_deps options nodeps_option modules in
-  let cmx_modules = filter_deps options nocmxdeps_option modules in
+  let modules = filter_deps envs nodeps_option modules in
+  let cmx_modules = filter_deps envs nocmxdeps_option modules in
 
   (*  let is_ml = Filename.check_suffix source ".ml" in *)
   (*  let full_basename = Filename.chop_extension source in *)
@@ -254,7 +258,7 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
   let deps = List.map (fun dep ->
       let lib = dep.dep_project in
       (lib.lib_dst_dir, lib.lib_modules)
-    ) deps in
+    ) (List.rev deps) in
   let rec add_internal_deps pack_for deps =
     match pack_for with
     | [] ->
@@ -264,8 +268,8 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
       let deps = add_internal_deps tail deps in
       let (dst_dir, map) =
         StringsMap.find pack_for lib.lib_internal_modules in
-	let deps = (dst_dir, map) :: deps in
-	deps
+      let deps = (dst_dir, map) :: deps in
+      deps
   in
   let deps = add_internal_deps (List.rev pack_for) deps in
 
@@ -284,105 +288,113 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
   let dependencies =
     if is_ml then
 
-      let cmo_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmo") in
+      let byte_dependencies =
+        if has_byte then
 
-      let cmo_dependencies =
-        let cmo_dependencies = ref [] in
-        let rec find_module deps depname =
-        (*      Printf.eprintf "find_module CMO %s\n" depname; *)
-          match deps with
-	      [] ->
+          let cmo_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmo") in
+
+          let cmo_dependencies =
+            let cmo_dependencies = ref [] in
+            let rec find_module deps depname =
+              (*      Printf.eprintf "find_module CMO %s\n" depname; *)
+              match deps with
+	        [] ->
 	        if verbose 5 then
 	          Printf.eprintf
-                "Warning: could not solve dependency %s for %s\n"
-                depname filename;
+                    "Warning: could not solve dependency %s for %s\n"
+                    depname filename;
 	        ()
-	    | (dst_dir, lib_modules) :: deps ->
-	      try
-	        let (kind, basename) = StringMap.find depname !lib_modules in
-	        let dst_dir = dst_dir.dir_fullname in
-	        let full_basename = Filename.concat dst_dir basename in
-	        let deps =
-		  match kind with
+	      | (dst_dir, lib_modules) :: deps ->
+	        try
+	          let (kind, basename) = StringMap.find depname !lib_modules in
+	          let dst_dir = dst_dir.dir_fullname in
+	          let full_basename = Filename.concat dst_dir basename in
+	          let deps =
+		    match kind with
 		    | ML ->
 		      [ full_basename ^ ".cmo" ]
 		    | MLI ->
 		      [ full_basename ^ ".cmi" ]
 		    | MLandMLI ->
 		      [ full_basename ^ ".cmi" ]
-	        in
-	        cmo_dependencies := deps :: !cmo_dependencies
-	      with Not_found ->
-	        find_module deps depname
-        in
-        List.iter (find_module deps) modules;
-        !cmo_dependencies
+	          in
+	          cmo_dependencies := deps :: !cmo_dependencies
+	        with Not_found ->
+	          find_module deps depname
+            in
+            List.iter (find_module deps) modules;
+            !cmo_dependencies
+          in
+          [ cmo_target, cmo_dependencies ]
+        else []
       in
+      let asm_dependencies =
+        if has_asm then
+          let cmx_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmx") in
 
-      let cmx_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmx") in
-
-      let cmx_dependencies =
-        let cmx_dependencies = ref [] in
-        let rec find_module deps depname =
-          (*      Printf.eprintf "find_module CMX %s\n" depname; *)
-          match deps with
-	      [] ->
+          let cmx_dependencies =
+            let cmx_dependencies = ref [] in
+            let rec find_module deps depname =
+              (*      Printf.eprintf "find_module CMX %s\n" depname; *)
+              match deps with
+	        [] ->
 	        if verbose 5 then
 	          Printf.eprintf
-                "Warning: could not solve dependency %s for %s\n"
-                depname filename;
+                    "Warning: could not solve dependency %s for %s\n"
+                    depname filename;
 	        ()
-	    | (dst_dir, lib_modules) :: deps ->
-	      try
-	        let (kind, basename) = StringMap.find depname !lib_modules in
-	        let src_dir = dst_dir.dir_fullname in
-	        let full_basename = Filename.concat src_dir basename in
-	        let deps =
-		  match kind with
+	      | (dst_dir, lib_modules) :: deps ->
+	        try
+	          let (kind, basename) = StringMap.find depname !lib_modules in
+	          let src_dir = dst_dir.dir_fullname in
+	          let full_basename = Filename.concat src_dir basename in
+	          let deps =
+		    match kind with
 		    | ML ->
 		      [ full_basename ^ ".cmx" ]
 		    | MLI ->
 		      [ full_basename ^ ".cmi" ]
 		    | MLandMLI ->
 		      [ full_basename ^ ".cmx" ]
-	        in
-	        cmx_dependencies := deps :: !cmx_dependencies
-	      with Not_found ->
-	        find_module deps depname
-        in
-        List.iter (find_module deps) cmx_modules;
-        !cmx_dependencies
+	          in
+	          cmx_dependencies := deps :: !cmx_dependencies
+	        with Not_found ->
+	          find_module deps depname
+            in
+            List.iter (find_module deps) cmx_modules;
+            !cmx_dependencies
+          in
+          [ cmx_target, cmx_dependencies ]
+        else
+          []
       in
+      byte_dependencies @ asm_dependencies
 
-      [
-        cmo_target, cmo_dependencies;
-        cmx_target, cmx_dependencies;
-      ]
     else
       let cmi_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmi") in
       let dependencies = ref [] in
       let rec find_module deps depname =
         (*      Printf.eprintf "find_module CMI %s\n" depname; *)
         match deps with
-	    [] ->
-	      if verbose 5 then
-	        Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
-	      ()
-	  | (dst_dir, lib_modules) :: deps ->
-	    try
-	      let (kind, basename) = StringMap.find depname !lib_modules in
-	      let dst_dir = dst_dir.dir_fullname in
-	      let full_basename = Filename.concat dst_dir basename in
-	      match kind with
-		| ML ->
-		  dependencies := [ full_basename ^ ".cmo"; full_basename ^ ".cmx" ] :: !dependencies
-		| MLI ->
-		  dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
-		| MLandMLI ->
-		  dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
+	  [] ->
+	  if verbose 5 then
+	    Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
+	  ()
+	| (dst_dir, lib_modules) :: deps ->
+	  try
+	    let (kind, basename) = StringMap.find depname !lib_modules in
+	    let dst_dir = dst_dir.dir_fullname in
+	    let full_basename = Filename.concat dst_dir basename in
+	    match kind with
+	    | ML ->
+	      dependencies := [ full_basename ^ ".cmo"; full_basename ^ ".cmx" ] :: !dependencies
+	    | MLI ->
+	      dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
+	    | MLandMLI ->
+	      dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
 
-	    with Not_found ->
-	      find_module deps depname
+	  with Not_found ->
+	    find_module deps depname
       in
       List.iter (find_module deps) modules;
       [cmi_target, !dependencies]

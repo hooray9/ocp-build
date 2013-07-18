@@ -165,9 +165,11 @@ let add_pp_requires r pp =
   List.iter (fun file -> add_rule_source r file) pp.pp_requires
 
 let get_pp lib basename options =
+  let options = [ options; lib.lib_options ] in
 (*  Printf.eprintf "get_pp %S\n%!" lib.lib_name; *)
   let pp_flags =
-    List.map (fun s -> S s) (ppflags_option.get options) in
+    List.map (fun s -> S s)
+      (ppflags_option.get options) in
   match  syntax_option.get options with
   |  [] ->
     let pp_requires =  pp_requires_option.get options in

@@ -33,7 +33,7 @@ type state = {
 
 
 let config_get config name =
-  get config.config_env name
+  get [config.config_env] name
 
 let meta_options = [
   "o",      [ "dep"; "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
@@ -271,7 +271,7 @@ let new_package_dep pk s =
 
 let add_project_dep pk s options =
   let dep = new_package_dep pk s in
-  dep.dep_link <- get_bool_with_default options "link" true;
+  dep.dep_link <- get_bool_with_default [options] "link" true;
 
 (*
   begin
@@ -286,7 +286,7 @@ let add_project_dep pk s options =
 
   begin
     try
-      dep.dep_optional <- get_bool options "optional"
+      dep.dep_optional <- get_bool [options] "optional"
     with Not_found -> ()
   end;
 (*  Printf.eprintf "add_project_dep for %S = %S with link=%b\n%!"
@@ -296,7 +296,7 @@ let add_project_dep pk s options =
 let define_package pj name config kind =
   let dirname =
     try
-      let list = get_strings config.config_env "dirname"  in
+      let list = get_strings [config.config_env] "dirname"  in
       BuildSubst.subst_global (String.concat Filename.dir_sep list)
     with Not_found ->
       config.config_dirname
@@ -309,20 +309,20 @@ let define_package pj name config kind =
 (*  pk.package_raw_files <-  config.config_files; *)
 (*  pk.package_raw_tests <- config.config_tests; *)
   pk.package_options <- project_options;
-  pk.package_version <- get_string_with_default project_options "version"
+  pk.package_version <- get_string_with_default [project_options] "version"
     "0.1-alpha";
   List.iter (fun (s, options) ->
     add_project_dep pk s options
-  ) (try get project_options "requires" with Not_found ->
+  ) (try get [project_options] "requires" with Not_found ->
     Printf.eprintf "No 'requires' for package %S\n%!" name;
     []
   )
 
 let primitives = ref StringMap.empty
 let add_primitive s f =
-  let f env =
+  let f envs env =
     try
-      f env
+      f (env :: envs) env
     with e ->
       Printf.eprintf "Warning: exception raised while running primitive %S\n%!" s;
       raise e
@@ -355,7 +355,7 @@ and translate_toplevel_statement pj config stmt =
     ignore (translate_toplevel_statements pj config statements);
     config
   | StmtIfThenElse (cond, ifthen, ifelse) -> begin
-      if translate_condition config config.config_env cond then
+      if translate_condition config [config.config_env] cond then
         translate_toplevel_statements pj config ifthen
       else
         match ifelse with
@@ -375,7 +375,7 @@ and translate_statements pj config list =
 and translate_statement pj config stmt =
   match stmt with
   | StmtIfThenElse (cond, ifthen, ifelse) -> begin
-      if translate_condition config config.config_env cond then
+      if translate_condition config [config.config_env] cond then
         translate_statements pj config ifthen
       else
         match ifelse with
@@ -402,7 +402,9 @@ and translate_simple_statement pj config stmt =
       { config with config_tests = config.config_tests @ files }
 *)
   | StmtOption option ->
-    { config with config_env = translate_option config config.config_env option }
+    { config with config_env =
+                    translate_option config
+                      [] config.config_env option }
   (*    | StmtSyntax (syntax_name, camlpN, extensions) -> config *)
   | StmtIfThenElse _
   | StmtBlock _
@@ -410,42 +412,44 @@ and translate_simple_statement pj config stmt =
   | StmtDefineConfig _ -> assert false
 
 
-and translate_condition config env cond =
+and translate_condition config envs cond =
   match cond with
   | IsEqual (exp1, exp2) ->
-    let exp1 = translate_expression config env exp1 in
-    let exp2 = translate_expression config env exp2 in
+    let exp1 = translate_expression config envs exp1 in
+    let exp2 = translate_expression config envs exp2 in
     exp1 = exp2
 
   | IsNonFalse exp ->
     let exp = try
-      translate_expression config env exp
+      translate_expression config envs exp
     with _ -> []
     in
     exp <> []
 
-  | NotCondition cond -> not (translate_condition config env cond)
+  | NotCondition cond -> not (translate_condition config envs cond)
   | AndConditions (cond1, cond2) ->
-    (translate_condition config env cond1) && (translate_condition config env cond2)
+    (translate_condition config envs cond1)
+    && (translate_condition config envs cond2)
   | OrConditions (cond1, cond2) ->
-    (translate_condition config env cond1) || (translate_condition config env cond2)
+    (translate_condition config envs cond1)
+    || (translate_condition config envs cond2)
 
-and translate_options config env list =
+and translate_options config envs env list =
   match list with
     [] -> env
   | option :: list ->
-    let env = translate_option config env option in
-    translate_options config env list
+    let env = translate_option config envs env option in
+    translate_options config envs env list
 
-and translate_option config env op =
+and translate_option config envs env op =
   match op with
   | OptionConfigUse config_name ->
-    translate_options config env (find_config config config_name)
+    translate_options config envs env (find_config config config_name)
 
   | OptionVariableSet (name, exp) ->
 
     (* TODO: global options *)
-    let exp = translate_expression config env exp in
+    let exp = translate_expression config (env :: envs) exp in
     let vars = try
       List.assoc name meta_options
     with Not_found -> [ name ]
@@ -455,14 +459,14 @@ and translate_option config env op =
   | OptionVariableAppend (name, exp) ->
     (* TODO: global options *)
 
-    let exp2 = translate_expression config env exp in
+    let exp2 = translate_expression config (env :: envs) exp in
 
     let vars = try
       List.assoc name meta_options
     with Not_found -> [ name ]
     in
     List.fold_left (fun env name ->
-      let exp1 = try get env name
+      let exp1 = try get (env ::envs) name
       with Not_found ->
         failwith (Printf.sprintf "Variable %S is undefined (in +=)\n%!" name)
       in
@@ -471,35 +475,40 @@ and translate_option config env op =
 
   | OptionIfThenElse (cond, ifthen, ifelse) ->
     begin
-      if translate_condition config env cond then
-        translate_option config env ifthen
+      if translate_condition config (env :: envs) cond then
+        translate_option config envs env ifthen
       else
         match ifelse with
           None -> env
         | Some ifelse ->
-          translate_option config env ifelse
+          translate_option config envs env ifelse
     end
-  | OptionBlock list -> translate_options config env list
+  | OptionBlock list -> translate_options config envs env list
 
-and translate_expression config env exp =
+and translate_expression config envs exp =
   match exp with
     [] -> []
+
   | (ValueString s, args) :: tail ->
-    (s, translate_options config env args) :: (translate_expression config env tail)
+    (s, translate_options config envs empty_env args)
+    :: (translate_expression config envs tail)
+
   | (ValuePrimitive s, args) :: tail ->
     let f = try StringMap.find s !primitives with
         Not_found ->
         failwith (Printf.sprintf "Could not find primitive %S\n%!" s)
     in
-    (f (translate_options config env args)) @ (translate_expression config env tail)
+    (f envs (translate_options config envs empty_env args))
+    @ (translate_expression config envs tail)
+
   | (ValueVariable name, args) :: tail ->
-    let exp = try get env name
+    let exp = try get envs name
     with Not_found ->
       failwith (Printf.sprintf "Variable %S is undefined\n%!" name)
     in
     (List.map (fun (v, env) ->
-       v, translate_options config env args
-    ) exp) @ (translate_expression config env tail)
+       v, translate_options config envs env args
+    ) exp) @ (translate_expression config envs tail)
 
 let read_ocamlconf pj config filename =
   let ast = BuildOCPParse.read_ocamlconf filename in
@@ -528,7 +537,7 @@ let subst_basename filename =
 
 let filesubst = BuildSubst.create_substituter
     [
-      "file", (fun (file,env) -> file);
+      "file", (fun (file, (env : env list) ) -> file);
       "basename", (fun (file, env) -> subst_basename file);
       "dirname", (fun (file, env) -> Filename.dirname file);
       "extensions", (fun (file, env) ->
@@ -539,42 +548,43 @@ let filesubst = BuildSubst.create_substituter
     ]
 
 let _ =
-  add_primitive "subst_ext"
-    (fun env ->
-      let files = get_local env "files" in
-      let from_ext = strings_of_plist (get_local env "from_ext") in
-      let to_ext = get_strings_with_default env "to_ext" [] in
-      let to_file = match to_ext with
-          [ to_ext ] -> "%{dirname}%/%{basename}%" ^ to_ext
-        | _ ->
-          try
-            string_of_plist (get_local env "to_file")
-          with Not_found ->
-            failwith "%subst_ext: to_ext must specify only one extension"
-      in
-      let keep = get_bool_with_default env "keep_others" false in
-      let files = List.fold_left (fun files (file, env) ->
-          try
-            let pos = String.index file '.' in
-            let ext = String.sub file pos (String.length file - pos) in
-            if List.mem ext from_ext then
-                let file = BuildSubst.apply_substituter filesubst to_file (file,env)
-                in
-                Printf.eprintf "subst to %S\n%!" file;
-                (file, env) :: files
-            else raise Not_found
-          with Not_found ->
-            if keep then
-              (file,env) :: files
-            else files
-        ) [] files in
-      List.rev files
-
-    );
+  let subst_file envs ( env : env) =
+    let files = get_local envs "files" in
+    let from_ext = strings_of_plist (get_local envs "from_ext") in
+    let to_ext = get_strings_with_default envs "to_ext" [] in
+    let to_file = match to_ext with
+        [ to_ext ] -> "%{dirname}%/%{basename}%" ^ to_ext
+      | _ ->
+        try
+          string_of_plist (get_local envs "to_file")
+        with Not_found ->
+          failwith "%subst_ext: to_ext must specify only one extension"
+    in
+    let keep = get_bool_with_default envs "keep_others" false in
+    let files = List.fold_left (fun files (file, env) ->
+        try
+          let pos = String.index file '.' in
+          let ext = String.sub file pos (String.length file - pos) in
+          if List.mem ext from_ext then
+            let file = BuildSubst.apply_substituter filesubst
+                to_file (file,envs)
+            in
+            Printf.eprintf "subst to %S\n%!" file;
+            (file, env) :: files
+          else raise Not_found
+        with Not_found ->
+          if keep then
+            (file,env) :: files
+          else files
+      ) [] files in
+    List.rev files
+  in
+  add_primitive "subst_ext" subst_file;
+  add_primitive "subst_file" subst_file;
 
   add_primitive "path"
-    (fun env ->
-      let path = get_strings env "path" in
+    (fun envs env ->
+      let path = get_strings envs "path" in
       let s =
         match path with
           [] -> ""
@@ -587,9 +597,16 @@ let _ =
     );
 
   add_primitive "string"
-    (fun env ->
-      let path = get_strings env "strings" in
-      let sep = get_string_with_default env "sep" "" in
+    (fun envs env ->
+      let path = get_strings envs "strings" in
+      let sep = get_string_with_default envs "sep" "" in
       [ String.concat sep path, env ]
+    );
+  add_primitive "mem"
+    (fun envs env ->
+      let string = get_string envs "string" in
+      let strings = get_strings envs "strings" in
+      let bool = List.mem string strings in
+      plist_of_bool bool
     )
 

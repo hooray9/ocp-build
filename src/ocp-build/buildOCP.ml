@@ -37,8 +37,8 @@ let normalized_dir dir =
 let compare_packages pk1 pk2 =
   let o1 = pk1.package_options in
   let o2 = pk2.package_options in
-  let pk1_generated = get_bool_with_default o1 "generated" false in
-  let pk2_generated = get_bool_with_default o2 "generated" false in
+  let pk1_generated = get_bool_with_default [o1] "generated" false in
+  let pk2_generated = get_bool_with_default [o2] "generated" false in
   match pk1_generated, pk2_generated with
     false, false ->
       PackageConflict
@@ -162,14 +162,15 @@ let is_enabled options =
   get_bool_with_default options "enabled" true
 
 let check_project s pk =
-  if is_enabled pk.package_options then begin
+  if is_enabled [pk.package_options] then begin
 
     pk.package_missing_deps <- 0;
     StringMap.iter (fun name pkdep ->
       if not pkdep.dep_optional then
 
-      let key = (name, "") in (* TODO: we should use a datastructure that can handle
-                                 dependencies by tag and by version *)
+      let key = (name, "") in
+      (* TODO: we should use a datastructure that can handle
+         dependencies by tag and by version *)
       if not (Hashtbl.mem s.validated key) then
 	let list_ref =
 	  try
@@ -562,7 +563,7 @@ let verify_packages packages =
   let project_disabled = ref [] in
 
   Array.iter (fun pk ->
-    if is_enabled pk.package_options then begin
+    if is_enabled [pk.package_options] then begin
       if pk.package_missing_deps > 0 then
 	project_incomplete := pk :: !project_incomplete
     end else
@@ -595,7 +596,7 @@ let verify_packages packages =
 
     begin
     (* a list of packages that should appear before this package *)
-    let is_after = get_strings_with_default pk.package_options "is_after"  []
+    let is_after = get_strings_with_default [pk.package_options] "is_after"  []
     in
     List.iter (fun name ->
       try
@@ -612,7 +613,7 @@ let verify_packages packages =
 
 begin
     (* a list of packages that should appear after this package *)
-    let is_before = get_strings_with_default pk.package_options "is_before" []
+    let is_before = get_strings_with_default [pk.package_options] "is_before" []
     in
     List.iter (fun name ->
       try
@@ -637,8 +638,8 @@ end;
   List.iter (fun pk ->
     (* TODO: now that we know which package is available, we should
        set flags before processing file attributes. *)
-    pk.package_files <- (try get_local pk.package_options "files" with Not_found -> []);
-    pk.package_tests <- (try get_local pk.package_options "tests" with Not_found -> []);
+    pk.package_files <- (try get_local [pk.package_options] "files" with Not_found -> []);
+    pk.package_tests <- (try get_local [pk.package_options] "tests" with Not_found -> []);
   ) project_sorted;
 
   let npackages = Array.length packages in
@@ -662,7 +663,7 @@ also duplicated packages. *)
      someone wants, because you might want to have a different link
      order than the one globally inferred.  *)
   Array.iter (fun pk ->
-    if requires_keep_order_option.get pk.package_options  then
+    if requires_keep_order_option.get [pk.package_options]  then
       let (sorted, cycle, _ ) = PackageLinkSorter.sort pk.package_requires in
       assert (cycle = []);
       pk.package_requires <- sorted
