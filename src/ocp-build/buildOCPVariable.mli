@@ -20,7 +20,9 @@ val plist_of_string : string -> plist
 
 val set : env -> string -> plist -> env
 val get : env list -> string -> plist
-val get_local : env list -> string -> plist (* only local *)
+val get_with_default : env list -> string -> plist -> plist
+val get_local : env list -> string -> plist
+val get_local_with_default : env list -> string -> plist -> plist
 
 val set_bool : env -> string -> bool -> env
 val get_bool : env list -> string -> bool

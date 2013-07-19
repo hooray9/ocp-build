@@ -59,7 +59,6 @@ and package_info = {
   lib_source_kind : string;
 
   lib_node : LinearToposort.node;
-  mutable lib_missing_deps : int;
 
   mutable lib_requires : package_info package_dependency list;
   mutable lib_added : bool;

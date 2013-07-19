@@ -41,6 +41,8 @@ type package = {
 					be an option, since it should
 					apply to modules too. *)
   mutable package_type : package_type; (* what it generates *)
+
+(*
   mutable package_tag : string; (* TODO: if tags are specified, then the
 				   following rules apply when choosing
 				   among several projects providing
@@ -73,6 +75,7 @@ type package = {
 				   project+"+profile", using the
 				   interfaces from project. (how to do that ?)
 				*)
+*)
   mutable package_version : string;
   mutable package_auto : string option; (* unused: TODO *)
 
@@ -84,26 +87,14 @@ type package = {
   mutable package_id : int;
   mutable package_validated : bool;
   package_node : LinearToposort.node;
-  mutable package_missing_deps : int;
-
-  mutable package_has_byte_debug : bool;   (* unused: TODO *)
-  mutable package_has_asm_debug : bool;    (* unused: TODO *)
-  mutable package_has_asm_profile : bool;  (* unused: TODO *)
-
-
-  mutable package_raw_files : expression;
-  mutable package_raw_tests : expression;
-    (* the sources of the project, plus the flags to compile them. *)
-  mutable package_files : BuildOCPVariable.plist;
-  mutable package_tests : BuildOCPVariable.plist;
-
-
 
   (* list of projects, on which compilation depends *)
   mutable package_deps_map : string package_dependency StringMap.t;
 (*  mutable package_deps_sorted : string package_dependency list; *)
   (* bool = should the project be linked (true) or just a dependency (false) *)
+
   mutable package_requires : package package_dependency list;
+  mutable package_requires_map : package package_dependency IntMap.t;
   mutable package_added : bool;
 
   mutable package_options : BuildOCPVariable.env;
@@ -123,6 +114,7 @@ and project = {
   mutable project_incomplete : package array;
   mutable project_sorted : package array;
   mutable project_missing : (string * package list) list;
+  mutable project_conflicts :  (package * package *  package) list;
 }
 
 (*

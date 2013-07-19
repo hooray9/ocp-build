@@ -96,7 +96,8 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
     {
       lib_context = b;
       lib_source_kind = pk.package_source_kind;
-      lib_archive = get_string_with_default [pk.package_options] "archive" pk.package_name;
+      lib_archive = get_string_with_default
+          [pk.package_options] "archive" pk.package_name;
       lib_meta = get_bool_with_default [pk.package_options] "meta" false;
       lib_id = pk.package_id;
       lib_name = pk.package_name;
@@ -104,10 +105,9 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_dirname = File.of_string package_dirname;
       lib_provides = pk.package_provides ;
       lib_type = pk.package_type ;
-      lib_tag = pk.package_tag;
+      lib_tag = "";
       lib_filename = pk.package_filename;
       lib_node = pk.package_node;
-      lib_missing_deps = pk.package_missing_deps;
       lib_requires = List.map (fun dep ->
         let pd = try
 (*          Printf.eprintf "Adding dep %d to %S (link = %b)\n%!"
@@ -142,8 +142,8 @@ let new_library b pk package_dirname src_dir dst_dir mut_dir =
       lib_internal_modules = StringsMap.empty;
       lib_dep_deps = IntMap.empty;
       lib_includes = None;
-      lib_sources = pk.package_files;
-      lib_tests = pk.package_tests;
+      lib_sources = get_local_with_default [pk.package_options] "files" [];
+      lib_tests = get_local_with_default [pk.package_options] "tests" [];
 
       lib_build_targets = [];
 

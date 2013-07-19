@@ -46,7 +46,7 @@ let meta_options = [
 
 
 let initial_state () =
-{ packages = IntMap.empty; npackages = 0; }
+{ packages = IntMap.empty; npackages = 0 }
 
 let final_state state =
   if state.npackages = 0 then [||] else
@@ -60,7 +60,6 @@ let new_package pj name dirname filename kind =
   let pk = {
     package_source_kind = "ocp";
     package_id = package_id;
-    package_tag = "";
     package_auto = None;
     package_version = "";
     package_loc = (-1);
@@ -68,16 +67,12 @@ let new_package pj name dirname filename kind =
     package_node = LinearToposort.new_node ();
     package_added = false;
     package_requires = [];
+    package_requires_map = IntMap.empty;
     package_name = name;
-    package_missing_deps = 0;
     package_provides = name;
     package_type = kind;
 (*    package_native = true; *)
     package_validated = false;
-    package_raw_files = [];
-    package_raw_tests = [];
-    package_files = [];
-    package_tests = [];
     package_dirname = dirname;
     package_deps_map = StringMap.empty;
 (*    package_deps_sorted = []; *)
@@ -86,10 +81,10 @@ let new_package pj name dirname filename kind =
 (*    package_cclib = ""; *)
 (*    package_details = None; *)
 (*    package_has_byte = true; *)
-    package_has_byte_debug = false;
+(*    package_has_byte_debug = false; *)
 (*    package_has_asm = true; *)
-    package_has_asm_debug = false;
-    package_has_asm_profile = false;
+(*    package_has_asm_debug = false; *)
+(*    package_has_asm_profile = false; *)
   } in
   pj.packages <- IntMap.add pk.package_id pk pj.packages;
   pk

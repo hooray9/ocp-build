@@ -126,7 +126,7 @@ let do_load_project_files cin project_dir state =
 
 let do_print_project_info pj =
 
-  BuildOCP.print_conflicts !print_conflicts_arg;
+  BuildOCP.print_conflicts pj !print_conflicts_arg;
   let string_of_package pj =
     Printf.sprintf "   %s (%s,%s)\n     in %s\n"
       pj.package_name
@@ -216,7 +216,7 @@ let do_print_fancy_project_info pj =
   let cantbuild = [] in
   let missing =
     List.filter
-      (fun (_name,pkgs) ->
+      (fun (_name, pkgs) ->
         List.exists (fun pk -> pk.package_source_kind <> "meta") pkgs)
       pj.project_missing
   in
@@ -226,7 +226,8 @@ let do_print_fancy_project_info pj =
       (fun (name,pkgs) ->
         not
           (List.exists
-             (fun (_,pks) -> List.exists (fun pk -> name = pk.package_name) pks)
+             (fun (_,pks) ->
+               List.exists (fun pk -> name = pk.package_name) pks)
              missing))
       missing
   in
@@ -700,7 +701,10 @@ let arg_list = [
   "-print-loaded-ocp-files", Arg.Set
     BuildOCP.print_loaded_ocp_files,
   " Print loaded ocp files";
-  "-no-installed-ocp", Arg.Clear load_installed_ocp,
+ "-print-package-deps", Arg.Set
+    BuildOCP.print_package_deps,
+ " Print package dependencies";
+   "-no-installed-ocp", Arg.Clear load_installed_ocp,
   " Do not load installed .ocp files";
 
 ] @ arg_list1

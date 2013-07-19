@@ -80,6 +80,12 @@ let get_string env name = string_of_plist (get env name)
 let set_path env name v = set env name (plist_of_path v)
 let get_path env name = path_of_plist (get env name)
 
+let get_with_default env name default =
+  try get env name with Not_found -> default
+
+let get_local_with_default env name default =
+  try get_local env name with Not_found -> default
+
 let get_bool_with_default env name bool =
   try get_bool env name with Not_found -> bool
 

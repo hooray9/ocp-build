@@ -21,10 +21,117 @@ open BuildOCPVariable
 
 let verbose = DebugVerbosity.verbose ["B";"BP"] "BuildOCP"
 
-type state = {
-  validated : (string * string, package) Hashtbl.t;
-  missing : (string * string, package list ref) Hashtbl.t;
+type temp_package = {
+  tpk_pk : package;
+  mutable tpk_need_validation : int;
+  mutable tpk_tags : temp_tag list;
 }
+
+and temp_tag = {
+  tag_name : string;
+  tag_package_name : string;
+  tag_tpk : temp_package;
+  mutable tag_validated : bool;
+  mutable tag_missing_deps : int;
+}
+
+type temp_state = {
+  validated : (string * string, temp_tag) Hashtbl.t;
+  missing : (string * string, temp_tag list ref) Hashtbl.t;
+  conflicts :  (package * package *  package) list ref;
+}
+
+let init_packages () =
+  let packages = BuildOCPInterp.initial_state () in
+  packages
+
+let empty_config () = BuildOCPInterp.empty_config (* !BuildOCPVariable.options *)
+let generated_config () =
+  BuildOCPInterp.generated_config (* !BuildOCPVariable.options *)
+
+let print_loaded_ocp_files = ref false
+let print_dot_packages = ref (Some "_obuild/packages.dot")
+
+let load_ocp_files global_config packages files =
+
+  let nerrors = ref 0 in
+  let rec iter parents files =
+    match files with
+      [] -> ()
+    | file :: next_files ->
+      match parents with
+	[] -> assert false
+      | (parent, filename, config) :: next_parents ->
+        let file = File.to_string file in
+	if OcpString.starts_with file parent then
+	  let dirname = Filename.dirname file in
+	  if verbose 5 || !print_loaded_ocp_files then
+	    Printf.eprintf "Reading %s with context from %s\n%!" file filename;
+(*
+   begin try
+     let requires = BuildOCPInterp.config_get config "requires" in
+     Printf.eprintf "REQUIRES SET\n%!";
+   with Not_found ->
+     Printf.eprintf "REQUIRES NOT SET\n%!";
+   end;
+*)
+	  let config =
+	    try
+	      BuildOCPInterp.read_ocamlconf packages config file
+	    with BuildMisc.ParseError ->
+	      incr nerrors;
+	      config
+	  in
+	  iter ( (dirname, file, config) :: parents ) next_files
+	else
+	  iter next_parents files
+  in
+  iter [ "", "<root>", global_config ] files;
+  !nerrors
+
+let print_conflicts pj verbose_conflicts =
+  if pj.project_conflicts <> [] then
+  if verbose_conflicts then
+    List.iter (fun (pk, pk2, pk3) ->
+      Printf.eprintf "Warning: two projects called %S\n" pk.package_name;
+      let print_package msg pk =
+        let msg_len = String.length msg in
+        let dirname_len = String.length pk.package_dirname in
+        let filename_len = String.length pk.package_filename in
+        if msg_len + dirname_len + filename_len > 70 then
+          Printf.eprintf "  %s %s\n     (%s)\n" msg
+            pk.package_dirname pk.package_filename
+        else
+          Printf.eprintf "  %s %s (%s)\n" msg
+            pk.package_dirname pk.package_filename;
+      in
+      print_package "In" pk;
+      print_package "In" pk2;
+      print_package "Keeping" pk3;
+    ) pj.project_conflicts
+  else
+    Printf.eprintf
+      "Warning: %d package conflicts solved (use -print-conflicts)\n%!"
+      ( List.length pj.project_conflicts )
+
+let dump_dot_packages filename pj =
+  let graph = Ocamldot.create "Packages" [] in
+  let nodes = ref StringMap.empty in
+  Array.iter (fun pk ->
+    let node = Ocamldot.node graph pk.package_name [] in
+    nodes := StringMap.add pk.package_name node !nodes
+  ) pj.project_sorted;
+  Array.iter (fun pk0 ->
+    let node0 = StringMap.find pk0.package_name !nodes in
+    List.iter (fun dep ->
+      let pk1 = dep.dep_project in
+      let node1 = StringMap.find pk1.package_name !nodes in
+      let (_ : Ocamldot.edge) = Ocamldot.edge node0 node1 [] in
+      Printf.eprintf "%s -> %s\n%!" pk0.package_name pk1.package_name;
+      ()
+    ) pk0.package_requires
+  ) pj.project_sorted;
+  Ocamldot.save graph filename
 
 type package_comparison =
   PackageEquality
@@ -81,43 +188,33 @@ let compare_packages pk1 pk2 =
   | true, false -> PackageConflict
   | false, true -> PackageConflict
 
-let conflicts = ref []
-
-let print_conflicts verbose_conflicts =
-  if !conflicts <> [] then
-  if verbose_conflicts then
-    List.iter (fun (pk, pk2, pk3) ->
-      Printf.eprintf "Warning: two projects called %S\n" pk.package_name;
-      let print_package msg pk =
-        let msg_len = String.length msg in
-        let dirname_len = String.length pk.package_dirname in
-        let filename_len = String.length pk.package_filename in
-        if msg_len + dirname_len + filename_len > 70 then
-          Printf.eprintf "  %s %s\n     (%s)\n" msg
-            pk.package_dirname pk.package_filename
-        else
-          Printf.eprintf "  %s %s (%s)\n" msg
-            pk.package_dirname pk.package_filename;
-      in
-      print_package "In" pk;
-      print_package "In" pk2;
-      print_package "Keeping" pk3;
-    ) !conflicts
-  else
-    Printf.eprintf
-      "Warning: %d package conflicts solved (use -print-conflicts)\n%!"
-      ( List.length !conflicts )
-
-let rec validate_project s pk =
+let rec check_validate_tag s tag =
+  let tpk = tag.tag_tpk in
+  let pk = tpk.tpk_pk in
   if verbose 5 then
-    Printf.eprintf "validate_project: %s, tag=%s, id=%d\n" pk.package_name pk.package_tag pk.package_id;
-  if pk.package_missing_deps = 0 then begin
-    let key =  (pk.package_name, pk.package_tag) in
+    Printf.eprintf "validate_project: %s, tag=%s, id=%d\n"
+      tag.tag_package_name tag.tag_name pk.package_id;
+  if tag.tag_missing_deps = 0 then begin
+    validate_tag s tag;
+    if tag.tag_validated then
+    List.iter (fun provide ->
+      let tag = { tag with tag_package_name = provide } in
+      validate_tag s tag
+    )
+      ( get_strings_with_default [pk.package_options] "provides"  [] )
+  end
+
+and validate_tag s tag =
+  let tpk = tag.tag_tpk in
+  let pk = tpk.tpk_pk in
+
+    let key =  (tag.tag_package_name, tag.tag_name) in
 
     let should_add =
       try
-        let pk2 = Hashtbl.find s.validated key in
-
+        let tag2 = Hashtbl.find s.validated key in
+        let tpk2 = tag2.tag_tpk in
+        let pk2 = tpk2.tpk_pk in
         match compare_packages pk pk2 with
         | PackageEquality ->
           (* same package, no need to add *)
@@ -136,39 +233,45 @@ let rec validate_project s pk =
               false
             end
           in
-          conflicts := (pk, pk2,
+          s.conflicts := (pk, pk2,
             if add_new then pk else pk2
-          ) :: !conflicts;
+          ) :: !(s.conflicts);
           add_new
       with Not_found -> true
     in
 
     if should_add then begin
-      Hashtbl.add s.validated key pk;
-      pk.package_validated <- true;
-
+      Hashtbl.add s.validated key tag;
+      tag.tag_validated <- true;
+      tpk.tpk_need_validation <- tpk.tpk_need_validation - 1;
       try
         let list_ref = Hashtbl.find s.missing key in
         Hashtbl.remove s.missing key;
-        List.iter (fun pk2 ->
-	  pk2.package_missing_deps <- pk2.package_missing_deps - 1;
-	  validate_project s pk2
+        List.iter (fun tag2 ->
+	  tag2.tag_missing_deps <- tag2.tag_missing_deps - 1;
+	  check_validate_tag s tag2
         ) !list_ref;
       with Not_found -> ()
     end
-  end
 
 let is_enabled options =
   get_bool_with_default options "enabled" true
 
-let check_project s pk =
-  if is_enabled [pk.package_options] then begin
+let check_tag s tpk tag_name =
+  let pk = tpk.tpk_pk in
+  let tag = {
+    tag_name = tag_name;
+    tag_package_name = pk.package_name;
+    tag_tpk = tpk;
+    tag_missing_deps = 0;
+    tag_validated = false;
+  } in
+  tpk.tpk_tags <- tag :: tpk.tpk_tags;
+  tpk.tpk_need_validation <- tpk.tpk_need_validation + 1;
+  StringMap.iter (fun name pkdep ->
+    if not pkdep.dep_optional then
 
-    pk.package_missing_deps <- 0;
-    StringMap.iter (fun name pkdep ->
-      if not pkdep.dep_optional then
-
-      let key = (name, "") in
+      let key = (name, tag_name) in
       (* TODO: we should use a datastructure that can handle
          dependencies by tag and by version *)
       if not (Hashtbl.mem s.validated key) then
@@ -180,29 +283,39 @@ let check_project s pk =
 	    Hashtbl.add s.missing key list_ref;
 	    list_ref
 	in
-	list_ref := pk :: !list_ref;
-	pk.package_missing_deps <- pk.package_missing_deps + 1
-    ) pk.package_deps_map;
-    validate_project s pk
-  end
+	list_ref := tag :: !list_ref;
+	tag.tag_missing_deps <- tag.tag_missing_deps + 1
+  ) tpk.tpk_pk.package_deps_map;
+  check_validate_tag s tag
+
+let check_package s pk =
+  let tpk = {
+    tpk_need_validation = 0;
+    tpk_tags = [];
+    tpk_pk = pk;
+  } in
+  if is_enabled [pk.package_options] then begin
+(* TODO: think about "rules" packages. What does these tags mean for them ?
+   We might need to be smarter here, for example to set which tags should
+   be set and which tags should be searched. *)
+    match
+      get_bool_with_default [pk.package_options] "byte" true,
+      get_bool_with_default [pk.package_options] "native" true with
+      true, true
+    | false, false (* both disabled ? probably a mistake *)
+    ->
+      check_tag s tpk "byte";
+      check_tag s tpk "native";
+    | true, false ->
+      check_tag s tpk "byte";
+    | false, true ->
+      check_tag s tpk "native";
+  end else
+    (* this package should not be validated as it is disabled *)
+    tpk.tpk_need_validation <- -10;
+  tpk
 
 
-
-(*
-val find_project : (File.t -> File.t)
-*)
-let find_root root_dir basenames =
-  let rec find dirname (basenames : string list) =
-    let file = File.add_basenames dirname basenames in
-    if File.X.exists file then dirname else
-      let new_dirname = File.dirname dirname in
-      if new_dirname == dirname then raise Not_found;
-      find new_dirname basenames
-  in
-  let root_dir = if File.is_absolute root_dir then root_dir else
-      File.concat (File.X.getcwd ()) root_dir
-  in
-  find root_dir basenames
 
 module PackageDepSorter = LinearToposort.Make(struct
   type t = package
@@ -221,28 +334,6 @@ module PackageLinkSorter = LinearToposort.Make(struct
   let name pd = pd.dep_project.package_name
 end)
 
-
-(*
-let dep_link dep =
-  try
-    match StringMap.find "link" dep.dep_options with
-      OptionBool bool -> bool
-    | _ ->
-      Printf.fprintf stderr "Warning: option \"link\" is not bool !\n%!";
-      false
-  with Not_found -> false
-
-let dep_syntax dep =
-  try
-    match StringMap.find "syntax" dep.dep_options with
-      OptionBool bool -> bool
-    | _ ->
-      Printf.fprintf stderr "Warning: option \"syntax\" is not bool !\n%!";
-      false
-  with Not_found -> false
-*)
-
-
 let print_deps msg pk =
   Printf.eprintf "%s: Project %s depends on:\n%!" msg pk.package_name;
   List.iter (fun dep ->
@@ -256,13 +347,20 @@ let print_deps msg pk =
   ) pk.package_requires
 
 
-let new_dep pk =
-  {
-    dep_project = pk;
-    dep_link = false;
-    dep_syntax = false;
-    dep_optional = false;
-  }
+let new_dep pk pk2 =
+  try
+    IntMap.find pk2.package_id pk.package_requires_map
+  with Not_found ->
+    let dep =
+      {
+        dep_project = pk2;
+        dep_link = false;
+        dep_syntax = false;
+        dep_optional = false;
+      } in
+    pk.package_requires_map <- IntMap.add pk2.package_id dep pk.package_requires_map;
+    pk.package_requires <- dep :: pk.package_requires;
+    dep
 
 (*
 Do a closure of all dependencies for this project. Called only on
@@ -272,9 +370,12 @@ validated_projects. The closure is useful in two cases:
     when calling the preprocessor.
  - we don't need more than that.
  *)
+
+let print_package_deps = ref false
 let update_deps pj =
 
-  if verbose 5 then print_deps "BEFORE update_deps" pj;
+  if !print_package_deps || verbose 5 then
+    print_deps "BEFORE update_deps" pj;
 
   (*
     This computation depends on what we are dealing with:
@@ -300,36 +401,6 @@ let update_deps pj =
 
   *)
 
-  let deps = Hashtbl.create 111 in
-  let list = ref [] in
-
-  (* Keep only one copy of a package, with all the flags merged
-     pj.package_requires <-
-     List.filter (fun dep ->
-     let pd = dep.dep_project in
-     try
-     let dep2 = Hashtbl.find deps pd.package_id in
-     dep2.dep_link <- dep2.dep_link || dep.dep_link;
-     dep2.dep_syntax <- dep2.dep_syntax || dep.dep_syntax;
-     dep2.dep_optional <- dep2.dep_optional && dep.dep_optional;
-     false
-     with Not_found ->
-     Hashtbl.add deps dep.dep_project.package_id dep;
-     list := dep :: !list;
-     true
-     ) pj.package_requires;
-  *)
-
-  let new_dep pj2 =
-    try
-      Hashtbl.find deps pj2.package_id
-    with Not_found ->
-      let dep = new_dep pj2 in
-      Hashtbl.add deps pj2.package_id dep;
-      list := dep :: !list;
-      dep
-  in
-
   List.iter (fun dep ->
     match dep.dep_project.package_type with
     | SyntaxPackage ->
@@ -350,120 +421,55 @@ let update_deps pj =
   ) pj.package_requires;
 
   (* add all link dependencies, transitively *)
-  let rec add_link_deps pj =
+  let rec add_link_deps pj1 =
     List.iter (fun dep ->
       let pj2 = dep.dep_project in
-      let dep2 = new_dep pj2 in
+      let dep2 = new_dep pj pj2 in
       if verbose 5 then
         Printf.eprintf "%S -> %S\n" pj.package_name pj2.package_name;
-      if dep.dep_link && not dep2.dep_link then begin
+      if dep.dep_link &&
+         (not dep2.dep_link || pj1 == pj) then begin
         dep2.dep_link <- true;
         if verbose 5 then
           Printf.eprintf "%S -> link %S\n" pj.package_name pj2.package_name;
         add_link_deps pj2
       end
-    ) pj.package_requires
+    ) pj1.package_requires
   in
   add_link_deps pj;
 
   (* add syntax dependencies, and their link dependencies
      transformed into syntax dependencies *)
-  let rec add_link_as_syntax_deps pj =
+  let rec add_link_as_syntax_deps pj1 =
     List.iter (fun dep ->
       if dep.dep_link then
         let pj2 = dep.dep_project in
-        let dep2 = new_dep pj2 in
+        let dep2 = new_dep pj pj2 in
         if not dep2.dep_syntax then begin
           if verbose 5 then
             Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           dep2.dep_syntax <- true;
           add_link_as_syntax_deps pj2
         end
-    ) pj.package_requires
+    ) pj1.package_requires
   in
 
-  let add_syntax_deps pj =
+  let add_syntax_deps pj1 =
     List.iter (fun dep ->
       if dep.dep_syntax then
         let pj2 = dep.dep_project in
-        let dep2 = new_dep pj2 in
-        if not dep2.dep_syntax then begin
+        let dep2 = new_dep pj pj2 in
+        if not dep2.dep_syntax || pj1 == pj then begin
           dep2.dep_syntax <- true;
           if verbose 5 then
             Printf.eprintf "%S -> syntax %S\n" pj.package_name pj2.package_name;
           add_link_as_syntax_deps pj2;
         end
-    ) pj.package_requires
+    ) pj1.package_requires
   in
   add_syntax_deps pj;
-
-
-
-  (*
-    let rec add_link_deps to_set dep =
-    if dep.dep_link then
-    let pj2 = dep.dep_project in
-    let dep2 = try
-    Hashtbl.find deps pj2.package_id
-    with Not_found ->
-    let dep = {
-    dep_project = pj2;
-    dep_link = false;
-    dep_syntax = false;
-    dep_optional = false;
-    } in
-    Hashtbl.add deps pj2.package_id dep;
-    list := dep :: !list;
-    dep
-    in
-    to_set dep2;
-    match pj2.package_type with
-    | LibraryPackage
-    | ObjectsPackage ->
-    List.iter (add_link_deps to_set) pj2.package_requires;
-    | ProgramPackage -> ()
-    in
-
-    let rec add_dep dep =
-    let pj2 = dep.dep_project in
-    match pj2.package_type with
-    | LibraryPackage
-    | ObjectsPackage ->
-    if dep.dep_link then
-    List.iter
-    (add_link_deps (fun dep -> dep.dep_link <- true))
-    pj2.package_requires;
-    (* TODO: why dep.dep_syntax <- false HERE ? If we want to
-    generalize to "tags", we would probably need to tell how to
-    build the closure of these tags. For example, the "link" tag
-    means that we should keep in the closure all the next deps
-    with also the "link" tag, but unset their "syntax" tag. But,
-    for the "syntax" tag, we only want to keep in the closure the
-    deps with the "link" tag, after changing it to "syntax" !  *)
-
-    if dep.dep_syntax then
-    List.iter
-    (add_link_deps (fun dep -> dep.dep_syntax <- false))
-    pj2.package_requires;
-    | ProgramPackage -> ()
-    in
-    List.iter add_dep pj.package_requires;
-  *)
-  pj.package_requires <- !list;
-
-  (*  TODO: do better
-      List.iter (fun pd ->
-      List.iter add_dep pj.package_requires
-      ) pj.package_requires; *)
-
-  if verbose 5 then print_deps "AFTER update_deps SORT" pj;
-
-  (*
-    (* TODO: verify this is useless ? since sorted later again *)
-    pj.package_requires <- (*PackageLinkSorter.sort sort_sorted *) !list;
-
-    if verbose 5 then print_deps "AFTER update_deps SORT" pj;
-  *)
+  if !print_package_deps ||  verbose 5 then
+    print_deps "AFTER update_deps SORT" pj;
   ()
 
 
@@ -472,81 +478,7 @@ let reset_package_ids array =
     array.(i).package_id <- i
   done
 
-(*
-val load_packages : (project -> int)
-*)
-(* Note that files should be sorted from the most internal one to
-the deepest ones. *)
-
-let init_packages () =
-
-  let packages = BuildOCPInterp.initial_state () in
-  packages
-
-let empty_config () = BuildOCPInterp.empty_config (* !BuildOCPVariable.options *)
-let generated_config () =
-  BuildOCPInterp.generated_config (* !BuildOCPVariable.options *)
-
-let print_loaded_ocp_files = ref false
-let print_dot_packages = ref (Some "_obuild/packages.dot")
-
-let load_ocp_files global_config packages files =
-
-  let nerrors = ref 0 in
-  let rec iter parents files =
-    match files with
-      [] -> ()
-    | file :: next_files ->
-      match parents with
-	[] -> assert false
-      | (parent, filename, config) :: next_parents ->
-        let file = File.to_string file in
-	if OcpString.starts_with file parent then
-	  let dirname = Filename.dirname file in
-	  if verbose 5 || !print_loaded_ocp_files then
-	    Printf.eprintf "Reading %s with context from %s\n%!" file filename;
-(*
-   begin try
-     let requires = BuildOCPInterp.config_get config "requires" in
-     Printf.eprintf "REQUIRES SET\n%!";
-   with Not_found ->
-     Printf.eprintf "REQUIRES NOT SET\n%!";
-   end;
-*)
-	  let config =
-	    try
-	      BuildOCPInterp.read_ocamlconf packages config file
-	    with BuildMisc.ParseError ->
-	      incr nerrors;
-	      config
-	  in
-	  iter ( (dirname, file, config) :: parents ) next_files
-	else
-	  iter next_parents files
-  in
-  iter [ "", "<root>", global_config ] files;
-  !nerrors
-
 let requires_keep_order_option = new_bool_option "requires_keep_order" false
-
-let dump_dot_packages filename pj =
-  let graph = Ocamldot.create "Packages" [] in
-  let nodes = ref StringMap.empty in
-  Array.iter (fun pk ->
-    let node = Ocamldot.node graph pk.package_name [] in
-    nodes := StringMap.add pk.package_name node !nodes
-  ) pj.project_sorted;
-  Array.iter (fun pk0 ->
-    let node0 = StringMap.find pk0.package_name !nodes in
-    List.iter (fun dep ->
-      let pk1 = dep.dep_project in
-      let node1 = StringMap.find pk1.package_name !nodes in
-      let (_ : Ocamldot.edge) = Ocamldot.edge node0 node1 [] in
-      Printf.eprintf "%s -> %s\n%!" pk0.package_name pk1.package_name;
-      ()
-    ) pk0.package_requires
-  ) pj.project_sorted;
-  Ocamldot.save graph filename
 
 let verify_packages packages =
   let packages = BuildOCPInterp.final_state packages in
@@ -554,93 +486,115 @@ let verify_packages packages =
   let state = {
     missing = Hashtbl.create 111;
     validated = Hashtbl.create 111;
+    conflicts = ref [];
   }
   in
 
-  Array.iter (fun pk -> check_project state pk) packages;
+  let tpks = Array.map (check_package state) packages in
 
   let project_incomplete = ref [] in
   let project_disabled = ref [] in
+  let project_validated = ref [] in
 
-  Array.iter (fun pk ->
-    if is_enabled [pk.package_options] then begin
-      if pk.package_missing_deps > 0 then
+  Array.iter (fun tpk ->
+    let pk = tpk.tpk_pk in
+    if tpk.tpk_need_validation > 0 then
+(*    if is_enabled [pk.package_options] then begin
+      if pk.package_missing_deps > 0 then *)
 	project_incomplete := pk :: !project_incomplete
-    end else
+    else
+    if tpk.tpk_need_validation < 0 then
       project_disabled := pk :: !project_disabled
-  ) packages;
+    else begin
+      project_validated := pk :: !project_validated;
 
-  let list = ref [] in
-  Hashtbl.iter (fun _ pk ->
-    list := pk :: !list;
+      let is_after = get_strings_with_default [pk.package_options]
+          "is_after"  []
+      in
+      let is_before = get_strings_with_default [pk.package_options]
+          "is_before" []
+      in
 
-    pk.package_requires <- [];
-    StringMap.iter (fun dep_name dep ->
-      try
-        let pd = Hashtbl.find state.validated (dep_name, "") in
-        pk.package_requires <- { dep with
-          dep_project = pd } :: pk.package_requires
-      with Not_found -> () (* probably an optional dependency *)
-    ) pk.package_deps_map;
+      List.iter (fun tag ->
+        StringMap.iter (fun dep_name dep ->
+          try
+            let tag2 = Hashtbl.find state.validated (dep_name, tag.tag_name) in
+            let tpk2 = tag2.tag_tpk in
+            let pk2 = tpk2.tpk_pk in
+            let dep2 = new_dep pk pk2 in
+            dep2.dep_link <- dep.dep_link;
+            dep2.dep_syntax <- dep.dep_syntax;
+          with Not_found -> () (* probably an optional dependency *)
+        ) pk.package_deps_map;
 
-  ) state.validated;
+
+        begin
+    (* a list of packages that should appear before this package *)
+          List.iter (fun name ->
+            try
+              let tag2 = Hashtbl.find state.validated (name, tag.tag_name) in
+              ignore (new_dep pk tag2.tag_tpk.tpk_pk :
+                  package package_dependency
+              );
+            with Not_found -> ()
+          ) is_after;
+        end;
+
+        begin
+          (* a list of packages that should appear after this package *)
+          List.iter (fun name ->
+            try
+              let tag2 = Hashtbl.find state.validated (name, tag.tag_name) in
+              ignore (new_dep tag2.tag_tpk.tpk_pk pk :
+                  package package_dependency);
+            with Not_found -> ()
+          ) is_before;
+        end;
+
+
+      ) tpk.tpk_tags;
+
+
+
+    end
+  ) tpks;
 
   let project_missing = ref [] in
-  Hashtbl.iter (fun (name, _) list_ref ->
-    project_missing := (name, !list_ref) :: !project_missing)
+
+  begin
+    let map = ref StringMap.empty in
+    Hashtbl.iter (fun (name, tag_name) list_ref ->
+      let missing =
+        try
+          StringMap.find name !map
+        with Not_found ->
+          let set = ref IntMap.empty in
+          map := StringMap.add name set !map;
+          set
+      in
+      List.iter (fun tag ->
+        let pk = tag.tag_tpk.tpk_pk in
+        missing := IntMap.add pk.package_id pk !missing
+      ) !list_ref
+    )
     state.missing;
+    StringMap.iter (fun name map ->
+      let list = ref [] in
+      IntMap.iter (fun _ pk ->
+        list := pk :: !list
+      ) !map;
+      project_missing := (name, !list) :: !project_missing
+    ) !map;
+  end;
+
 (* Note that the result of this function can contain more elements
   as the initial list, as new dependencies are automatically added. *)
 
-  List.iter (fun pk ->
-
-    begin
-    (* a list of packages that should appear before this package *)
-    let is_after = get_strings_with_default [pk.package_options] "is_after"  []
-    in
-    List.iter (fun name ->
-      try
-        let pk2 = Hashtbl.find state.validated (name, "") in
-        let found = ref false in
-        List.iter (fun dep ->
-          if dep.dep_project == pk2 then found := true;
-        ) pk.package_requires;
-        if not !found then
-          pk.package_requires <- new_dep pk2 :: pk.package_requires;
-      with Not_found -> ()
-    ) is_after;
-    end;
-
-begin
-    (* a list of packages that should appear after this package *)
-    let is_before = get_strings_with_default [pk.package_options] "is_before" []
-    in
-    List.iter (fun name ->
-      try
-        let pk2 = Hashtbl.find state.validated (name, "") in
-        let found = ref false in
-        List.iter (fun dep ->
-          if dep.dep_project == pk then found := true;
-        ) pk2.package_requires;
-        if not !found then
-          pk2.package_requires <- new_dep pk :: pk2.package_requires;
-      with Not_found -> ()
-    ) is_before;
-end;
-  ) !list;
-
   let (project_sorted, cycle, other) =
-    PackageDepSorter.sort !list
+    PackageDepSorter.sort !project_validated
   in
   let _list = () in
   List.iter update_deps project_sorted;
-
-  List.iter (fun pk ->
-    (* TODO: now that we know which package is available, we should
-       set flags before processing file attributes. *)
-    pk.package_files <- (try get_local [pk.package_options] "files" with Not_found -> []);
-    pk.package_tests <- (try get_local [pk.package_options] "tests" with Not_found -> []);
-  ) project_sorted;
 
   let npackages = Array.length packages in
 
@@ -650,6 +604,7 @@ end;
     project_missing = !project_missing;
     project_disabled = Array.of_list !project_disabled;
     project_incomplete = Array.of_list !project_incomplete;
+    project_conflicts = ! (state.conflicts);
   } in
 (* TODO: fix this assertion. The equality stands only if we count
 also duplicated packages. *)
@@ -779,6 +734,7 @@ let scan_project pj =
 
 *)
 
+(*
 let find_package pj file =
   let list = ref [] in
 
@@ -813,6 +769,8 @@ let find_package pj file =
   ) pj.project_sorted;
 
   !list
+*)
+
 
 let rec find_obuild f dir =
   let possible_dir = Filename.concat dir "_obuild" in
@@ -821,3 +779,19 @@ let rec find_obuild f dir =
   else
     let new_dir = Filename.dirname dir in
     if dir <> new_dir then find_obuild f new_dir
+
+(*
+val find_project : (File.t -> File.t)
+*)
+let find_root root_dir basenames =
+  let rec find dirname (basenames : string list) =
+    let file = File.add_basenames dirname basenames in
+    if File.X.exists file then dirname else
+      let new_dirname = File.dirname dirname in
+      if new_dirname == dirname then raise Not_found;
+      find new_dirname basenames
+  in
+  let root_dir = if File.is_absolute root_dir then root_dir else
+      File.concat (File.X.getcwd ()) root_dir
+  in
+  find root_dir basenames
