@@ -46,6 +46,7 @@ type config_input = {
   mutable cin_ocamldep_variants : string list;
   mutable cin_ocamllex_variants : string list;
   mutable cin_ocamlyacc_variants : string list;
+  mutable cin_ocamlmklib_variants : string list;
   mutable cin_bytecode : bool;
   mutable cin_native : bool;
   mutable cin_ocamlbin : string option;
@@ -345,6 +346,12 @@ module OCamlOptions = struct
       [ "ocamlyacc_variants" ]
       ["executable names to use in preference order"]
       (list_option string_option) [ "ocamlyacc" ]
+
+  let ocamlmklib_option =
+    SimpleConfig.create_option ocaml_config
+      [ "ocamlmklib_variants" ]
+      ["executable names to use in preference order"]
+      (list_option string_option) [ "ocamlmklib" ]
 
   let meta_dirnames_option =
     SimpleConfig.create_option ocaml_config
@@ -765,6 +772,7 @@ let arg_list () = arg_list1 @
     arg_set_strings         OCamlOptions.ocamldep_option;
     arg_set_strings         OCamlOptions.ocamllex_option;
     arg_set_strings         OCamlOptions.ocamlyacc_option;
+    arg_set_strings         OCamlOptions.ocamlmklib_option;
     arg_set_string_option   OCamlOptions.ocamlbin_option;
     arg_set_string_option   OCamlOptions.ocamllib_option;
 
@@ -888,6 +896,7 @@ let load project_dir =
     cin_ocamlopt_variants = !!OCamlOptions.ocamlopt_option;
     cin_ocamldep_variants = !!OCamlOptions.ocamldep_option;
     cin_ocamlyacc_variants = !!OCamlOptions.ocamlyacc_option;
+    cin_ocamlmklib_variants = !!OCamlOptions.ocamlmklib_option;
     cin_ocamllex_variants = !!OCamlOptions.ocamllex_option;
     cin_ocamlbin = !!OCamlOptions.ocamlbin_option;
     cin_ocamllib = !!OCamlOptions.ocamllib_option;

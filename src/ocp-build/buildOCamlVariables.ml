@@ -34,10 +34,12 @@ let ocamlopt_deps = BuildOCPVariable.new_strings_option "ocamlopt_deps" []
 let ocamldep_deps = BuildOCPVariable.new_strings_option "ocamldep_deps" []
 let ocamllex_deps = BuildOCPVariable.new_strings_option "ocamllex_deps" []
 let ocamlyacc_deps = BuildOCPVariable.new_strings_option "ocamlyacc_deps" []
+let ocamlmklib_deps = BuildOCPVariable.new_strings_option "ocamlmklib_deps" []
 
 
 
 
+let mklib_option = new_strings_option "mklib" ([] : string list)
 let bytelink_option = new_strings_option "bytelink" ([] : string list)
 let bytecomp_option = new_strings_option "bytecomp" ([] : string list)
 let asmcomp_option = new_strings_option "asmcomp" ([] : string list)

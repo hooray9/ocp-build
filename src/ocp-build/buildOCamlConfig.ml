@@ -46,6 +46,7 @@ module TYPES = struct
     mutable cout_ocamlopt : string list option;
     mutable cout_ocamldep : string list option;
     mutable cout_ocamlyacc : string list option;
+    mutable cout_ocamlmklib : string list option;
     mutable cout_ocamllex : string list option;
     mutable cout_meta_dirnames : string list;
   }
@@ -128,12 +129,15 @@ let ocamllex_prefixes = [
 let ocamlyacc_prefixes = [
   "The Objective Caml parser generator";
   "The OCaml parser generator" ]
+let ocamlmklib_prefixes =
+  [ "ocamlmklib" ]
 
 let check_is_ocamlc = check_is_compiler ocamlc_prefixes  [ "-v" ]
 let check_is_ocamlopt = check_is_compiler ocamlopt_prefixes  [ "-v" ]
 let check_is_ocamllex = check_is_compiler ocamllex_prefixes  [ "-version" ]
 let check_is_ocamldep = check_is_compiler ocamldep_prefixes [ "-version" ]
 let check_is_ocamlyacc = check_is_compiler ocamlyacc_prefixes [ "-version" ]
+let check_is_ocamlmklib = check_is_compiler ocamlmklib_prefixes [ "-version" ]
 
 
 let check_config cin =
@@ -144,6 +148,7 @@ let check_config cin =
     cout_ocamlopt = None;
     cout_ocamllex = None;
     cout_ocamlyacc = None;
+    cout_ocamlmklib = None;
     cout_ocamldep = None;
     cout_ocaml = None;
     cout_meta_dirnames = [];
@@ -164,6 +169,8 @@ let check_config cin =
     cin.cin_ocamllex_variants <- [ "ocamllex.opt" ; "ocamllex"];
   if cin.cin_ocamlyacc_variants = [] then
     cin.cin_ocamlyacc_variants <- [ "ocamlyacc"];
+  if cin.cin_ocamlmklib_variants = [] then
+    cin.cin_ocamlmklib_variants <- [ "ocamlmklib"];
 
   let path =
     match cin.cin_ocamlbin with
@@ -272,6 +279,16 @@ let check_config cin =
       cout.cout_ocamlyacc <- Some [ocamlyacc];
   end;
 
+  let ocamlmklib = find_first_in_path path
+      check_is_ocamlmklib cin.cin_ocamlmklib_variants in
+  begin match ocamlmklib with
+      None ->
+      Printf.eprintf "Error: Could not find OCaml ocamlmklib tool.\n";
+      exit 2
+    | Some ocamlmklib ->
+      cout.cout_ocamlmklib <- Some [ocamlmklib];
+  end;
+
   let ocamlfind_path =
     if cin.cin_use_ocamlfind then
       MetaConfig.load_config ()
@@ -301,6 +318,7 @@ let ocamlcc_cmd = new_strings_option "ocamlcc" [ "ocamlc.opt" ]
 let ocamlopt_cmd = new_strings_option "ocamlopt" [ "ocamlopt.opt" ]
 let ocamllex_cmd = new_strings_option "ocamllex" [ "ocamllex.opt" ]
 let ocamlyacc_cmd = new_strings_option "ocamlyacc" [ "ocamlyacc" ]
+let ocamlmklib_cmd = new_strings_option "ocamlmklib" [ "ocamlmklib" ]
 
 
 let ocaml_config_version = new_strings_option "ocaml_version" []
@@ -327,6 +345,8 @@ let set_global_config cout =
     ocamllex_cmd.set cmd);
   (match cout.cout_ocamlyacc with None -> () | Some cmd ->
     ocamlyacc_cmd.set cmd);
+  (match cout.cout_ocamlmklib with None -> () | Some cmd ->
+    ocamlmklib_cmd.set cmd);
 
   let cfg = match cout.cout_ocaml with
       None -> assert false (* TODO : for now *)

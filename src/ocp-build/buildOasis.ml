@@ -452,12 +452,12 @@ let load_project pj filename =
       pk.package_source_kind <- "oasis";
       List.iter (fun s ->
         let ( dep :  'a package_dependency) =
-          BuildOCPInterp.new_package_dep pk s in
+          BuildOCPInterp.new_package_dep pk s empty_env in
         dep.dep_link <- true
       ) opk.opk_build_depends;
       List.iter (fun s ->
         let ( dep :  'a package_dependency) =
-          BuildOCPInterp.new_package_dep pk s in
+          BuildOCPInterp.new_package_dep pk s empty_env in
         dep.dep_link <- true
       ) opj.opj_build_depends;
 

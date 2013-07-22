@@ -436,6 +436,7 @@ module FileSorter = LinearToposort.Make(struct
   let node to_sort = to_sort.to_sort_node
   let iter_edges f to_sort = List.iter f to_sort.to_sort_deps
   let name to_sort = file_filename to_sort.to_sort_value
+  let debug = ref false
 end)
 
 let sort_ocaml_files cmo_files =
@@ -705,24 +706,27 @@ let add_cmxs2asm_rule b lib linkflags cclib cmx_files cmxo_files o_files opt_fil
 
 
 let add_os2a_rule b lib pj o_files a_file =
-    let options = [lib.lib_options] in
+    let envs = [lib.lib_options] in
   (*
     let src_dir = lib.lib_src_dir in
     let dst_dir = lib.lib_dst_dir in
   *)
   if not lib.lib_installed then
     let target = a_file.file_basename in
-    let ext_lib = BuildOCamlConfig.ocaml_config_ext_lib.get options  in
+    let ext_lib = BuildOCamlConfig.ocaml_config_ext_lib.get envs  in
     let target_without_ext = Filename.chop_suffix target ext_lib in
     let target_without_prefix = chop_prefix target_without_ext "lib" in
     let target = File.add_basename a_file.file_dir.dir_file target_without_prefix in
-    let cmd = new_command [ "ocamlmklib"  ]
+    let cmd = new_command (ocamlmklib_cmd.get envs)
       [S "-custom"; S "-o"; F target] in
+    List.iter (fun s ->
+      add_command_arg cmd (argument_of_string s))
+      (mklib_option.get [pj.lib_options] );
     List.iter (fun o_file ->
       add_command_arg cmd (BF o_file)) o_files;
     let r = new_rule b lib.lib_loc a_file
       [Execute cmd] in
-    add_more_rule_sources lib r [] options;
+    add_more_rule_sources lib r [ ocamlmklib_deps ] envs;
     add_rule_sources r o_files;
     ()
 
@@ -1551,12 +1555,29 @@ in
       add_mli_source b lib lib src_file options
     (* other ones: .ml4, mli4, .ml5, .mli5, .mly4, .mly5, .mll4, .mll5 *)
     | ext ->
-      if ml_file_option.get envs  then
+      if ml_file_option.get envs
+      || List.mem ext (get_strings_with_default envs "ml_exts" [])
+      || List.mem ext (get_strings_with_default envs "impl_exts" [])
+      then
 	add_ml_source b lib lib src_file options
       else
-        if mli_file_option.get envs  then
-          add_mli_source b lib lib src_file options
-        else begin
+      if mli_file_option.get envs
+      || List.mem ext (get_strings_with_default envs "mli_exts" [])
+      || List.mem ext (get_strings_with_default envs "intf_exts" [])
+      then
+        add_mli_source b lib lib src_file options
+      else
+      if
+        List.mem ext (get_strings_with_default envs "mll_exts" [])
+      then
+        add_mll_source b lib lib src_file options
+      else
+      if
+        List.mem ext (get_strings_with_default envs "mly_exts" [])
+      then
+        add_mly_source b lib lib src_file options
+      else
+        begin
 
 	  Printf.eprintf "Don't know what to do with [%s] (extension %S)\n%!"
             (String.escaped basename) ext;

@@ -27,6 +27,7 @@ type config_input = {
   mutable cin_ocamldep_variants : string list;
   mutable cin_ocamllex_variants : string list;
   mutable cin_ocamlyacc_variants : string list;
+  mutable cin_ocamlmklib_variants : string list;
   mutable cin_bytecode : bool;
   mutable cin_native : bool;
   mutable cin_ocamlbin : string option;

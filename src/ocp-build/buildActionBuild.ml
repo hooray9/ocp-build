@@ -135,7 +135,11 @@ let do_print_project_info pj =
       pj.package_dirname
   in
   let print_package pj =
-    Printf.eprintf "%s%!" (string_of_package pj)
+    Printf.eprintf "%s\tdeps:" (string_of_package pj);
+    List.iter (fun s ->
+      Printf.eprintf " %s" s;
+    ) (BuildOCPVariable.get_strings_with_default [pj.package_options] "requires" []);
+    Printf.eprintf "\n%!";
   in
   if verbose 5 || !list_projects_arg then begin
 
@@ -213,6 +217,8 @@ let do_print_project_info pj =
   end
 
 let do_print_fancy_project_info pj =
+  BuildOCP.print_conflicts pj !print_conflicts_arg;
+
   let cantbuild = [] in
   let missing =
     List.filter
@@ -704,6 +710,9 @@ let arg_list = [
  "-print-package-deps", Arg.Set
     BuildOCP.print_package_deps,
  " Print package dependencies";
+ "-print-conflicts", Arg.Set
+    print_conflicts_arg,
+ " Print conflicts between package definitions";
    "-no-installed-ocp", Arg.Clear load_installed_ocp,
   " Do not load installed .ocp files";
 

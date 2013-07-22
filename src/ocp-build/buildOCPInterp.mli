@@ -68,7 +68,9 @@ val new_package :
   string (* filename *) ->
   BuildOCPTree.package_type -> BuildOCPTypes.package
 
-val new_package_dep : BuildOCPTypes.package -> string ->
+val new_package_dep :
+  BuildOCPTypes.package -> string ->
+  BuildOCPVariable.env ->
   string BuildOCPTypes.package_dependency
 
 val read_ocamlconf :  state -> config -> string -> config

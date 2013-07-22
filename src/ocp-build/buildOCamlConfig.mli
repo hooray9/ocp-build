@@ -19,6 +19,7 @@ val ocamlc_cmd : string list source_option
 val ocamlcc_cmd : string list source_option
 val ocamllex_cmd : string list source_option
 val ocamlyacc_cmd : string list source_option
+val ocamlmklib_cmd : string list source_option
 val ocamldep_cmd : string list source_option
 val ocamlopt_cmd : string list source_option
 
@@ -66,6 +67,7 @@ module TYPES : sig
     mutable cout_ocamlopt : string list option;
     mutable cout_ocamldep : string list option;
     mutable cout_ocamlyacc : string list option;
+    mutable cout_ocamlmklib : string list option;
     mutable cout_ocamllex : string list option;
     mutable cout_meta_dirnames : string list;
   }

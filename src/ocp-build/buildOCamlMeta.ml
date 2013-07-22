@@ -147,11 +147,17 @@ let load_META_files pj cfg top_dirname =
                 meta_filename kind in
             pk.package_source_kind <- "meta";
 
+            pk.package_options <- set pk.package_options
+                "requires" (List.map (fun (s, link) ->
+                  s, (set_bool empty_env "tolink" link)
+                ) requires);
+(*
           List.iter (fun (s, link) ->
             let ( dep :  'a package_dependency) =
               BuildOCPInterp.new_package_dep pk s in
             dep.dep_link <- link
           ) requires;
+*)
 
           (* this package has already been generated *)
           pk.package_options <- set_bool pk.package_options "generated" true ;

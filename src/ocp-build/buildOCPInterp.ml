@@ -250,7 +250,7 @@ let generated_config set_defaults =
 *)
 
 
-let new_package_dep pk s =
+let new_package_dep pk s env =
     try
       StringMap.find s pk.package_deps_map
     with Not_found ->
@@ -259,14 +259,15 @@ let new_package_dep pk s =
         dep_link = false;
         dep_syntax = false;
         dep_optional = false;
+        dep_options = env;
       }
       in
       pk.package_deps_map <- StringMap.add s dep pk.package_deps_map;
       dep
 
 let add_project_dep pk s options =
-  let dep = new_package_dep pk s in
-  dep.dep_link <- get_bool_with_default [options] "link" true;
+  let dep = new_package_dep pk s options in
+  dep.dep_link <- get_bool_with_default [options] "tolink" true;
 
 (*
   begin

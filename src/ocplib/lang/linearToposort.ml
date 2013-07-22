@@ -41,8 +41,11 @@ module Make(M : sig
   val node : t -> node
   val iter_edges : (t -> unit) -> t -> unit
   val name : t -> string
+  val debug : bool ref
 
 end) = (struct
+
+  let debug = M.debug
 
   let sort list =
 
@@ -61,7 +64,7 @@ end) = (struct
         node.node_outgoing_edges <- IntMap.empty;
         node.node_outgoing_nbr <- 0;
         node.node_name <- M.name t;
-        if verbose 1 then
+        if !debug then
           Printf.eprintf "Adding %d:%s to graph\n%!"
             node.node_id node.node_name;
         incr initial_position;
@@ -82,7 +85,7 @@ end) = (struct
           add t t_node;
           if not (IntMap.mem node.node_id t_node.node_incoming_edges) then begin
             t_node.node_incoming_edges <- IntMap.add node.node_id node t_node.node_incoming_edges;
-            if verbose 1 then
+            if !debug then
               Printf.eprintf "Adding edge %d:%s -> %d:%s\n%!" node.node_id node.node_name
                 t_node.node_id t_node.node_name;
             node.node_outgoing_nbr <- node.node_outgoing_nbr + 1;
@@ -90,16 +93,16 @@ end) = (struct
               IntMap.add t_node.node_id t_node node.node_outgoing_edges
           end
     done;
-    if verbose 1 then
+    if !debug then
       Printf.eprintf "Nnodes : %d\n%!" !initial_position;
 
 
     let orphans = ref IntMap.empty in
     IntMap.iter (fun _ (_,node) ->
-      if verbose 1 then
+      if !debug then
         Printf.eprintf "Total %d (%d)\n%!" node.node_id node.node_outgoing_nbr;
       if node.node_outgoing_nbr = 0 then begin
-        if verbose 1 then
+        if !debug then
           Printf.eprintf "orphan : %d\n%!" node.node_id;
         orphans := IntMap.add node.node_position node !orphans;
       end
@@ -110,18 +113,18 @@ end) = (struct
       let (_, node) = IntMap.max_binding !orphans in
       orphans := IntMap.remove node.node_position !orphans;
       graph := IntMap.remove node.node_id !graph;
-      if verbose 1 then
-        Printf.eprintf "with orphan : %d (%s)\n%!" node.node_id node.node_name;
       node.node_position <- !final_position;
+      if !debug then
+        Printf.eprintf "with orphan : %d (%s) position := %d\n%!" node.node_id node.node_name node.node_position;
       incr final_position;
       IntMap.iter (fun _ node2 ->
         node2.node_outgoing_nbr <- node2.node_outgoing_nbr - 1;
         node2.node_outgoing_edges <- IntMap.remove node.node_id
             node2.node_outgoing_edges;
-        if verbose 1 then
+        if !debug then
           Printf.eprintf "\tremove edge %d to %d (%d)\n%!" node.node_id node2.node_id  node2.node_outgoing_nbr;
         if node2.node_outgoing_nbr = 0 then begin
-          if verbose 1 then
+          if !debug then
             Printf.eprintf "orphan : %d\n%!" node2.node_id;
           orphans := IntMap.add node2.node_position node2 !orphans
         end
@@ -137,7 +140,7 @@ end) = (struct
     else begin
       let removed = ref [] in
       let rec remove_node t node =
-        if verbose 1 then
+        if !debug then
           Printf.eprintf "Removing node %d\n%!" node.node_id;
         removed := t :: !removed;
         graph := IntMap.remove node.node_id !graph;
@@ -154,7 +157,7 @@ end) = (struct
         if node.node_incoming_edges = IntMap.empty then
           remove_node t node
       ) !graph;
-      if verbose 1 then
+      if !debug then
         IntMap.iter (fun _ (_,node) ->
           Printf.eprintf "Remaining node %d (out=%d/%d,in=%d,pos=%d)\n%!"
             node.node_id

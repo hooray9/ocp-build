@@ -106,6 +106,7 @@ and 'a package_dependency =
       mutable dep_link : bool;
       mutable dep_syntax : bool;
       mutable dep_optional : bool;
+      dep_options : BuildOCPVariable.env;
     }
 
 and project = {

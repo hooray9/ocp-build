@@ -24,6 +24,7 @@ module Make :
        val node : t -> node
        val iter_edges : (t -> unit) -> t -> unit
        val name : t -> string
+       val debug : bool ref
      end) ->
       sig
         val sort : M.t list ->
