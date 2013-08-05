@@ -18,12 +18,14 @@ open BuildOCPTree
 open BuildOCPTypes
 
 
+let continue_on_ocp_error = ref false
 
 type config = {
   config_env : BuildOCPVariable.env;
   config_configs : set_option list StringMap.t;
   config_dirname : string;
   config_filename : string;
+  config_filenames : (string * Digest.t option) list;
 }
 
 type state = {
@@ -36,17 +38,21 @@ let config_get config name =
   get [config.config_env] name
 
 let meta_options = [
-  "o",      [ "dep"; "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
-  "oc",      [ "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
-  "byte",   [        "bytecomp"; "bytelink"; ];
-  "asm",   [        "asmcomp"; "asmlink"; ];
-  "comp",   [        "bytecomp"; "asmcomp"; ];
-  "link",   [        "bytelink"; "asmlink"; ];
+  "o",     [ "dep"; "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
+  "oc",    [ "bytecomp"; "bytelink"; "asmcomp"; "asmlink" ];
+  "byte",  [  "bytecomp"; "bytelink"; ];
+  "asm",   [  "asmcomp"; "asmlink"; ];
+  "comp",  [  "bytecomp"; "asmcomp"; ];
+  "link",  [  "bytelink"; "asmlink"; ];
+  "debugflag", [ "debugflag"; "asmdebug"; "bytedebug"; ];
 ]
 
 
 let initial_state () =
 { packages = IntMap.empty; npackages = 0 }
+
+let copy_state s =
+  { s with packages = s.packages }
 
 let final_state state =
   if state.npackages = 0 then [||] else
@@ -54,7 +60,7 @@ let final_state state =
       IntMap.find i state.packages
     )
 
-let new_package pj name dirname filename kind =
+let new_package pj name dirname filename filenames kind =
   let package_id = pj.npackages in
   pj.npackages <- pj.npackages + 1;
   let pk = {
@@ -64,6 +70,7 @@ let new_package pj name dirname filename kind =
     package_version = "";
     package_loc = (-1);
     package_filename = filename;
+    package_filenames = filenames;
     package_node = LinearToposort.new_node ();
     package_added = false;
     package_requires = [];
@@ -71,45 +78,20 @@ let new_package pj name dirname filename kind =
     package_name = name;
     package_provides = name;
     package_type = kind;
-(*    package_native = true; *)
     package_validated = false;
     package_dirname = dirname;
     package_deps_map = StringMap.empty;
-(*    package_deps_sorted = []; *)
     package_options = empty_env;
-(*    package_cflags = ""; *)
-(*    package_cclib = ""; *)
-(*    package_details = None; *)
-(*    package_has_byte = true; *)
-(*    package_has_byte_debug = false; *)
-(*    package_has_asm = true; *)
-(*    package_has_asm_debug = false; *)
-(*    package_has_asm_profile = false; *)
   } in
   pj.packages <- IntMap.add pk.package_id pk pj.packages;
   pk
-
-(*
-let empty_config set_defaults =
-  let options = BuildOCPVariable.new_options in
-  let options =
-    List.fold_left (fun vars f -> f vars)
-      options set_defaults
-  in
-  {
-    config_parent = None;
-    config_variables = options;
-    config_configs = StringMap.empty;
-    config_dirname = "";
-    config_filename = "";
-  }
-*)
 
 let empty_config = {
   config_env = empty_env;
   config_configs = StringMap.empty;
   config_dirname = "";
   config_filename = "";
+  config_filenames = [];
 }
 
 let generated_config = {
@@ -130,126 +112,6 @@ let find_config config config_name =
   with Not_found ->
     failwith (Printf.sprintf "Error: configuration %S not found\n" config_name)
 
-(*
-let option_list_set options name list =
-      StringMap.add name (option_value_of_strings list) options
-
-
-let option_bool_set options name bool =
-  StringMap.add name (option_value_of_bool bool) options
-
-let rec option_list_remove prev list =
-  match list with
-      [] -> prev
-    | first_ele :: next_eles ->
-      let rec iter prev before =
-        match prev with
-            [] -> List.rev before
-          | x :: tail ->
-            if x = first_ele then
-              cut_after x tail tail next_eles before
-            else
-              iter tail (x :: before)
-
-      and cut_after head tail list1 list2 before =
-        match list1, list2 with
-            _, [] -> iter list1 before
-          | x1 :: tail1, x2 :: tail2 when x1 = x2 ->
-            cut_after head tail tail1 tail2 before
-          | _ -> iter tail (head :: before)
-      in
-      iter prev []
-
-let option_list_remove options name list =
-  try
-    match StringMap.find name options with
-	OptionList prev ->
-          let new_list = option_list_remove prev list in
-          StringMap.add name (OptionList new_list) options
-      | _ ->
-	failwith  (Printf.sprintf "OptionListRemove %s: incompatible values" name);
-  with Not_found -> options
-
-
-
-let option_list_append options name list =
-  let list =
-    try
-      match StringMap.find name options with
-	  OptionList prev -> prev @ list
-	| _ ->
-	  failwith  (Printf.sprintf "OptionListAppend %s: incompatible values" name);
-    with Not_found -> list
-  in
-  StringMap.add name (OptionList list) options
-
-let options_list_append options names list =
-  List.fold_left (fun options var ->
-    option_list_append options var list
-  ) options names
-
-let options_list_remove options names list =
-  List.fold_left (fun options var ->
-    option_list_remove options var list
-  ) options names
-
-let options_list_set options names list =
-  List.fold_left (fun options var ->
-    option_list_set options var list
-  ) options names
-
-let meta_options =
-  let list = ref StringMap.empty in
-  List.iter (fun (name, names) -> list := StringMap.add name names !list) meta_options;
-  !list
-
-let option_list_set options name list =
-  try
-    let names = StringMap.find name meta_options in
-    options_list_set options names list
-  with Not_found -> option_list_set options name list
-
-let option_list_append options name list =
-  try
-    let names = StringMap.find name meta_options in
-    options_list_append options names list
-  with Not_found -> option_list_append options name list
-
-
-let option_list_remove options name list =
-  try
-    let names = StringMap.find name meta_options in
-    options_list_remove options names list
-  with Not_found -> option_list_remove options name list
-
-
-let generated_config set_defaults =
-  let config = empty_config set_defaults in
-  { config with config_options = option_bool_set config.config_options
-    "generated" true }
-
-*)
-
-
-(*
-  module MakeParser(BuildGlobals : sig
-
-  type project_info
-
-  val new_project_id : unit -> int
-  val register_project : project_info  BuildOCPTypes.project -> unit
-  val new_project :
-(* project name *) string ->
-(* project dirname *) string ->
-(* configuration filename *) string ->
-  project_info BuildOCPTypes.project
-
-  val register_installed : string -> unit
-
-  end) = struct
-*)
-
-
 let new_package_dep pk s env =
     try
       StringMap.find s pk.package_deps_map
@@ -269,56 +131,95 @@ let add_project_dep pk s options =
   let dep = new_package_dep pk s options in
   dep.dep_link <- get_bool_with_default [options] "tolink" true;
 
-(*
-  begin
-    try
-      match StringMap.find "syntax" options with
-        OptionBool bool -> dep.dep_syntax <- bool
-      | _ ->
-        Printf.fprintf stderr "Warning: option \"syntax\" is not bool !\n%!";
-    with Not_found -> ()
-  end;
-*)
-
   begin
     try
       dep.dep_optional <- get_bool [options] "optional"
-    with Not_found -> ()
+    with Var_not_found _ -> ()
   end;
 (*  Printf.eprintf "add_project_dep for %S = %S with link=%b\n%!"
     pk.package_name s dep.dep_link; *)
 ()
+
+let check_package pk =
+  begin
+    let options = pk.package_options in
+
+    if get_bool_with_default [options] "enabled" true &&
+       not ( BuildMisc.exists_as_directory pk.package_dirname ) then begin
+      (* TODO: we should probably do much more than that, i.e. disable also a
+         package when some files are missing. *)
+      Printf.eprintf "Warning: directory %S for package does not exist:\n"
+        pk.package_dirname;
+      Printf.eprintf "  Package %S in %S disabled.\n%!"
+        pk.package_name pk.package_filename;
+      pk.package_options <- set_bool options "enabled" false;
+    end;
+  end;
+  ()
 
 let define_package pj name config kind =
   let dirname =
     try
       let list = get_strings [config.config_env] "dirname"  in
       BuildSubst.subst_global (String.concat Filename.dir_sep list)
-    with Not_found ->
+    with Var_not_found _ ->
       config.config_dirname
   in
-
+  let dirname = if dirname = "" then "." else dirname in
   let pk = new_package pj name
-    dirname config.config_filename kind
+      dirname config.config_filename config.config_filenames kind
   in
   let project_options = config.config_env in
-(*  pk.package_raw_files <-  config.config_files; *)
-(*  pk.package_raw_tests <- config.config_tests; *)
   pk.package_options <- project_options;
   pk.package_version <- get_string_with_default [project_options] "version"
-    "0.1-alpha";
+      "0.1-alpha";
+
+  check_package pk;
   List.iter (fun (s, options) ->
     add_project_dep pk s options
-  ) (try get [project_options] "requires" with Not_found ->
-    Printf.eprintf "No 'requires' for package %S\n%!" name;
+  ) (try get [project_options] "requires" with Var_not_found _ ->
+    (*    Printf.eprintf "No 'requires' for package %S\n%!" name; *)
     []
   )
+
+
+let config_filenames = Hashtbl.create 113
+
+let read_config_file filename =
+  try
+    let content = File.string_of_file filename in
+    let digest = Digest.string content in
+    begin
+      try
+        let digest2 = Hashtbl.find config_filenames filename in
+        if digest <> digest2 then begin
+          Printf.eprintf "File %S modified during built. Exiting.\n%!" filename;
+          exit 2
+        end
+      with Not_found ->
+        Hashtbl.add config_filenames filename digest
+    end;
+    Some (content, digest)
+  with e ->
+    Printf.eprintf "Error: file %S does not exist.\n%!" filename;
+    None
+
 
 let primitives = ref StringMap.empty
 let add_primitive s f =
   let f envs env =
     try
       f (env :: envs) env
+    with e ->
+      Printf.eprintf "Warning: exception raised while running primitive %S\n%!" s;
+      raise e
+  in
+  primitives := StringMap.add s f !primitives
+
+let add_function s f =
+  let f _ env =
+    try
+      f [ env ] env
     with e ->
       Printf.eprintf "Warning: exception raised while running primitive %S\n%!" s;
       raise e
@@ -359,6 +260,37 @@ and translate_toplevel_statement pj config stmt =
         | Some ifelse ->
           translate_toplevel_statements pj config ifelse
     end
+  | StmtInclude (filename, ifthen, ifelse) ->
+    if Filename.check_suffix filename ".ocp" then begin
+      Printf.eprintf "Warning, file %S, 'include %S', file argument should not\n"
+        config.config_filename filename;
+      Printf.eprintf "  have a .ocp extension, as it will be loaded independantly\n%!";
+    end;
+    let filename = if Filename.is_relative filename then
+        Filename.concat config.config_dirname filename
+      else filename
+    in
+    let (ast, digest) =
+      match read_config_file filename with
+      None -> None, None
+      | Some (content, digest) ->
+        Some (BuildOCPParse.read_ocamlconf filename content), Some digest
+    in
+    let old_filename = config.config_filename in
+    let config = { config with
+                   config_filenames = (filename, digest) :: config.config_filenames;
+                 }
+    in
+    begin
+      match ast, ifelse with
+      | Some ast, _ ->
+        let config = translate_toplevel_statements pj { config with config_filename = filename } ast in
+        translate_toplevel_statements pj { config with config_filename = old_filename } ifthen
+      | None, None -> config
+      | None, Some ifelse ->
+        translate_toplevel_statements pj config ifelse
+    end
+
   | _ -> translate_simple_statement pj config stmt
 
 and translate_statements pj config list =
@@ -383,20 +315,6 @@ and translate_statement pj config stmt =
 
 and translate_simple_statement pj config stmt =
   match stmt with
-(*
-    | StmtRequiresSet requirements ->
-      { config with config_requires = requirements }
-    | StmtRequiresAppend requirements ->
-      { config with config_requires = config.config_requires @ requirements }
-    | StmtFilesSet files ->
-      { config with config_files = files }
-    | StmtFilesAppend files ->
-      { config with config_files = config.config_files @ files }
-    | StmtTestsSet files ->
-      { config with config_tests = files }
-    | StmtTestsAppend files ->
-      { config with config_tests = config.config_tests @ files }
-*)
   | StmtOption option ->
     { config with config_env =
                     translate_option config
@@ -404,6 +322,7 @@ and translate_simple_statement pj config stmt =
   (*    | StmtSyntax (syntax_name, camlpN, extensions) -> config *)
   | StmtIfThenElse _
   | StmtBlock _
+  | StmtInclude _
   | StmtDefinePackage _
   | StmtDefineConfig _ -> assert false
 
@@ -463,7 +382,7 @@ and translate_option config envs env op =
     in
     List.fold_left (fun env name ->
       let exp1 = try get (env ::envs) name
-      with Not_found ->
+      with Var_not_found _ ->
         failwith (Printf.sprintf "Variable %S is undefined (in +=)\n%!" name)
       in
       set env name (exp1 @ exp2)
@@ -482,44 +401,62 @@ and translate_option config envs env op =
   | OptionBlock list -> translate_options config envs env list
 
 and translate_expression config envs exp =
+(*  Printf.eprintf "translate_expression\n%!"; *)
   match exp with
-    [] -> []
 
-  | (ValueString s, args) :: tail ->
-    (s, translate_options config envs empty_env args)
-    :: (translate_expression config envs tail)
+  | ExprString s -> [ s, empty_env ]
 
-  | (ValuePrimitive s, args) :: tail ->
+  | ExprPrimitive (s, args) ->
     let f = try StringMap.find s !primitives with
         Not_found ->
         failwith (Printf.sprintf "Could not find primitive %S\n%!" s)
     in
-    (f envs (translate_options config envs empty_env args))
-    @ (translate_expression config envs tail)
+    f envs (translate_options config envs empty_env args)
 
-  | (ValueVariable name, args) :: tail ->
+  | ExprVariable name ->
     let exp = try get envs name
-    with Not_found ->
+    with Var_not_found _ ->
       failwith (Printf.sprintf "Variable %S is undefined\n%!" name)
     in
-    (List.map (fun (v, env) ->
-       v, translate_options config envs env args
-    ) exp) @ (translate_expression config envs tail)
+    exp
+
+  | ExprList list ->
+    List.concat (List.map (translate_expression config envs) list)
+
+  | ExprApply (exp, args) ->
+    let exp = translate_expression config envs exp in
+    List.map (fun (s, env) ->
+      s, translate_options config envs env args
+    ) exp
 
 let read_ocamlconf pj config filename =
-  let ast = BuildOCPParse.read_ocamlconf filename in
-  let config = { config with
-      config_dirname = Filename.dirname filename;
-      config_filename = filename;
-    }
-
+  let ast, digest =
+    match read_config_file filename with
+      None -> None, None
+    | Some (content, digest) ->
+      (try
+        Some (BuildOCPParse.read_ocamlconf filename content)
+      with BuildOCPParse.ParseError ->
+        if not !continue_on_ocp_error then exit 2;
+        None), Some digest
   in
-  try
-    translate_toplevel_statements pj config ast
-  with e ->
-    Printf.eprintf "Error while interpreting file %S:\n%!" filename;
-    Printf.eprintf "\t%s\n%!" (Printexc.to_string e);
-    exit 2
+  let config = { config with
+                 config_dirname = Filename.dirname filename;
+                 config_filename = filename;
+                 config_filenames = (filename, digest) :: config.config_filenames;
+               }
+  in
+  match ast with
+  | None -> config
+  | Some ast ->
+    try
+      translate_toplevel_statements pj config
+        (StmtOption (OptionVariableSet("dirname", ExprString config.config_dirname)) ::  ast)
+    with e ->
+      Printf.eprintf "Error while interpreting file %S:\n%!" filename;
+      Printf.eprintf "\t%s\n%!" (Printexc.to_string e);
+      if not !continue_on_ocp_error then exit 2;
+      config
 
 
 open StringSubst
@@ -534,6 +471,7 @@ let subst_basename filename =
 let filesubst = BuildSubst.create_substituter
     [
       "file", (fun (file, (env : env list) ) -> file);
+      "basefile", (fun (file, env) -> Filename.basename file);
       "basename", (fun (file, env) -> subst_basename file);
       "dirname", (fun (file, env) -> Filename.dirname file);
       "extensions", (fun (file, env) ->
@@ -544,28 +482,21 @@ let filesubst = BuildSubst.create_substituter
     ]
 
 let _ =
-  let subst_file envs ( env : env) =
+  let subst_files envs to_file =
+
     let files = get_local envs "files" in
-    let from_ext = strings_of_plist (get_local envs "from_ext") in
-    let to_ext = get_strings_with_default envs "to_ext" [] in
-    let to_file = match to_ext with
-        [ to_ext ] -> "%{dirname}%/%{basename}%" ^ to_ext
-      | _ ->
-        try
-          string_of_plist (get_local envs "to_file")
-        with Not_found ->
-          failwith "%subst_ext: to_ext must specify only one extension"
-    in
+    let from_ext = get_strings_with_default envs "from_ext" [] in
     let keep = get_bool_with_default envs "keep_others" false in
     let files = List.fold_left (fun files (file, env) ->
         try
           let pos = String.index file '.' in
-          let ext = String.sub file pos (String.length file - pos) in
-          if List.mem ext from_ext then
+          if from_ext = [] || (
+               let ext = String.sub file pos (String.length file - pos) in
+               List.mem ext from_ext) then
             let file = BuildSubst.apply_substituter filesubst
                 to_file (file,envs)
             in
-            Printf.eprintf "subst to %S\n%!" file;
+            (* Printf.eprintf "subst to %S\n%!" file; *)
             (file, env) :: files
           else raise Not_found
         with Not_found ->
@@ -575,8 +506,25 @@ let _ =
       ) [] files in
     List.rev files
   in
+
+  let subst_file envs ( env : env) =
+    let to_ext = get_strings_with_default envs "to_ext" [] in
+    let to_file = match to_ext with
+        [ to_ext ] -> "%{dirname}%/%{basename}%" ^ to_ext
+      | _ ->
+        try
+          string_of_plist (get_local envs "to_file")
+        with Var_not_found _ ->
+          failwith "%subst_ext: to_ext must specify only one extension"
+    in
+    subst_files envs to_file
+  in
   add_primitive "subst_ext" subst_file;
   add_primitive "subst_file" subst_file;
+
+  add_primitive "basefiles" (fun envs env ->
+    subst_files envs "%{basefile}%"
+  );
 
   add_primitive "path"
     (fun envs env ->
@@ -598,11 +546,124 @@ let _ =
       let sep = get_string_with_default envs "sep" "" in
       [ String.concat sep path, env ]
     );
+
   add_primitive "mem"
     (fun envs env ->
       let string = get_string envs "string" in
       let strings = get_strings envs "strings" in
       let bool = List.mem string strings in
       plist_of_bool bool
-    )
+    );
+
+  let rec print_plist indent list =
+    match list with
+      [] -> Printf.printf "%s[]\n" indent
+    | list ->
+      Printf.printf "%s[\n" indent;
+      List.iter (fun (s, env) ->
+        Printf.printf "%s  %S\n" indent s;
+        if env <> empty_env then begin
+          Printf.printf "%s  (\n" indent;
+          print_env (indent ^ "  ") env;
+          Printf.printf "%s  )\n" indent;
+        end
+      ) list;
+      Printf.printf "%s]\n" indent;
+      ()
+
+  and print_env indent env =
+    iter (fun var v ->
+      Printf.printf "%s%s =\n" indent var;
+      print_plist (indent ^ "  ") v
+    ) env
+
+  in
+  add_function "disp"
+    (fun envs env ->
+      Printf.printf "disp:\n%!";
+      print_env "" env;
+      []
+    );
+
+  add_function "exit"
+    (fun envs env ->
+      let code = get_local_string_with_default envs "code" "0" in
+      exit (int_of_string code)
+    );
+
+  add_function "pack" (fun envs env ->
+    let to_module = get_local envs "to_module" in
+    let files = get_local envs "files" in
+
+    match to_module with
+      [] | _ :: _ :: _ -> assert false (* TODO *)
+    | [ packmodname, pack_env ] ->
+
+      let modnames = ref [] in
+
+      let files = List.map (fun (file, file_env) ->
+          file,
+          set_strings file_env "packed" (packmodname ::
+              (try
+                get_strings [ file_env ] "packed"
+              with Var_not_found _ ->
+                modnames := Filename.basename file :: !modnames;
+                []))
+        ) files in
+
+      let pack_env = set_strings pack_env "pack" (List.rev !modnames) in
+
+      files @
+      [ packmodname ^ ".ml", pack_env ]
+
+
+  );
+
+  add_function "dstdir" (fun envs env ->
+    let p = get_local_string envs "p" in
+    let s = Printf.sprintf "%%{%s_FULL_DST_DIR}%%" p in
+    let s = try
+      let file = get_local_string envs "file" in
+      Filename.concat s file
+    with Var_not_found _ -> s
+    in
+    [s, empty_env]
+  );
+
+  add_function "srcdir" (fun envs env ->
+    let p = get_local_string envs "p" in
+    let s = Printf.sprintf "%%{%s_FULL_SRC_DIR}%%" p in
+    let s =try
+      let file = get_local_string envs "file" in
+      Filename.concat s file
+    with Var_not_found _ -> s
+    in
+    [s, empty_env]
+  );
+
+  add_function "byte_exe" (fun envs env ->
+    let p = get_local_string envs "p" in
+    let s = Printf.sprintf "%%{%s_FULL_DST_DIR}%%/%s.byte" p p in
+    [s, empty_env]
+  );
+
+  add_function "split" (fun envs env ->
+    let s = get_string envs "s" in
+    let sep = get_string_with_default envs "sep" " " in
+    let sep = if sep = "" then ' ' else sep.[0] in
+    List.map (fun s -> (s, empty_env)) (OcpString.split s sep)
+  );
+
+  add_function "split_simplify" (fun envs env ->
+    let s = get_string envs "s" in
+    let sep = get_string_with_default envs "sep" " " in
+    let sep = if sep = "" then ' ' else sep.[0] in
+    List.map (fun s -> (s, empty_env)) (OcpString.split_simplify s sep)
+  );
+
+  let uniq_counter = ref 0 in
+  add_function "uniq" (fun _ _ ->
+    incr uniq_counter; [ Printf.sprintf ".id_%d" !uniq_counter, empty_env]);
+  ()
+
 

@@ -32,62 +32,64 @@ open BuildOCPTree
       "not"; "&&"; "||"; "%"
     ]
 
-let rec read_ocamlconf filename =
-  let ic = open_in filename in
-  let lexbuf = Lexing.from_channel ic in
+exception ParseError
+
+let read_ocamlconf filename content =
+  let lexbuf = Lexing.from_string content in
   let token_of_token token_opt =
     match token_opt with
-	None -> EOF
-      | Some token ->
-	match token with
-	  | String s -> STRING s
-	  | Float f -> FLOAT f
-	  | Int i -> INT i
-	  | Char c -> CHAR c
-	  | Kwd ";" -> SEMI
-	  | Kwd "%" -> PERCENT
-	  | Kwd "[" -> LBRACKET
-	  | Kwd "]" -> RBRACKET
-	  | Kwd "(" -> LPAREN
-	  | Kwd ")" -> RPAREN
-          | Kwd "{" -> LBRACE
-          | Kwd "}" -> RBRACE
-          | Kwd "!" -> BANG
-	  | Kwd "begin" -> BEGIN
-	  | Kwd "end" -> END
-	  | Kwd "objects" -> OBJECTS
-	  | Kwd "library" -> LIBRARY
-	  | Kwd "test" -> TEST
-(*	  | Kwd "tests" -> TESTS *)
-	  | Kwd "syntax" -> SYNTAX
-	  | Kwd "config" -> CONFIG
-	  | Kwd "use" -> USE
-	  | Kwd "program" -> PROGRAM
-	  | Kwd "type" -> TYPE
-	  | Kwd "include" -> INCLUDE
-	  | Kwd "rules" -> RULES
-	  | Kwd "=" -> EQUAL
-	  | Kwd "+=" -> PLUSEQUAL
-	  | Kwd "-=" -> MINUSEQUAL
-	  | Kwd "true" -> TRUE
-	  | Kwd "false" -> FALSE
-	  | Kwd "pack" -> PACK
-	  | Kwd "if" -> IF
-	  | Kwd "then" -> THEN
-	  | Kwd "else" -> ELSE
-          | Kwd "not" -> NOT
-          | Kwd "&&" -> COND_AND
-          | Kwd "||" -> COND_OR
-          | Kwd "syntaxes" -> SYNTAXES
-(*          | Kwd "camlp4" -> CAMLP4 *)
-(*          | Kwd "camlp5" -> CAMLP5 *)
-	  | Ident s -> IDENT s
-	  | Kwd s ->
+      None -> EOF
+    | Some token ->
+      match token with
+      | String s -> STRING s
+      | Float f -> FLOAT f
+      | Int i -> INT i
+      | Char c -> CHAR c
+      | Kwd ";" -> SEMI
+      | Kwd "%" -> PERCENT
+      | Kwd "[" -> LBRACKET
+      | Kwd "]" -> RBRACKET
+      | Kwd "(" -> LPAREN
+      | Kwd ")" -> RPAREN
+      | Kwd "{" -> LBRACE
+      | Kwd "}" -> RBRACE
+      | Kwd "!" -> BANG
+      | Kwd "begin" -> BEGIN
+      | Kwd "end" -> END
+      | Kwd "objects" -> OBJECTS
+      | Kwd "library" -> LIBRARY
+      | Kwd "test" -> TEST
+      (*	  | Kwd "tests" -> TESTS *)
+      | Kwd "syntax" -> SYNTAX
+      | Kwd "config" -> CONFIG
+      | Kwd "use" -> USE
+      | Kwd "program" -> PROGRAM
+      | Kwd "type" -> TYPE
+      | Kwd "include" -> INCLUDE
+      | Kwd "rules" -> RULES
+      | Kwd "=" -> EQUAL
+      | Kwd "+=" -> PLUSEQUAL
+      | Kwd "-=" -> MINUSEQUAL
+      | Kwd "true" -> TRUE
+      | Kwd "false" -> FALSE
+      | Kwd "pack" -> PACK
+      | Kwd "if" -> IF
+      | Kwd "then" -> THEN
+      | Kwd "else" -> ELSE
+      | Kwd "not" -> NOT
+      | Kwd "&&" -> COND_AND
+      | Kwd "||" -> COND_OR
+      | Kwd "syntaxes" -> SYNTAXES
+      (*          | Kwd "camlp4" -> CAMLP4 *)
+      (*          | Kwd "camlp5" -> CAMLP5 *)
+      | Ident s -> IDENT s
+      | Kwd s ->
 
-     Printf.eprintf "Internal error: %S should not be a keyword\n%!" s;
-     IDENT s
+        Printf.eprintf "Internal error: %S should not be a keyword\n%!" s;
+        IDENT s
   in
-  let dir = Filename.dirname filename in
+
+(*
   let trap_include lexbuf =
     try
     match token_of_token (lexer lexbuf) with
@@ -114,15 +116,27 @@ let rec read_ocamlconf filename =
         filename n m;
       Ocamllexer.report_error Format.err_formatter error;
       Format.fprintf Format.err_formatter "@.";
-      exit 2
+      raise Exit
   in
+*)
+
+  let lexer lexbuf =
+    try
+      token_of_token (lexer lexbuf)
+    with Ocamllexer.Error (error, n, m) ->
+      Printf.eprintf "File %S, line 1, characters %d-%d:\n"
+        filename n m;
+      Ocamllexer.report_error Format.err_formatter error;
+      Format.fprintf Format.err_formatter "@.";
+      raise ParseError
+  in
+
   let ast =
     try
-      BuildOCPParser.main trap_include lexbuf
+      BuildOCPParser.main lexer lexbuf
     with Parsing.Parse_error ->
       BuildMisc.print_loc filename (Lexing.lexeme_start lexbuf);
       Printf.eprintf "Parse error\n%!";
-      exit 2
+      raise ParseError
   in
-  close_in ic;
-  StmtOption (OptionVariableSet("dirname", [ValueString dir, []])) ::  ast
+  ast

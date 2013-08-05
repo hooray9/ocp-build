@@ -21,9 +21,8 @@ open BuildOCamlVariables
 
 let verbose = DebugVerbosity.verbose [ "B" ] "BuildOCamldep"
 
-let b = Buffer.create 1000
-
-let parse_dependencies s =
+let parse_dependencies b =
+  let s = Buffer.contents b in
   let len = String.length s in
   let dependencies = ref [] in
 
@@ -77,7 +76,8 @@ let parse_dependencies s =
 	| ' ' ->
 	  skip_spaces target ((Buffer.contents b) :: deps) (pos+1)
 	| '\n' ->
-	  dependencies := (target, (Buffer.contents b) :: deps) :: !dependencies;
+	  dependencies := (target,
+     (Buffer.contents b) :: deps) :: !dependencies;
 	  parse_name (pos+1) (pos+1)
 	| c ->
 	  Buffer.add_char b c;
@@ -122,19 +122,20 @@ let expanse_dependencies list =
 
 (* load_dependencies: the old way, i.e. path to files in the load_path *)
 
+let parse_dep_buf = Buffer.create 10000
 let load_make_dependencies filename =
-  Buffer.clear b;
+  Buffer.clear parse_dep_buf;
   let ic = open_in filename in
   begin
     try
       while true do
 	let line = input_line ic in
-	Printf.bprintf b "%s\n%!" line
+	Printf.bprintf parse_dep_buf "%s\n%!" line
       done
     with End_of_file -> ()
   end;
   close_in ic;
-  parse_dependencies (Buffer.contents b)
+  parse_dependencies parse_dep_buf
 
 
 let print_make_dependencies deps =
@@ -255,10 +256,13 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
   (*  let modname = String.capitalize basename in *)
 
   let deps = lib.lib_requires in
-  let deps = List.map (fun dep ->
+  let deps = List.concat (List.map (fun dep ->
       let lib = dep.dep_project in
-      (lib.lib_dst_dir, lib.lib_modules)
-    ) (List.rev deps) in
+      if dep.dep_link ||
+         (get_bool_with_default [dep.dep_options] "externals_only" false) then
+      [(lib.lib_dst_dir, lib.lib_modules)]
+      else []
+    ) (List.rev deps)) in
   let rec add_internal_deps pack_for deps =
     match pack_for with
     | [] ->

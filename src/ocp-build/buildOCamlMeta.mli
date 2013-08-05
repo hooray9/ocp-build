@@ -12,5 +12,4 @@
 (******************************************************************************)
 
 val load_META_files : BuildOCPInterp.state ->
-  BuildOCamlConfig.TYPES.ocaml_config ->
-  string -> unit
+  string -> string -> unit

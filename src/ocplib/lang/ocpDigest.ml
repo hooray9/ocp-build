@@ -42,6 +42,7 @@ let input chan =
   really_input chan digest 0 16;
   digest
 
+(*
 let to_hex d =
   let result = String.create 32 in
   for i = 0 to 15 do
@@ -49,6 +50,7 @@ let to_hex d =
   done;
   result
 ;;
+*)
 
 (***********************************************************************)
 (*                                                                     *)

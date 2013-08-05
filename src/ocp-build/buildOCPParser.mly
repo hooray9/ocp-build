@@ -75,7 +75,6 @@ toplevel_statements EOF { $1 }
 
 toplevel_statements:
   { [] }
-| INCLUDED toplevel_statements { $1 @ $2 }
 | toplevel_statement toplevel_statements { $1 :: $2 }
 | SEMI toplevel_statements { $2 }
 ;
@@ -93,6 +92,7 @@ toplevel_statement:
 | BEGIN CONFIG STRING list_of_set_options END { StmtDefineConfig ($3, $4) }
 | BEGIN package_type STRING statements END { StmtDefinePackage ($2, $3, $4) }
 | BEGIN toplevel_statements END { StmtBlock $2 }
+| IF INCLUDE STRING THEN one_toplevel_statement maybe_else_one_toplevel_statement { StmtInclude($3,$5,$6) }
 | IF condition THEN one_toplevel_statement maybe_else_one_toplevel_statement { StmtIfThenElse($2,$4,$5) }
 | simple_statement { $1 }
 
@@ -158,72 +158,50 @@ condition0:
 | expression { IsNonFalse $1 }
 ;
 
-expression:
-| simple_expression { [ $1 ] }
-| LBRACKET list_of_simple_expressions RBRACKET { $2 }
+list_of_expressions:
+| { [] }
+| SEMI list_of_expressions { $2 }
+| expression list_of_expressions { $1 :: $2 }
 ;
 
-list_of_simple_expressions:
-| { [] }
-| SEMI list_of_simple_expressions { $2 }
-| simple_expression list_of_simple_expressions { $1 :: $2 }
-| BEGIN set_option_list list_of_simple_expressions END set_option_list list_of_simple_expressions
-   { let begin_options = $2 in
-     let inner_files = $3 in
-     let end_options = $5 in
-     let outter_files = $6 in
-     let inner_files =
-       List.map (fun (file, file_options) ->
-	 (file, begin_options @ file_options @ end_options)
-       ) inner_files in
-     inner_files @ outter_files
-   }
-| packer set_option_list expression set_option_list list_of_simple_expressions {
+expression:
+| PERCENT ident set_option_list { ExprPrimitive ($2, $3) }
+| IDENT { ExprVariable $1 }
+| STRING { ExprString   $1 }
+| INT      { ExprString (string_of_int  $1) }
+| FALSE     { ExprList [] }
+| TRUE     { ExprList [ ExprApply (ExprString "", [ OptionVariableSet ("type", ExprString "%bool") ])] }
+| LBRACE list_of_expressions RBRACE {
+    ExprList [ ExprApply (ExprString "", [
+                   OptionVariableSet ("type", ExprString "%list");
+                   OptionVariableSet ("value", ExprList $2);
+                 ])] }
+| LBRACKET list_of_expressions RBRACKET { ExprList $2 }
+| expression set_option_list { ExprApply ($1, $2) }
+
+/* OBSOLETE SYNTAXES */
+| packer maybe_set_option_list LBRACKET list_of_expressions RBRACKET {
   let packname = $1 in
-  let pack_options1 = $2 in
-  let files = $3 in
-  let pack_options2 = $4 in
-  let other_files = $5 in
-  let pack_options = pack_options1 @ pack_options2 in
-
-  let packmodname = BuildOCPTree.modname_of_fullname packname in
-
-  let modnames = ref [] in
-  let packed_files =
-    List.map (fun (file, file_options) ->
-      match file with
-      | ValueVariable _ -> assert false (* TODO *)
-      | ValuePrimitive _ -> assert false (* TODO *)
-      | ValueString file ->
-      if not (List.exists (function
-            OptionVariableAppend ( "packed", _ )  -> true
-          | _ -> false
-          ) file_options) then
-        modnames := Filename.basename file :: !modnames;
-      (ValueString file, OptionVariableAppend ("packed", [ ValueString packmodname, [] ]) ::
-         pack_options @ file_options)
-  ) files;
-  in
-  packed_files @
-    [ ValueString packname,
-      OptionVariableSet ("pack",
-        List.map (fun s -> ValueString s,[]) (List.rev !modnames)) :: pack_options] @
-    other_files
+  let pack_options = $2 in
+  let packname = modname_of_fullname packname in
+    ExprPrimitive ("pack",
+      [
+       OptionVariableSet ("to_module", ExprApply(ExprString packname, pack_options));
+       OptionVariableSet ("files", ExprList $4)
+      ])
+}
+| BEGIN set_option_list list_of_expressions END {
+  ExprApply (ExprList $3, $2)
 }
 ;
 
-simple_expression:
-| PERCENT IDENT set_option_list { ValuePrimitive $2, $3 }
-| IDENT set_option_list { ValueVariable $1, $2 }
-| STRING  set_option_list { ValueString   $1, $2 }
-| INT     set_option_list { ValueString (string_of_int  $1), $2 }
-| LBRACE list_of_simple_expressions RBRACE set_option_list
-  { ValueString "", (OptionVariableSet ("value", $2)) :: $4 }
+set_option_list:
+| LPAREN list_of_set_options RPAREN { $2 }
 ;
 
-set_option_list:
+maybe_set_option_list:
 |   { [] }
-| LPAREN list_of_set_options RPAREN { $2 }
+| set_option_list { $1 }
 ;
 
 list_of_set_options:
@@ -236,8 +214,6 @@ set_option:
 | USE STRING { OptionConfigUse $2 }
 | ident EQUAL expression { OptionVariableSet ($1,$3) }
 | ident PLUSEQUAL expression { OptionVariableAppend ($1,$3) }
-| ident EQUAL TRUE { OptionVariableSet ($1, [ ValueString "true", [] ]) }
-| ident EQUAL FALSE { OptionVariableSet ($1, []) }
 | IF condition THEN one_set_option maybe_else_one_set_option { OptionIfThenElse($2, $4, $5) }
 ;
 
@@ -246,6 +222,7 @@ ident:
 | IDENT  { $1 }
 | SYNTAX { "syntax" }
 | RULES  { "rules" }
+| PACK   { "pack" }
 ;
 
 maybe_else_one_set_option:

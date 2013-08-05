@@ -11,11 +11,12 @@
 (*                                                                            *)
 (******************************************************************************)
 
+(*
 val add_dependency_loader :
   string -> (string -> ( string * string list list) list) -> unit
 val find_dependency_loader :
   string -> (string -> ( string * string list list) list)
-
+*)
 
 val new_dir_id : BuildEngineTypes.build_context -> int
 val new_file_id : BuildEngineTypes.build_context -> int

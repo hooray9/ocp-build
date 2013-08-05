@@ -31,9 +31,9 @@ let action () =
   let targets = List.rev !targets_arg in
 
   let p = BuildActions.load_project () in
-  let (b, projects) = BuildActionBuild.do_prepare_build p in
-
-  let uninstall_state = BuildOCamlInstall.uninstall_init p.install_where in
+  let (_env_state, b, projects) = BuildActionBuild.do_prepare_build p targets in
+  let install_where = install_where p in
+  let uninstall_state = BuildOCamlInstall.uninstall_init install_where in
 
   if targets <> [] then begin
 

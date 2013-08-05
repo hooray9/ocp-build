@@ -38,9 +38,8 @@ val scan_root : File.t -> File.t list
 
 
 (* [find_package pj file] returns the list of packages in
-   project [pj] containing [file] as a source.
+   project [pj] containing [file] as a source. *)
 val find_package : project -> File.t -> package list
-*)
 
 
 val save_project_state : project -> File.t -> unit

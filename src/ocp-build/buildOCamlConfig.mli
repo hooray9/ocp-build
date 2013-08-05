@@ -22,6 +22,8 @@ val ocamlyacc_cmd : string list source_option
 val ocamlmklib_cmd : string list source_option
 val ocamldep_cmd : string list source_option
 val ocamlopt_cmd : string list source_option
+val native_support : bool source_option
+val byte_support : bool source_option
 
 (*
 val mklib_cmd : BuildTypes.mklib_kind ref
@@ -57,7 +59,7 @@ module TYPES : sig
     ocaml_ext_lib : string;
     ocaml_ext_dll : string;
     ocaml_os_type : string;
-    ocaml_bin : string;
+    ocaml_ocamlbin : string;
   }
 
   type config_output = {
@@ -70,6 +72,10 @@ module TYPES : sig
     mutable cout_ocamlmklib : string list option;
     mutable cout_ocamllex : string list option;
     mutable cout_meta_dirnames : string list;
+    mutable cout_native_support : bool option;
+    mutable cout_byte_support : bool option;
+    mutable cout_ocamllib : string option;
+    mutable cout_ocamlbin : string option;
   }
 
 end

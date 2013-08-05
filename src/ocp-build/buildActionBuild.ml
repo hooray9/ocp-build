@@ -64,7 +64,6 @@ let finally_do = ref []
 let add_finally action =
   finally_do := action :: !finally_do
 
-
 let do_load_project_files cin project_dir state =
   let open ProjectOptions in
 
@@ -302,17 +301,14 @@ let do_print_fancy_project_info pj =
 cannot be built ! *)
     ()
 
-let do_init_project_building cfg project_dir pj =
+let print_build_context = ref false
+let do_init_project_building project_dir pj =
   let build_dir_basename = !build_dir_basename_arg in
 
   let build_dir_filename = (* absolute_filename *) build_dir_basename in
 
-  let host = Printf.sprintf "%s-%s-%s"
-      cfg.ocaml_system cfg.ocaml_architecture cfg.ocaml_version in
-
   let build_dir_filename =
     match !arch_arg with
-      ArchAuto -> Filename.concat build_dir_filename host
     | Arch host -> Filename.concat build_dir_filename host
     | ArchNone -> build_dir_filename
   in
@@ -328,10 +324,13 @@ let do_init_project_building cfg project_dir pj =
   let b =
     BuildEngineContext.create (File.to_string project_dir)
       build_dir_filename in
-
+  let bc = new_builder_context b in
   b.stop_on_error_arg <- !stop_on_error_arg;
 
-  BuildOCamlRules.create b pj !tests_arg;
+  BuildOCamlRules.create bc pj !tests_arg;
+
+  if !print_build_context then
+    BuildEngineDisplay.eprint_context b;
 
   if !list_byte_targets_arg then begin
     Printf.eprintf "Bytecode targets:\n";
@@ -340,7 +339,7 @@ let do_init_project_building cfg project_dir pj =
         List.iter (fun (target, kind) ->
           Printf.eprintf "\t%s\t->\t%s\n" lib.lib_name target.file_basename)
           lib.lib_byte_targets;
-      end) !packages_by_name;
+      end) bc.packages_by_name;
     Printf.eprintf "%!"
   end;
 
@@ -351,16 +350,125 @@ let do_init_project_building cfg project_dir pj =
         List.iter (fun (target, kind) ->
           Printf.eprintf "\t%s\t->\t%s\n" lib.lib_name target.file_basename)
           lib.lib_asm_targets;
-      end) !packages_by_name;
+      end) bc.packages_by_name;
     Printf.eprintf "%!"
   end;
-  b
+  bc
 
 
 
+let chdir_to_project p =
+  let dir = File.to_string p.project_dir in
+  if Unix.getcwd () <> dir then begin
+    BuildMisc.chdir dir;
+    Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
+      (File.to_string p.project_dir);
+(* TODO: move at_exit to add_finally *)
+    let final_handler_executed = ref false in
+    let final_handler () =
+      if not !final_handler_executed then begin
+        final_handler_executed := true;
+        Printf.printf
+          "ocp-build: Leaving directory `%s'\n%!"
+          (File.to_string p.project_dir)
+      end
+    in
+    add_finally final_handler;
+    at_exit final_handler
+  end;
+  ()
 
 
-let do_compile b cin ncores projects =
+let load_initial_project p state targets =
+
+  do_load_project_files p.cin p.project_dir state;
+
+  (*    end; *)
+
+  (* [ocp-build configure] stops here, so it will not scan
+     for .ocp files at this point. Instead, it will be done the
+     first time the project is compiled, because [root_files] is
+     empty. *)
+
+  if !configure_arg then save_project := true;
+
+  if !save_project then begin
+    Printf.fprintf stderr "Updating ocp-build.root\n%!";
+    BuildOptions.must_save_project ()
+  end;
+
+
+  if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
+
+  let use_digests = p.cin.cin_digest in
+
+  if use_digests then BuildEngineMtime.use_digests true;
+
+  time_step "Sorting packages...";
+  let pj = BuildOCP.verify_packages state in
+
+  time_step "   Done sorting packages";
+
+(*
+    do_reply_to_queries pj;
+*)
+
+  if !query_global then begin
+    Printf.eprintf "Error: reached query-global end point.\n%!";
+    exit 0
+  end;
+
+  BuildOptions.maybe_save ();
+
+  if !configure_arg then exit 0;
+
+  if !clean_arg then begin
+    Printf.eprintf "Removing build target directory\n%!";
+
+    BuildActions.delete_file_or_directory !build_dir_basename_arg;
+    exit 0;
+  end;
+
+  if verbose 1 && term.esc_ansi then
+    do_print_fancy_project_info pj
+  else
+    do_print_project_info pj;
+
+(*
+    match project_dir with
+      None -> assert false
+    | Some project_dir ->
+    (*        let root_dir = File.dirname root_file in *)
+*)
+
+  let bc = do_init_project_building p.project_dir pj in
+
+  let projects =
+    (* build the list of projects considered by the current command *)
+    let projects = ref [] in
+    match targets with
+      [] ->
+      StringMap.iter (fun _ pj ->
+        projects := pj :: !projects) bc.packages_by_name;
+      !projects
+    | list ->
+      List.iter (fun name ->
+        try
+          let pj = StringMap.find name bc.packages_by_name in
+          projects := pj :: !projects
+        with Not_found ->
+          Printf.eprintf
+            "Error: Could not find target project %s\n%!" name;
+          exit 2
+      ) list;
+      !projects
+  in
+  (bc, projects)
+
+let rec do_compile current_stage p ncores  state targets b projects =
+
+  let cin = p.cin in
+
   (* build the list of targets *)
   let targets = ref [] in
   let map = ref StringMap.empty in
@@ -433,12 +541,11 @@ let do_compile b cin ncores projects =
     time_step "   Done sanitizing";
 
     time_step "Building packages...";
-    let _max_nslots = BuildEngine.parallel_loop b ncores
-    in
+    let _max_nslots = BuildEngine.parallel_loop b ncores in
     time_step "   Done building packages";
 
-    let errors = BuildEngine.fatal_errors() @
-        BuildEngineDisplay.errors() in
+    let errors = BuildEngine.fatal_errors b @
+        BuildEngineDisplay.errors b in
     let t1 = Unix.gettimeofday () in
 
     let nerrors = List.length errors in
@@ -455,9 +562,9 @@ let do_compile b cin ncores projects =
            (if nerrors > 1 then "s" else "")
            term.esc_end)
       (t1 -. t0)
-      !BuildEngine.stats_command_executed
-      (!BuildEngine.stats_total_time /. (t1 -. t0))
-      !BuildEngine.stats_files_generated;
+      b.stats_command_executed
+      (b.stats_total_time /. (t1 -. t0))
+      b.stats_files_generated;
     if errors <> [] (* && not (verbose 1 && term.esc_ansi) *) then begin
       Printf.eprintf "Error log:\n";
       List.iter (fun lines ->
@@ -469,7 +576,8 @@ let do_compile b cin ncores projects =
     end;
     if errors <> [] then exit 2
   end;
-  Printf.eprintf "%!"
+  Printf.eprintf "%!";
+  (b, projects)
 
 
 
@@ -477,7 +585,6 @@ let do_read_env p =
 
   let cin = p.cin in
   let cout = p.cout in
-  let cfg = p.cfg in
 
   BuildOCamlConfig.set_global_config cout;
 
@@ -486,24 +593,29 @@ let do_read_env p =
 
   let env_ocp_dirs = ref cin.cin_ocps_dirnames in
   let env_ocp_files = ref [] in
-  if cin.cin_ocps_in_ocamllib then
-    env_ocp_dirs := cfg.ocaml_ocamllib :: !env_ocp_dirs;
-
-  time_step "Scanning env for .ocp files...";
-  if !load_installed_ocp then
-  List.iter (fun dir ->
-    if verbose 3 then
-      Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
-    let dir = File.of_string dir in
-    env_ocp_files := ( BuildOCP.scan_root dir) @ !env_ocp_files
-  ) !env_ocp_dirs;
-  time_step "   Done scanning env for .ocp files";
-
   let state = BuildOCP.init_packages () in
-  time_step "Loading METAs...";
-  List.iter (fun dirname ->
-    BuildOCamlMeta.load_META_files state cfg dirname
-  ) cout.cout_meta_dirnames;
+  begin
+    match cout.cout_ocamllib with
+    None -> ()
+    | Some ocamllib ->
+      if cin.cin_ocps_in_ocamllib then begin
+        env_ocp_dirs := ocamllib :: !env_ocp_dirs;
+      end;
+
+      time_step "Scanning env for .ocp files...";
+      if !load_installed_ocp then
+        List.iter (fun dir ->
+          if verbose 3 then
+            Printf.eprintf "Scanning installed .ocp files in %S\n%!" dir;
+          let dir = File.of_string dir in
+    env_ocp_files := ( BuildOCP.scan_root dir) @ !env_ocp_files
+        ) !env_ocp_dirs;
+      time_step "   Done scanning env for .ocp files";
+      time_step "Loading METAs...";
+      List.iter (fun dirname ->
+        BuildOCamlMeta.load_META_files state ocamllib dirname
+      ) cout.cout_meta_dirnames;
+  end;
 
   time_step "   Done Loading METAs";
 
@@ -518,28 +630,23 @@ let do_read_env p =
 
   state
 
-let do_prepare_build p =
+let do_prepare_build p targets =
 
   let state = do_read_env p in
 
-  let targets = List.rev !targets_arg in
   time_step "Arguments parsed.";
 
   if !query_global then move_to_project := false;
 
-  let project_dir = p.project_dir in
-  let cin = p.cin in
-  let cfg = p.cfg in
-  let install_where = p.install_where in
 
   if !list_installed_arg then begin
-    print_installed install_where;
+    print_installed (install_where p);
     exit 0
   end;
 
-  let uninstall_state = BuildOCamlInstall.uninstall_init install_where in
 
   if !uninstall_arg && targets <> [] then begin
+  let uninstall_state = BuildOCamlInstall.uninstall_init (install_where p) in
 
     List.iter (BuildOCamlInstall.uninstall_by_name uninstall_state) targets;
     BuildOCamlInstall.uninstall_finish uninstall_state;
@@ -548,129 +655,24 @@ let do_prepare_build p =
 
   begin match !query_install_dir with
       None -> ()
-    | Some p ->
+    | Some package ->
       let open BuildOCamlInstall in
       List.iter (fun un ->
-        if un.un_name = p then begin
+        if un.un_name = package then begin
           Printf.printf "%s\n%!" un.un_directory;
           exit 0
         end
-      ) (BuildOCamlInstall.list_installed install_where);
-      Printf.eprintf "Package %S is not installed\n%!" p;
+      ) (BuildOCamlInstall.list_installed (install_where p));
+      Printf.eprintf "Package %S is not installed\n%!" package;
       exit 2
   end;
 
-(*
-  if !move_to_project then begin
+  chdir_to_project p;
 
-      match project_dir with
-      | None ->
+  let env_state = state in
+  let (b, projects) = load_initial_project p (BuildOCPInterp.copy_state env_state) targets in
 
-        (* if we arrive here, it means we really needed ocp-build.root *)
-        Printf.eprintf "Fatal error: no ocp-build.root file found.\n%!";
-        Printf.eprintf
-          "\tYou can use the -init option at the root of the project\n";
-        Printf.eprintf "\tto create the initial file.\n%!";
-        exit 2
-
-      | Some project_dir ->
-*)
-        let dir = File.to_string project_dir in
-        if Unix.getcwd () <> dir then begin
-          BuildMisc.chdir dir;
-          Printf.fprintf stdout "ocp-build: Entering directory `%s'\n%!"
-            (File.to_string project_dir);
-          add_finally (fun () ->
-            Printf.printf
-              "ocp-build: Leaving directory `%s'\n%!"
-              (File.to_string project_dir)
-          )
-        end;
-        do_load_project_files cin project_dir state;
-
-(*    end; *)
-
-    (* [ocp-build configure] stops here, so it will not scan
-       for .ocp files at this point. Instead, it will be done the
-       first time the project is compiled, because [root_files] is
-       empty. *)
-
-    if !configure_arg then save_project := true;
-
-    if !save_project then begin
-      Printf.fprintf stderr "Updating ocp-build.root\n%!";
-      BuildOptions.must_save_project ()
-    end;
-
-
-    if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
-
-    let use_digests = cin.cin_digest in
-
-    if use_digests then BuildEngineMtime.use_digests true;
-
-    time_step "Sorting packages...";
-    let pj = BuildOCP.verify_packages state in
-
-    time_step "   Done sorting packages";
-
-(*
-    do_reply_to_queries pj;
-*)
-
-    if !query_global then begin
-      Printf.eprintf "Error: reached query-global end point.\n%!";
-      exit 0
-    end;
-
-    BuildOptions.maybe_save ();
-
-    if !configure_arg then exit 0;
-
-    if !clean_arg then begin
-      Printf.eprintf "Removing build target directory\n%!";
-
-      BuildActions.delete_file_or_directory !build_dir_basename_arg;
-      exit 0;
-    end;
-
-    if verbose 1 && term.esc_ansi then
-      do_print_fancy_project_info pj
-    else
-      do_print_project_info pj;
-
-(*
-    match project_dir with
-      None -> assert false
-    | Some project_dir ->
-    (*        let root_dir = File.dirname root_file in *)
-*)
-
-      let b = do_init_project_building cfg project_dir pj in
-
-
-      let projects =
-        (* build the list of projects considered by the current command *)
-        let projects = ref [] in
-        match targets with
-          [] ->
-          StringMap.iter (fun _ pj ->
-              projects := pj :: !projects) !packages_by_name;
-          !projects
-        | list ->
-          List.iter (fun name ->
-              try
-                let pj = StringMap.find name !packages_by_name in
-                projects := pj :: !projects
-              with Not_found ->
-                Printf.eprintf
-                  "Error: Could not find target project %s\n%!" name;
-                exit 2
-            ) list;
-          !projects
-      in
-
-      (b, projects)
+  (env_state, b, projects)
 
 let get_ncores cin =
   let ncores = cin.cin_njobs in
@@ -681,9 +683,14 @@ let get_ncores cin =
 
 
 let do_build p =
-  let (b, projects) = do_prepare_build p in
-  do_compile b p.cin (get_ncores p.cin) projects;
-  (b, projects)
+  let targets = List.rev !targets_arg in
+  time_step "Arguments parsed.";
+  let (env_state, bc, projects) = do_prepare_build p targets in
+  let (b, projects) =
+    do_compile 0 p (get_ncores p.cin) env_state targets
+    bc.build_context projects;
+  in
+  (bc, projects)
 
 
 let action () =
@@ -715,6 +722,10 @@ let arg_list = [
  " Print conflicts between package definitions";
    "-no-installed-ocp", Arg.Clear load_installed_ocp,
   " Do not load installed .ocp files";
+  "-print-build-context", Arg.Set print_build_context,
+  " Print full build context";
+
+  "-continue-on-ocp-error", Arg.Set BuildOCPInterp.continue_on_ocp_error, " Continue after finding a syntax error in an ocp file";
 
 ] @ arg_list1
 

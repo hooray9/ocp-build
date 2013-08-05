@@ -111,6 +111,7 @@ with the nolink option.
 
  *)
 let add_pp_require lib s =
+  let bc = lib.lib_builder_context in
   let pk_name, kind = OcpString.cut_at s ':' in
   let _exe_ext =
     match kind with
@@ -126,11 +127,11 @@ let add_pp_require lib s =
       exit 2
   in
   let pk = try
-             StringMap.find pk_name !packages_by_name
-    with Not_found ->
-      Printf.fprintf stderr "Error: package %s\n%!" lib.lib_name;
-      Printf.fprintf stderr "Error: unknown package '%s'\n%!" pk_name;
-      exit 2
+    StringMap.find pk_name bc.packages_by_name
+  with Not_found ->
+    Printf.fprintf stderr "Error: package %s\n%!" lib.lib_name;
+    Printf.fprintf stderr "Error: unknown package '%s'\n%!" pk_name;
+    exit 2
   in
   let declared = ref false in
   List.iter (fun dep ->
@@ -184,17 +185,18 @@ let get_pp lib basename options =
     }
 
   | syntaxes ->
+    let bc = lib.lib_builder_context in
 
     let syntaxes = List.map (fun s ->
         let pksy =
-      try
-        StringMap.find s !packages_by_name
-      with Not_found ->
-        Printf.eprintf "Error with package %S, file %S:\n"
-          lib.lib_name basename;
-        Printf.eprintf
-            "   Syntax %S could not be found among existing packages\n%!" s;
-        exit 2
+          try
+            StringMap.find s bc.packages_by_name
+          with Not_found ->
+            Printf.eprintf "Error with package %S, file %S:\n"
+              lib.lib_name basename;
+            Printf.eprintf
+              "   Syntax %S could not be found among existing packages\n%!" s;
+            exit 2
         in
         let found = ref false in
         List.iter (fun dep ->
@@ -212,48 +214,48 @@ let get_pp lib basename options =
     let (pp, lib_requires) =
       match syntaxes with
       | [] -> assert false
-  | [ { lib_type = ProgramPackage } as pp ] -> (pp, [])
-  | [ pksy ] ->
+      | [ { lib_type = ProgramPackage } as pp ] -> (pp, [])
+      | [ pksy ] ->
 
-    if verbose 3 then begin
-      Printf.eprintf "Package %S, file %S, syntax %S:\n"
-        lib.lib_name basename pksy.lib_name;
-      List.iter (fun dep ->
-        let l = dep.dep_project in
-        Printf.eprintf "  dep: %s %S\n%!"
-          (string_of_package_type l.lib_type) l.lib_name
-      ) pksy.lib_requires;
-    end;
+        if verbose 3 then begin
+          Printf.eprintf "Package %S, file %S, syntax %S:\n"
+            lib.lib_name basename pksy.lib_name;
+          List.iter (fun dep ->
+            let l = dep.dep_project in
+            Printf.eprintf "  dep: %s %S\n%!"
+              (string_of_package_type l.lib_type) l.lib_name
+          ) pksy.lib_requires;
+        end;
 
-    let preprocessor = ref [] in
-    List.iter (fun dep ->
-      match dep.dep_project.lib_type with
-        ProgramPackage ->
-          preprocessor := dep.dep_project :: !preprocessor
-      | TestPackage -> assert false
-      | LibraryPackage
-      | ObjectsPackage
-      | RulesPackage
-      | SyntaxPackage -> ()
-    ) pksy.lib_requires;
-    begin
-      match !preprocessor with
-      | [] ->
-        Printf.eprintf "Error with package %S, file %S:\n"
-          lib.lib_name basename;
-        Printf.eprintf
-          "   One of the syntax must specify the preprocessor to use.\n%!";
-      exit 2
-      | _ :: _ :: _ ->
-        Printf.eprintf "Error with package %S, file %S:\n"
-          lib.lib_name basename;
-        Printf.eprintf
+        let preprocessor = ref [] in
+        List.iter (fun dep ->
+          match dep.dep_project.lib_type with
+            ProgramPackage ->
+            preprocessor := dep.dep_project :: !preprocessor
+          | TestPackage -> assert false
+          | LibraryPackage
+          | ObjectsPackage
+          | RulesPackage
+          | SyntaxPackage -> ()
+        ) pksy.lib_requires;
+        begin
+          match !preprocessor with
+          | [] ->
+            Printf.eprintf "Error with package %S, file %S:\n"
+              lib.lib_name basename;
+            Printf.eprintf
+              "   One of the syntax must specify the preprocessor to use.\n%!";
+            exit 2
+          | _ :: _ :: _ ->
+            Printf.eprintf "Error with package %S, file %S:\n"
+              lib.lib_name basename;
+            Printf.eprintf
           "   Only one preprocessor should be specified within syntaxes.\n%!";
-        exit 2
+            exit 2
 
-      | [ pp ] ->
-        (pp, pksy.lib_requires)
-    end
+          | [ pp ] ->
+            (pp, pksy.lib_requires)
+        end
 
       | [s1;s2] ->
         begin
@@ -281,50 +283,50 @@ let get_pp lib basename options =
         exit 2
 
     in
-        let pp_args = ref [] in
-        let pp_option = ref [] in
-        let pp_requires = ref [] in
+    let pp_args = ref [] in
+    let pp_option = ref [] in
+    let pp_requires = ref [] in
 
-        if pp.lib_installed then
-          pp_option := [ pp.lib_name ]
-        else begin
-          pp_requires := [ find_dst_file lib.lib_dst_dir (pp.lib_name ^ ".byte") ];
-          pp_option := [
-            Printf.sprintf "%%{%s_DST_DIR}%%/%s.byte" pp.lib_name pp.lib_name
-          ];
-        end;
+    if pp.lib_installed then
+      pp_option := [ pp.lib_name ]
+    else begin
+      pp_requires := [ find_dst_file lib.lib_dst_dir (pp.lib_name ^ ".byte") ];
+      pp_option := [
+        Printf.sprintf "%%{%s_DST_DIR}%%/%s.byte" pp.lib_name pp.lib_name
+      ];
+    end;
 
-        let already_linked_map = ref StringSet.empty in
-          (* remove libraries that are already included in the preprocessor *)
-        List.iter (fun dep ->
-          if dep.dep_link then
-            already_linked_map := StringSet.add dep.dep_project.lib_name
-              !already_linked_map
-        ) pp.lib_requires;
+    let already_linked_map = ref StringSet.empty in
+    (* remove libraries that are already included in the preprocessor *)
+    List.iter (fun dep ->
+      if dep.dep_link then
+        already_linked_map := StringSet.add dep.dep_project.lib_name
+            !already_linked_map
+    ) pp.lib_requires;
 
-        List.iter (fun dep ->
-          let p = dep.dep_project in
-          if p != pp
-            && dep.dep_link
-            && not (StringSet.mem p.lib_name !already_linked_map)
-            && (p.lib_sources <> [] || p.lib_installed)
-          then begin
-            pp_requires := (execution_dependencies p "byte") @ !pp_requires;
-            if not p.lib_meta then
-            pp_args := !pp_args @
-              [ S "-I"; BD p.lib_dst_dir ] @
-              (match p.lib_type with
-              | ProgramPackage -> assert false
-                | TestPackage -> assert false
-              | ObjectsPackage ->
-                List.map (fun s -> BF s) p.lib_cmo_objects
-              | LibraryPackage ->
-                [ S (p.lib_archive ^ ".cma") ]
-              | SyntaxPackage -> []
-              | RulesPackage -> []
-              )
-            end
-        ) lib_requires;
+    List.iter (fun dep ->
+      let p = dep.dep_project in
+      if p != pp
+      && dep.dep_link
+      && not (StringSet.mem p.lib_name !already_linked_map)
+      && (p.lib_sources <> [] || p.lib_installed)
+      then begin
+        pp_requires := (execution_dependencies p "byte") @ !pp_requires;
+        if not p.lib_meta then
+          pp_args := !pp_args @
+                     [ S "-I"; BD p.lib_dst_dir ] @
+                     (match p.lib_type with
+                      | ProgramPackage -> assert false
+                      | TestPackage -> assert false
+                      | ObjectsPackage ->
+                        List.map (fun s -> BF s) p.lib_cmo_objects
+                      | LibraryPackage ->
+                        [ S (p.lib_archive ^ ".cma") ]
+                      | SyntaxPackage -> []
+                      | RulesPackage -> []
+                     )
+      end
+    ) lib_requires;
 
     {
       pp_flags = !pp_args @ pp_flags;

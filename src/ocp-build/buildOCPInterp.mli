@@ -19,7 +19,10 @@ open BuildOCPTypes
 type config
 type state
 
+val continue_on_ocp_error : bool ref
+
 val initial_state : unit -> state
+val copy_state : state -> state
 val final_state : state -> package array
 
 val empty_config :config
@@ -66,6 +69,7 @@ val new_package :
   string (* name *) ->
   string (* dirname *) ->
   string (* filename *) ->
+  (string * Digest.t option) list (* filenames *) ->
   BuildOCPTree.package_type -> BuildOCPTypes.package
 
 val new_package_dep :
@@ -75,3 +79,4 @@ val new_package_dep :
 
 val read_ocamlconf :  state -> config -> string -> config
 
+val check_package : package -> unit

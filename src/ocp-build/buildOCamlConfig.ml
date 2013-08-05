@@ -36,7 +36,7 @@ module TYPES = struct
     ocaml_ext_lib : string;
     ocaml_ext_dll : string;
     ocaml_os_type : string;
-    ocaml_bin : string;
+    ocaml_ocamlbin : string;
   }
 
   type config_output = {
@@ -49,6 +49,10 @@ module TYPES = struct
     mutable cout_ocamlmklib : string list option;
     mutable cout_ocamllex : string list option;
     mutable cout_meta_dirnames : string list;
+    mutable cout_native_support : bool option;
+    mutable cout_byte_support : bool option;
+    mutable cout_ocamllib : string option;
+    mutable cout_ocamlbin : string option;
   }
 
 end
@@ -93,7 +97,7 @@ let get_config cmd =
     ocaml_ext_dll = !ocaml_ext_dll;
     ocaml_os_type = !ocaml_os_type;
     ocaml_ocamllib = !ocaml_ocamllib;
-    ocaml_bin = Filename.dirname cmd;
+    ocaml_ocamlbin = Filename.dirname cmd;
   }
 
 let check_is_compiler ocamlc_prefixes args ocamlc =
@@ -152,6 +156,10 @@ let check_config cin =
     cout_ocamldep = None;
     cout_ocaml = None;
     cout_meta_dirnames = [];
+    cout_native_support = None;
+    cout_byte_support = None;
+    cout_ocamllib = None;
+    cout_ocamlbin = None;
   } in
 
   if not (cin.cin_native || cin.cin_bytecode) then begin
@@ -192,68 +200,70 @@ let check_config cin =
      we could be ok if we are compiling OCaml... *)
   let cfg = match ocamlc, ocamlopt with
     | None, None ->
-      Printf.eprintf "Error: could not find an OCaml compiler.\n";
-      exit 2
+      Printf.eprintf "Warning: could not find an OCaml compiler.\n";
+      cout.cout_ocamlopt <- Some [ "no-ocamlopt-detected" ];
+      cout.cout_ocamlc <- Some [ "no-ocamlc-detected" ];
+      cout.cout_ocamlcc <- Some [ "no-ocamlc-detected" ];
+      cout.cout_native_support <- Some false;
+      cout.cout_byte_support <- Some false;
+      None
 
     | Some ocamlc, None ->
-      if cin.cin_native then begin
-        if cin.cin_bytecode then begin
-          Printf.eprintf "Warning: could not find an OCaml native code compiler\n";
-          Printf.eprintf "\tDeactivating native code generation.\n";
-        end
-        else begin
-          Printf.eprintf "Error: could not find an OCaml native code compiler\n";
-          Printf.eprintf "\tbut you ask for native code only.\n";
-          exit 2
-        end;
-      end;
-      cin.cin_native <- false;
-      cout.cout_ocamlc <- Some [ocamlc];
-      cout.cout_ocamlcc <- Some [ocamlc];
-      get_config ocamlc
+      cout.cout_ocamlopt <- Some [ "no-ocamlopt-detected" ];
+      cout.cout_ocamlc <- Some [ ocamlc ];
+      cout.cout_ocamlcc <- Some [ ocamlc ];
+      cout.cout_native_support <- Some false;
+      cout.cout_byte_support <- Some true;
+      Some (get_config ocamlc)
 
     | None, Some ocamlopt ->
-      if cin.cin_bytecode then begin
-        if cin.cin_native then begin
-          Printf.eprintf "Warning: could not find an OCaml bytecode compiler\n";
-          Printf.eprintf "\tDesactivating bytecode generation.\n";
-          exit 2
-        end
-        else begin
-          Printf.eprintf "Error: could not find an OCaml bytecode compiler\n";
-          Printf.eprintf "\tbut you ask for bytecode only.\n";
-          exit 2
-        end;
-      end;
-      cin.cin_bytecode <- false;
-      cout.cout_ocamlopt <- Some [ocamlopt];
+      cout.cout_ocamlopt <- Some [ ocamlopt ];
+      cout.cout_ocamlc <- Some [ "no-ocamlc-detected" ];
       cout.cout_ocamlcc <- Some [ocamlopt];
-      get_config ocamlopt
+
+      cout.cout_native_support <- Some true;
+      cout.cout_byte_support <- Some false;
+      Some (get_config ocamlopt)
 
     | Some ocamlc, Some ocamlopt ->
       let byte_config = get_config ocamlc in
       let native_config = get_config ocamlopt in
       if byte_config <> native_config then begin
         Printf.fprintf stderr "Warning: bytecode and native code compilers disagree on configuration%!\n";
-        if cin.cin_bytecode && cin.cin_native then begin
-          Printf.eprintf "\tDesactivating bytecode generation.\n";
-          cin.cin_native <- false;
-        end
+
+        cout.cout_ocamlopt <- Some [ "inconsistent-ocamlopt-detected" ];
+        cout.cout_ocamlc <- Some [ ocamlc ];
+        cout.cout_ocamlcc <- Some [ ocamlc ];
+        cout.cout_native_support <- Some false;
+        cout.cout_byte_support <- Some true;
+
+      end else begin
+
+        cout.cout_ocamlopt <- Some [ ocamlopt ];
+        cout.cout_ocamlc <- Some [ ocamlc ];
+        cout.cout_ocamlcc <- Some [ ocamlc ];
+        cout.cout_native_support <- Some true;
+        cout.cout_byte_support <- Some true;
+
       end;
-      cout.cout_ocamlc <- Some [ocamlc];
-      cout.cout_ocamlopt <- Some [ocamlopt];
-      cout.cout_ocamlcc <- Some [ocamlc];
-      byte_config
+      Some byte_config
   in
 
-  cout.cout_ocaml <- Some cfg;
+  cout.cout_ocaml <- cfg;
+  begin
+    match cfg with
+    None -> ()
+    | Some cfg ->
+      cout.cout_ocamllib <- Some cfg.ocaml_ocamllib;
+      cout.cout_ocamlbin <- Some cfg.ocaml_ocamlbin;
+  end;
 
   let ocamldep = find_first_in_path path
       check_is_ocamldep cin.cin_ocamldep_variants in
   begin match ocamldep with
       None ->
-      Printf.eprintf "Error: Could not find OCaml ocamldep tool.\n";
-      exit 2
+      Printf.eprintf "Warning: Could not find OCaml ocamldep tool.\n";
+      cout.cout_ocamldep <- Some [ "no-ocamldep-detected" ]
     | Some ocamldep ->
       cout.cout_ocamldep <- Some [ocamldep]
   end;
@@ -262,9 +272,8 @@ let check_config cin =
       check_is_ocamllex cin.cin_ocamllex_variants in
   begin match ocamllex with
       None ->
-      (* TODO: this should only be an error if a .mll file has to be compiled *)
-      Printf.eprintf "Error: Could not find OCaml ocamllex tool.\n";
-      exit 2
+      Printf.eprintf "Warning: Could not find OCaml ocamllex tool.\n";
+      cout.cout_ocamllex <- Some [ "no-ocamllex-detected" ]
     | Some ocamllex ->
       cout.cout_ocamllex <- Some [ocamllex];
   end;
@@ -273,8 +282,8 @@ let check_config cin =
       check_is_ocamlyacc cin.cin_ocamlyacc_variants in
   begin match ocamlyacc with
       None ->
-      Printf.eprintf "Error: Could not find OCaml ocamlyacc tool.\n";
-      exit 2
+      Printf.eprintf "Warning: Could not find OCaml ocamlyacc tool.\n";
+      cout.cout_ocamlyacc <- Some [ "no-ocamlyacc-detected" ];
     | Some ocamlyacc ->
       cout.cout_ocamlyacc <- Some [ocamlyacc];
   end;
@@ -283,8 +292,8 @@ let check_config cin =
       check_is_ocamlmklib cin.cin_ocamlmklib_variants in
   begin match ocamlmklib with
       None ->
-      Printf.eprintf "Error: Could not find OCaml ocamlmklib tool.\n";
-      exit 2
+      Printf.eprintf "Warning: Could not find OCaml ocamlmklib tool.\n";
+      cout.cout_ocamlmklib <- Some [ "no-ocamlmklib-detected" ];
     | Some ocamlmklib ->
       cout.cout_ocamlmklib <- Some [ocamlmklib];
   end;
@@ -298,13 +307,15 @@ let check_config cin =
     ocamlfind_path @
     cin.cin_meta_dirnames in
 
-  let rec filter_dirnames path =
+  let rec filter_dirnames cfg path =
     match path with
       [] | "END" :: _ -> []
-    | "OCAML" :: tail -> cfg.ocaml_ocamllib :: (filter_dirnames tail)
-    | dir :: tail -> dir :: (filter_dirnames tail)
+    | "OCAML" :: tail -> cfg.ocaml_ocamllib :: (filter_dirnames cfg tail)
+    | dir :: tail -> dir :: (filter_dirnames cfg tail)
   in
-  let meta_dirnames = filter_dirnames meta_dirnames in
+  let meta_dirnames = match cfg with
+      None -> []
+    | Some cfg -> filter_dirnames cfg meta_dirnames in
   cout.cout_meta_dirnames <- meta_dirnames;
 
 
@@ -319,6 +330,8 @@ let ocamlopt_cmd = new_strings_option "ocamlopt" [ "ocamlopt.opt" ]
 let ocamllex_cmd = new_strings_option "ocamllex" [ "ocamllex.opt" ]
 let ocamlyacc_cmd = new_strings_option "ocamlyacc" [ "ocamlyacc" ]
 let ocamlmklib_cmd = new_strings_option "ocamlmklib" [ "ocamlmklib" ]
+let native_support = new_bool_option "native_support" true
+let byte_support = new_bool_option "byte_support" false
 
 
 let ocaml_config_version = new_strings_option "ocaml_version" []
@@ -331,6 +344,8 @@ let ocaml_config_ext_obj = new_string_option "ext_obj"  ".o"
 let ocaml_config_ext_lib = new_string_option "ext_lib"  ".a"
 let ocaml_config_ext_dll = new_string_option "ext_dll"  ".so"
 let ocaml_config_os_type = new_strings_option "os_type" [ ]
+
+let ocaml_config_found = new_bool_option "ocaml_config_found" false
 
 let set_global_config cout =
   (match cout.cout_ocamlc with None -> () | Some cmd ->
@@ -347,25 +362,31 @@ let set_global_config cout =
     ocamlyacc_cmd.set cmd);
   (match cout.cout_ocamlmklib with None -> () | Some cmd ->
     ocamlmklib_cmd.set cmd);
+  (match cout.cout_native_support with None -> () | Some bool ->
+    native_support.set bool);
+  (match cout.cout_byte_support with None -> () | Some bool ->
+    byte_support.set bool);
 
-  let cfg = match cout.cout_ocaml with
-      None -> assert false (* TODO : for now *)
-    | Some cfg -> cfg
-  in
+  begin
+    match cout.cout_ocaml with
+    | None ->
+      ocaml_config_found.set false
+    | Some cfg ->
+      ocaml_config_found.set true;
+      ocaml_config_ext_lib.set cfg.ocaml_ext_lib;
+      ocaml_config_ext_obj.set cfg.ocaml_ext_obj;
+      ocaml_config_version.set [cfg.ocaml_version];
+      ocaml_major_version.set [ cfg.ocaml_version_major ];
+      ocaml_minor_version.set [ cfg.ocaml_version_minor ];
+      ocaml_point_version.set [ cfg.ocaml_version_point ];
 
-  ocaml_config_ext_lib.set cfg.ocaml_ext_lib;
-  ocaml_config_ext_obj.set cfg.ocaml_ext_obj;
-  ocaml_config_version.set [cfg.ocaml_version];
-  ocaml_major_version.set [ cfg.ocaml_version_major ];
-  ocaml_minor_version.set [ cfg.ocaml_version_minor ];
-  ocaml_point_version.set [ cfg.ocaml_version_point ];
+      ocaml_config_system.set [cfg.ocaml_system];
+      ocaml_config_architecture.set [cfg.ocaml_architecture];
+      ocaml_config_os_type.set [cfg.ocaml_os_type];
+      ocaml_config_ext_dll.set cfg.ocaml_ext_dll;
 
-  ocaml_config_system.set [cfg.ocaml_system];
-  ocaml_config_architecture.set [cfg.ocaml_architecture];
-  ocaml_config_os_type.set [cfg.ocaml_os_type];
-  ocaml_config_ext_dll.set cfg.ocaml_ext_dll;
+      BuildSubst.add_to_global_subst "OCAMLLIB" cfg.ocaml_ocamllib;
+  end;
 
-  BuildSubst.add_to_global_subst "OCAMLLIB" cfg.ocaml_ocamllib;
-
-(*  Printf.fprintf stderr "SYSTEM = %s\n%!" cfg.ocaml_system; *)
-()
+  (*  Printf.fprintf stderr "SYSTEM = %s\n%!" cfg.ocaml_system; *)
+  ()

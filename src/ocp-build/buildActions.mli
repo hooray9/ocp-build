@@ -21,9 +21,11 @@ val time_steps : (string * float) list ref
 type project_info = {
   project_dir : File.t;
   cin : BuildOptions.config_input;
-  install_where : BuildOCamlInstall.install_where;
   cout : BuildOCamlConfig.TYPES.config_output;
-  cfg : BuildOCamlConfig.TYPES.ocaml_config;
 }
+
+val install_where : project_info ->
+  BuildOCamlInstall.install_where
+
 
 val load_project : unit -> project_info

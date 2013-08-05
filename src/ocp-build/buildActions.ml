@@ -130,10 +130,46 @@ let list_of_ocp_files_filename = "ocp-build.root"
 type project_info = {
   project_dir : File.t;
   cin : BuildOptions.config_input;
-  install_where : BuildOCamlInstall.install_where;
   cout : BuildOCamlConfig.TYPES.config_output;
-  cfg : BuildOCamlConfig.TYPES.ocaml_config;
 }
+
+let install_where i =
+  let cin = i.cin and cout = i.cout in
+  let open BuildOCamlInstall in
+
+
+  let install_bindir = match cin.cin_install_bin, cout.cout_ocamlbin with
+        None, Some dir ->   dir
+      | Some dir, _ -> dir
+      | None, None ->
+        Printf.eprintf "Error: you must specify the bindir to install/uninstall files\n%!";
+        exit 2
+  in
+  let install_ocamllib = match cout.cout_ocamllib with
+    None ->
+      Printf.eprintf "Error: you must specify the ocaml libdir to install/uninstall files\n%!";
+      exit 2
+    | Some dir -> dir
+  in
+  {
+    install_destdir = cin.cin_install_destdir;
+    install_libdirs = (match cin.cin_install_lib with
+        None ->
+        begin match cout.cout_meta_dirnames with
+            [] -> begin
+              match cout.cout_ocamllib with
+                None -> []
+              | Some ocamllib -> [ocamllib]
+            end
+          | _ -> cout.cout_meta_dirnames
+        end
+      | Some dir -> [dir]);
+    install_bindir;
+    install_datadir = cin.cin_install_data;
+
+    install_ocamllib;
+    install_ocamlfind = cout.cout_meta_dirnames;
+  }
 
 let load_project () =
   let project_dir = BuildOptions.find_project_root () in
@@ -143,43 +179,17 @@ let load_project () =
   time_step "   Done loading files";
 
   DebugVerbosity.increase_verbosity "B" cin.cin_verbosity;
-  BuildTerm.set_ansi_term (term.esc_ansi && cin.cin_color);
+  BuildTerm.set_ansi_term (
+    term.esc_ansi && cin.cin_color &&
+    Unix.isatty Unix.stdout && Unix.isatty Unix.stderr);
 
   time_step "Checking OCaml config...";
   let cout = BuildOCamlConfig.check_config cin in
-
-  let cfg = match cout.cout_ocaml with
-      None -> assert false (* TODO : for now *)
-    | Some cfg -> cfg
-  in
   time_step "   Done checking OCaml config.";
 
 
-  let install_where =
-    let open BuildOCamlInstall in
-
-    {
-      install_destdir = cin.cin_install_destdir;
-      install_libdirs = (match cin.cin_install_lib with
-          None ->
-          begin match cout.cout_meta_dirnames with
-            [] -> [cfg.ocaml_ocamllib]
-            | _ -> cout.cout_meta_dirnames
-          end
-        | Some dir -> [dir]);
-      install_bindir = (match cin.cin_install_bin with
-          None -> cfg.ocaml_bin
-        | Some dir -> dir);
-      install_datadir = cin.cin_install_data;
-
-      install_ocamllib = cfg.ocaml_ocamllib;
-      install_ocamlfind = cout.cout_meta_dirnames;
-    }
-  in
-  {
+   {
     project_dir;
     cin;
-    install_where;
     cout;
-    cfg;
   }

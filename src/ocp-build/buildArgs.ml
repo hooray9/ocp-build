@@ -86,7 +86,7 @@ let list_projects_arg = ref false
 let list_byte_targets_arg = ref false
 let list_asm_targets_arg = ref false
 let build_dir_basename_arg = ref "_obuild"
-type arch_arg = ArchAuto | ArchNone | Arch of string
+type arch_arg = ArchNone | Arch of string
 let arch_arg = ref ArchNone
 let print_conflicts_arg = ref false
 let add_external_projects_arg = ref []
@@ -276,8 +276,6 @@ let arg_list = short_arg_list @ [
 
   "-obuild", Arg.String (fun s -> build_dir_basename_arg := s),
   "DIRECTORY change _obuild directory";
-  "-auto-arch", Arg.Unit (fun () -> arch_arg := ArchAuto),
-  " Set arch automatically";
   "-no-sanitize", Arg.Unit (fun () -> delete_orphans_arg := KeepOrphans),
   " Fail rather than remove stale objects from _obuild";
 

@@ -56,8 +56,8 @@ let do_test b ncores projects =
 
 let action () =
   let p = BuildActions.load_project () in
-  let (b, projects) = BuildActionBuild.do_build p in
-  do_test b (BuildActionBuild.get_ncores p.cin) projects;
+  let (bc, projects) = BuildActionBuild.do_build p in
+  do_test bc.build_context (BuildActionBuild.get_ncores p.cin) projects;
 
   ()
 

@@ -18,6 +18,21 @@
 
 (* open SafeCaml *)
 
+let at_sigint_actions = ref []
+
+let at_sigint name f = at_sigint_actions := !at_sigint_actions @ [name, f]
+let (_ : unit) =
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ ->
+      List.iter (fun (name, f) ->
+        try
+          f ()
+        with e ->
+          Printf.eprintf "Warning: sigint handler %s raised exception %s\n%!"
+            name (Printexc.to_string e)
+      ) !at_sigint_actions
+    ))
+
+
 let print_loc filename pos =
   let line = ref 1 in
   let last_line_pos = ref 0 in
@@ -163,20 +178,7 @@ let create_process error_handler cmd args maybe_chdir new_stdin new_stdout new_s
   | id -> id
 
 
-(*
-let create_process_env error_handler cmd args env new_stdin new_stdout new_stderr =
-  match fork() with
-    0 ->
-      begin try
-        perform_redirections new_stdin new_stdout new_stderr;
-        execvpe cmd args env
-      with e ->
-        error_handler e;
-        exit 127
-      end
-  | id -> id
-*)
-
+(* A cache for commands already found in the PATH *)
 let in_path = Hashtbl.create 113
 let home_dir = try Sys.getenv "HOME" with _ -> " "
 let path = try OcpString.split (Sys.getenv "PATH")
@@ -281,6 +283,16 @@ let rec wait_command pid =
     Printf.eprintf "Exception %s in waitpid\n%!" (Printexc.to_string e);
     exit 2
 
+let rec uninterrupted_wait () =
+  let rec iter () =
+    try
+      Unix.wait ()
+    with Unix.Unix_error(Unix.EINTR, _, _) ->
+      Printf.eprintf "Unix.wait interrupted. Restarting\n%!";
+      iter ()
+  in
+  iter ()
+
 
 let new_counter_int0 () =
   let counter = ref 0 in
@@ -339,7 +351,6 @@ let rename fa1 fa2 =
 
 (* val get_stdout_lines : string list -> string list -> int * string list *)
 
-let b = Buffer.create 10000
 let get_stdout_lines cmd args =
   let temp_file = Filename.temp_file "ocp-build-" ".out" in
   let pid = create_process (cmd@args) None None (Some temp_file) None in
@@ -375,4 +386,8 @@ let chdir dir =
   Unix.chdir dir;
   getcwd_cache := None
 
+let exists_as_directory filename =
+  try
+    Sys.is_directory filename
+  with _ -> false
 

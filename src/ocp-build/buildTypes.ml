@@ -88,7 +88,9 @@ and package_info = {
   mutable lib_sources : BuildOCPVariable.plist;
   mutable lib_tests : BuildOCPVariable.plist;
   mutable lib_archive : string;
+  mutable lib_stubarchive : string;
 
+  mutable lib_ready : build_file list;
   mutable lib_installed : bool;
   mutable lib_install : bool;
 
@@ -99,5 +101,13 @@ and package_info = {
       "bundle" variables of packages being installed.
   *)
   mutable lib_bundles : package_info list;
+  mutable lib_builder_context : builder_context;
+}
 
+and builder_context = {
+  build_context : build_context;
+  mutable packages_by_name : package_info StringMap.t;
+  all_projects : (int, package_info) Hashtbl.t;
+  config_filename_validated_table : (string, build_file) Hashtbl.t;
+  uniq_rules : (string, build_rule) Hashtbl.t;
 }

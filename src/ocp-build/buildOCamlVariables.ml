@@ -45,6 +45,8 @@ let bytecomp_option = new_strings_option "bytecomp" ([] : string list)
 let asmcomp_option = new_strings_option "asmcomp" ([] : string list)
 let asmlink_option = new_strings_option "asmlink" ([] : string list)
 let dep_option = new_strings_option "dep" ([] : string list)
+let bytedebug = BuildOCPVariable.new_bool_option "bytedebug" false
+let asmdebug = BuildOCPVariable.new_bool_option "asmdebug" false
 
 
 let rule_sources_option = new_strings_option "rule_sources" []
@@ -60,7 +62,6 @@ let sort_files_option = new_bool_option "sort" false
 
 (* used to implement the pack syntax *)
 let pack_option = new_strings_option "pack" ([] : string list)
-let packed_option = new_strings_option "packed" ([] : string list)
 
 (* should we compile in bytecode *)
 let byte_option = new_bool_option "has_byte" true

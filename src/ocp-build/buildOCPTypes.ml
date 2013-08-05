@@ -80,7 +80,10 @@ type package = {
   mutable package_auto : string option; (* unused: TODO *)
 
   package_loc : int;
+(* Where this package is defined : *)
   package_filename : string;
+(* All the .ocp files whose content can influence this package *)
+  package_filenames : (string * Digest.t option) list;
 
   (* at the end of "load_project", we rename package_identifiers to be
      continuous *)

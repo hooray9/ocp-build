@@ -23,7 +23,7 @@ let zero = Inode (0,0, 0.)
 let to_string mtime =
   match mtime with
       Inode (dev, ino, mtime) -> Printf.sprintf "%d.%d.%.0f" dev ino mtime
-    | Digest sha1 -> Digest.to_hex sha1
+    | Digest sha1 -> OcpDigest.to_hex sha1
 
 let compute filename =
   if !use_digests then

@@ -16,6 +16,8 @@
 (* open Stdlib2 *)
 open BuildEngineTypes
 open BuildTerm
+open BuildEngineGlobals
+open BuildEngineRules
 
 let verbose =
   DebugVerbosity.add_submodules "B" [ "BED" ];
@@ -87,8 +89,6 @@ let begin_command b proc =
       None -> ""
       | Some filename -> Printf.sprintf "> '%s'" filename);
   end
-
-let errors = ref []
 
 let print_file message filename =
   let ic = open_in filename in
@@ -181,18 +181,136 @@ let end_command b proc time status =
         (temp_stderr b r);
     if term.esc_ansi then print_stat_line b proc;
     if status <> 0 then
-      errors :=
+      b.errors <-
 	[
 	  Printf.sprintf "[%d.%d] '%s'" r.rule_id proc.proc_step
 	    (term_escape (String.concat "' '" cmd_args));
 	  File.string_of_file (temp_stdout b r);
 	  File.string_of_file (temp_stderr b r);
-	] :: !errors
+	] :: b.errors
 
 
-let add_error s =  errors := s :: !errors
-let has_error () = !errors <> []
-let errors () = List.rev !errors
+let add_error b s =  b.errors <- s :: b.errors
+let has_error b = b.errors <> []
+let errors b = List.rev b.errors
 let finish () =
   if verbose 0 && not (verbose 1) then
     Printf.eprintf "Finished\n%!"
+
+let string_of_key (st_dev, st_ino) = Printf.sprintf "%dx%Ld" st_dev st_ino
+
+let rec eprint_context b =
+  Printf.eprintf "Build context:\n";
+  Printf.eprintf "  Build directories:\n";
+  Hashtbl.iter (fun key dir ->
+    Printf.eprintf "    At key %s:\n" (string_of_key key);
+    eprint_directory "    " dir;
+  ) b.build_directories;
+  Printf.eprintf "  Build files:\n";
+  Hashtbl.iter (fun file_id file ->
+    Printf.eprintf "    At key %d:\n" file_id;
+    eprint_file "    " file;
+  ) b.build_files;
+  Printf.eprintf "  Build rules:\n";
+  Hashtbl.iter (fun rule_id r ->
+    Printf.eprintf "    At key %d:\n" rule_id;
+    eprint_rule "    " r;
+  ) b.build_rules;
+  Printf.eprintf "End of build context\n%!";
+  ()
+
+and eprint_directory indent dir =
+  Printf.eprintf "%sDIR DEF D%d %s:\n" indent dir.dir_id dir.dir_fullname;
+  Printf.eprintf "%s  FILES: %d files\n" indent (StringMap.cardinal dir.dir_files);
+  StringMap.iter (fun basename file ->
+    Printf.eprintf "%s    FILE REF F%d %s (%s)\n" indent file.file_id basename
+      (let target_of = List.length file.file_target_of in
+       let source_of = List.length file.file_source_for in
+       match target_of, source_of with
+       | 0, 0 -> "unused"
+       | 0, _ -> Printf.sprintf "source of %d rules" source_of
+       | 1, 0 -> Printf.sprintf "simple final target"
+       | _, 0 -> Printf.sprintf "final target of %d rules" target_of
+       | 1, _ -> Printf.sprintf "simple target, source of %d" source_of
+       | _, _ -> Printf.sprintf "target of %d, source of %d" target_of source_of
+      )
+  ) dir.dir_files;
+  Printf.eprintf "%s  SUBDIRS: %d subdirs\n" indent (StringMap.cardinal dir.dir_dirs);
+  StringMap.iter (fun basename dir ->
+    Printf.eprintf "%s    DIR REF D%d %s\n" indent dir.dir_id basename
+  ) dir.dir_dirs
+
+and eprint_file indent file =
+  Printf.eprintf "%sFILE DEF F%d %s:\n" indent file.file_id
+    (File.to_string file.file_file);
+  ()
+
+and eprint_rule indent r =
+  Printf.eprintf "%sRULE DEF R%d:\n" indent r.rule_id;
+  Printf.eprintf "%s  state %s" indent
+    (match r.rule_state with
+       RULE_INACTIVE -> "inactive"
+     | RULE_ACTIVE -> "active"
+     | RULE_WAITING -> "waiting"
+     | RULE_EXECUTING -> "executing"
+     | RULE_EXECUTED -> "executed");
+  if r.rule_missing_sources <> 0 then
+    Printf.eprintf "(%d missing)" r.rule_missing_sources;
+  Printf.eprintf "\n";
+  IntMap.iter (fun _ file ->
+    Printf.eprintf "%s  SOURCE F%d %s%s\n" indent file.file_id (file_filename file)
+      (if file.file_exists then "(exists)" else "(not available)")
+  ) r.rule_sources;
+  List.iter (eprint_command (indent ^ "    ")) r.rule_commands;
+  IntMap.iter (fun _ file ->
+    Printf.eprintf "%s  TARGET F%d %s\n" indent file.file_id (file_filename file)
+  ) r.rule_targets;
+  List.iter (fun file ->
+    Printf.eprintf "%s  TEMPORARY F%d %s\n" indent file.file_id (file_filename file)
+  ) r.rule_temporaries;
+  ()
+
+and eprint_command indent cmd =
+  match cmd with
+  | Execute cmd ->
+    begin match cmd.cmd_move_to_dir with
+        None -> ()
+      | Some chdir ->
+        Printf.eprintf "%scd %S\n" indent chdir;
+    end;
+    Printf.eprintf "%s%s %s" indent  (String.concat " " cmd.cmd_command) (String.concat " " (List.map string_of_argument cmd.cmd_args));
+    begin
+      match cmd.cmd_stdin_pipe with
+	None -> ()
+      | Some filename ->
+	Printf.eprintf " < %s\n" filename
+    end;
+    begin
+      match cmd.cmd_stdout_pipe with
+	None -> ()
+      | Some filename ->
+	Printf.eprintf " > %s\n" filename
+    end;
+    begin
+      match cmd.cmd_stderr_pipe with
+	None -> ()
+      | Some filename ->
+	Printf.eprintf " 2> %s\n" filename
+    end;
+    Printf.eprintf "\n"
+  | LoadDeps (_, file, r) ->
+    Printf.eprintf "%sLoad dependencies from %s for %d\n" indent
+      (file_filename file) r.rule_id
+  | Copy (f1, f2) ->
+    Printf.eprintf "%sCopy %s to %s\n" indent (string_of_argument f1) (string_of_argument f2)
+  | Move (f1, f2) ->
+    Printf.eprintf "%sRename %s to %s\n" indent (string_of_argument f1) (string_of_argument f2)
+  | MoveIfExists (f1, f2, f3) ->
+    if verbose 4 then
+      Printf.eprintf "%sRename? %s to %s\n" indent (string_of_argument f1) (string_of_argument f2)
+  | DynamicAction (s,_) ->
+    Printf.eprintf "%sDynamicAction %s\n" indent s
+  | NeedTempDir ->
+    Printf.eprintf "%sNeedTempDir\n" indent
+  | Function (name, _, _) ->
+    Printf.eprintf "%sFunction %s\n" indent name

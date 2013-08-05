@@ -395,8 +395,8 @@ let new_dep pk pk2 options =
     pk.package_requires_map <-
       IntMap.add pk2.package_id dep pk.package_requires_map;
     pk.package_requires <- dep :: pk.package_requires;
-    Printf.eprintf "New dep %s <- %s\n%!"
-      pk2.package_name pk.package_name;
+(*    Printf.eprintf "New dep %s <- %s\n%!"
+      pk2.package_name pk.package_name; *)
     dep
 
 (*
@@ -823,6 +823,7 @@ let verify_packages packages =
 
 
   let check_package_unicity pk =
+    if verbose 5 || !print_package_deps then
     Printf.eprintf "check_package_unicity %s_%d of %s\n%!"
       pk.package_name pk.package_id pk.package_dirname;
 (*
@@ -912,8 +913,9 @@ let verify_packages packages =
         let tpk2 = Hashtbl.find h (dep.dep_project, tag_name) in
         add_requires tpk tpk2
       with Not_found ->
-        Printf.eprintf "Warning: missing dependency, %S requires %S\n%!"
-          tpk.tpk_name dep.dep_project;
+(*        Printf.eprintf "Warning: missing dependency, %S requires %S/%s\n%!"
+          tpk.tpk_name dep.dep_project tag_name; *)
+        ()
     ) pk.package_deps_map
   in
   List.iter (fun tpk ->
@@ -942,6 +944,8 @@ let verify_packages packages =
   ) !enabled_packages;
 
   List.iter (fun tpk ->
+    if verbose 5 || !print_package_deps then
+
     Printf.eprintf "Taking %S from enabled_packages\n%!" tpk.tpk_pk.package_name;
     if IntMap.cardinal tpk.tpk_requires = 0 then
       ready_queue := tpk :: !ready_queue
@@ -981,17 +985,20 @@ let verify_packages packages =
     let queue = !ready_queue in
     ready_queue := [];
     List.iter (fun tpk ->
-      Printf.eprintf "Taking %S from ready_queue\n%!" tpk.tpk_pk.package_name;
+      if verbose 5 || !print_package_deps then
+        Printf.eprintf "Taking %S from ready_queue\n%!" tpk.tpk_pk.package_name;
       IntMap.iter (fun _ tpk2 ->
         tpk2.tpk_requires <- IntMap.remove tpk.tpk_id tpk2.tpk_requires;
         if IntMap.cardinal tpk2.tpk_requires = 0 then begin
-          Printf.eprintf "Adding %S to ready_queue!\n%!" tpk2.tpk_pk.package_name;
+          if verbose 5 || !print_package_deps then
+            Printf.eprintf "Adding %S to ready_queue!\n%!" tpk2.tpk_pk.package_name;
           ready_queue := tpk2 :: !ready_queue;
           waiting_queue := IntMap.remove tpk2.tpk_id !waiting_queue
         end
       ) tpk.tpk_required_by;
       let pk = tpk.tpk_pk in
-      Printf.eprintf "Examining package %S\n" pk.package_name;
+      if verbose 5 || !print_package_deps then
+        Printf.eprintf "Examining package %S\n" pk.package_name;
       let envs = [pk.package_options] in
 
       try
@@ -1353,7 +1360,6 @@ let scan_project pj =
 
 *)
 
-(*
 let find_package pj file =
   let list = ref [] in
 
@@ -1384,11 +1390,10 @@ let find_package pj file =
           check_file pk (filename ^ ".ml");
           check_file pk (filename ^ ".mli")
         | _ -> ()
-    ) pk.package_files
+    ) (BuildOCPVariable.get [pk.package_options] "files")
   ) pj.project_sorted;
 
   !list
-*)
 
 
 let rec find_obuild f dir =

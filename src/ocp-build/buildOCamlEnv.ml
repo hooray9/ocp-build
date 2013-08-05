@@ -374,23 +374,23 @@ let generate_ocp filename =
 
     List.iter (fun (modname, digest) ->
       Printf.fprintf oc "      (* provided: %s %s *) \n"
-        modname (Digest.to_hex digest)
+        modname (OcpDigest.to_hex digest)
     ) (if lib.lib_asm_exists then lib.lib_asm_mods else lib.lib_byte_mods);
 
     List.iter (fun (modname, digest, native) ->
       Printf.fprintf oc "      (* uses: %s %s *) \n"
-        modname (Digest.to_hex digest)
+        modname (OcpDigest.to_hex digest)
     ) lib.lib_deps;
 
     List.iter (fun (modname, digest, libs) ->
       Printf.fprintf oc "      (* ambiguous: %s %s [%s] *) \n"
-        modname (Digest.to_hex digest)
+        modname (OcpDigest.to_hex digest)
         (String.concat "," (List.map (fun lib -> lib.lib_name) libs))
     ) !ambiguous;
 
     List.iter (fun (modname, digest) ->
       Printf.fprintf oc "      (* not found: %s %s *) \n"
-        modname (Digest.to_hex digest)
+        modname (OcpDigest.to_hex digest)
     ) !not_found;
 
     List.iter (fun lib ->

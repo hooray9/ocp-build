@@ -27,6 +27,16 @@ let verbose =
   DebugVerbosity.add_submodules "B" [ "BE" ];
   DebugVerbosity.verbose [ "BE" ] "BuildEngine"
 
+exception ExitError of int
+let sigint_received = ref false
+let _ =
+  BuildMisc.at_sigint "BuildEngine" (fun _ ->
+    Printf.eprintf "BuildEngine: sigint received\n%!";
+    sigint_received := true)
+
+
+let exit2 () = raise (ExitError 2)
+
 (*
 (* open BuildGlobals *)
 
@@ -53,21 +63,17 @@ dependencies towards them, so we should take care of them ! *)
 
 exception MissingSourceWithNoBuildingRule of build_rule * string
 
-let stats_command_executed = ref 0
-let stats_files_generated = ref 0
-let stats_total_time = ref 0.
-
+(*
 let queue_inactive = ref ([] : build_rule list)
 let queue_ready = ref (IntMap.empty : build_rule IntMap.t)
-(* let queue_executed = ref (IntMap.empty : BuildEngineTypes.project_info build_rule IntMap.t) *)
-(* let queue_running = ref (IntMap.empty : BuildEngineTypes.project_info build_rule IntMap.t) *)
 let queue_waiting = ref (IntMap.empty : build_rule IntMap.t)
 let queue_not_waiting = ref (IntMap.empty : build_rule IntMap.t)
+*)
 
 
-let cmdbuf = Buffer.create 10000
-
-let rule_need_execution b r =
+let rule_need_execution =
+  let cmdbuf = Buffer.create 10000 in
+  fun b r ->
   if r.rule_forced then true else
     let missing_target = ref false in
     Buffer.clear cmdbuf;
@@ -146,9 +152,10 @@ let rule_need_execution b r =
 	      try
 		Lazy.force f
 	      with e ->
+         (* TODO: this should be some error *)
 		Printf.eprintf "Error: exception %s with DynamicAction %s\n%!"
 		  (Printexc.to_string e) msg ;
-		exit 2
+		raise (ExitError 2)
 	    in
 	    actions @ commands
           | Function (name, printer, actor) ->
@@ -162,14 +169,14 @@ let rule_need_execution b r =
     let command_digest = Digest.string cmd in
     Printf.fprintf b.build_cache_log "#RULE %d : %s -> %s if OK\n%s"
       r.rule_id
-      (Digest.to_hex main_target_digest)
-      (Digest.to_hex command_digest) cmd;
+      (OcpDigest.to_hex main_target_digest)
+      (OcpDigest.to_hex command_digest) cmd;
     let command_need_execution =
       try
 	let old_digest = DigestMap.find main_target_digest b.build_cache_input
 	in
 	Printf.fprintf b.build_cache_log "#CACHE was %s\n"
-	  (Digest.to_hex old_digest);
+	  (OcpDigest.to_hex old_digest);
 	if command_need_execution then begin
 	  Printf.fprintf b.build_cache_log
 	    "#COMMAND ALREADY NEEDS EXECUTION\n";
@@ -449,28 +456,28 @@ let init b targets =
   Hashtbl.iter (fun _ r ->
     match r.rule_state with
 	RULE_ACTIVE ->
-	  queue_not_waiting := IntMap.add r.rule_id r !queue_not_waiting;
+	  b.queue_not_waiting <- IntMap.add r.rule_id r b.queue_not_waiting;
       | RULE_WAITING ->
 	if r.rule_missing_sources > 0 then
-	  queue_waiting := IntMap.add r.rule_id r !queue_waiting
+	  b.queue_waiting <- IntMap.add r.rule_id r b.queue_waiting
 	else
-	  queue_ready := IntMap.add r.rule_id r !queue_ready
+	  b.queue_ready <- IntMap.add r.rule_id r b.queue_ready
       | RULE_INACTIVE ->
-	queue_inactive := r :: !queue_inactive
+	b.queue_inactive <- r :: b.queue_inactive
       | RULE_EXECUTING
       | RULE_EXECUTED -> assert false
   ) b.build_rules;
 
   b.build_stats_to_execute <-
-    IntMap.cardinal !queue_ready +
-    IntMap.cardinal !queue_waiting;
+    IntMap.cardinal b.queue_ready +
+    IntMap.cardinal b.queue_waiting;
 
   if verbose 5 then
     Printf.eprintf "BuildEngine.init, phase 5: done\n";
   ()
 
 
-let print_waiting_queue max_print =
+let print_waiting_queue b max_print =
   let max_print = ref max_print in
   try
     Printf.eprintf "WAITING QUEUES:\n";
@@ -488,7 +495,7 @@ let print_waiting_queue max_print =
 	    Printf.eprintf "\t\tSOURCE %s done\n%!" (file_filename f)
         ) r.rule_sources;
         decr max_print; if !max_print <= 0 then raise Exit;
-      ) !queue_ready
+      ) b.queue_ready
     end;
     begin
       IntMap.iter (fun _ r ->
@@ -504,7 +511,7 @@ let print_waiting_queue max_print =
 	    Printf.eprintf "\t\tSOURCE %s ok\n%!" (file_filename f)
         ) r.rule_sources;
         decr max_print; if !max_print <= 0 then raise Exit;
-      ) !queue_waiting
+      ) b.queue_waiting
     end;
     begin
       List.iter (fun r ->
@@ -520,49 +527,47 @@ let print_waiting_queue max_print =
 	    Printf.eprintf "\t\t%s done\n%!" (file_filename f)
         ) r.rule_sources;
         decr max_print; if !max_print <= 0 then raise Exit;
-      ) !queue_inactive
+      ) b.queue_inactive
     end
   with Exit -> ()
 
 (* Beware not to use add_temp_file on a file that has already been
    initialized as a target, it would cause an assertion failure. *)
 
-let temp_files = ref IntMap.empty
-
 let check_temporary b r file =
   try
-    let (r',list) = IntMap.find file.file_id !temp_files in
+    let (r',list) = IntMap.find file.file_id b.temp_files in
     if r.rule_missing_sources = 0 && verbose 3 then
       Printf.eprintf "rule %d postponed to avoid conflict with rule %d\n" r.rule_id r'.rule_id;
     list := r :: !list;
     r.rule_missing_sources <- r.rule_missing_sources + 1;
   with Not_found -> ()
 
-let lock_temporary r file =
-  if IntMap.mem file.file_id !temp_files then begin
+let lock_temporary b r file =
+  if IntMap.mem file.file_id b.temp_files then begin
     Printf.eprintf "Error in lock_temporary: file %S is already locked\n%!"
       (File.to_string file.file_file);
-    exit 2
+    raise (ExitError 2)
   end;
 (*    Printf.eprintf "LOCKING FILE %d %S\n%!" file.file_id
       (File.to_string file.file_file);
 *)
-  temp_files := IntMap.add file.file_id (r, ref []) !temp_files
+  b.temp_files <- IntMap.add file.file_id (r, ref []) b.temp_files
 
 let check_temporaries b r =
 (*  Printf.eprintf "check_temporaries %d\n%!" r.rule_id; *)
   if (r.rule_missing_sources <> 0) then begin
     Printf.eprintf "check_temporaries: missing_sources = %d\n" r.rule_missing_sources;
-    exit 2;
+    raise (ExitError 2)
   end;
   let check_temporary = check_temporary b r in
   List.iter check_temporary r.rule_temporaries;
   IntMap.iter (fun _ file -> check_temporary file) r.rule_targets;
   if r.rule_missing_sources > 0 then begin
-    queue_waiting := IntMap.add r.rule_id r !queue_waiting;
+    b.queue_waiting <- IntMap.add r.rule_id r b.queue_waiting;
     true
   end else begin
-    let lock_temporary = lock_temporary r in
+    let lock_temporary = lock_temporary b r in
 (*    Printf.eprintf "lock_temporaries\n%!"; *)
     List.iter lock_temporary r.rule_temporaries;
 (*    Printf.eprintf "lock_targets\n%!"; *)
@@ -574,8 +579,8 @@ let release_temporaries b r =
   let release_temporary file =
 (*    Printf.eprintf "UNLOCKING FILE %d %S\n%!" file.file_id
       (File.to_string file.file_file); *)
-    let _, rules = IntMap.find file.file_id !temp_files in
-    temp_files := IntMap.remove file.file_id !temp_files;
+    let _, rules = IntMap.find file.file_id b.temp_files in
+    b.temp_files <- IntMap.remove file.file_id b.temp_files;
     List.iter (fun r ->
 
       if verbose 5 then
@@ -583,8 +588,8 @@ let release_temporaries b r =
       r.rule_missing_sources <- r.rule_missing_sources - 1;
       assert (r.rule_missing_sources >= 0);
       if r.rule_missing_sources = 0 then begin
-	queue_waiting := IntMap.remove r.rule_id !queue_waiting;
-	queue_ready := IntMap.add r.rule_id r !queue_ready
+	b.queue_waiting <- IntMap.remove r.rule_id b.queue_waiting;
+	b.queue_ready <- IntMap.add r.rule_id r b.queue_ready
       end
     ) !rules
   in
@@ -594,13 +599,13 @@ let release_temporaries b r =
 
 
 let rec next_rule b =
-  if verbose 7 then Printf.eprintf "next_rule: %d targets ready\n%!" (IntMap.cardinal !queue_ready);
-  match IntMap.min_elt !queue_ready with
+  if verbose 7 then Printf.eprintf "next_rule: %d targets ready\n%!" (IntMap.cardinal b.queue_ready);
+  match IntMap.min_elt b.queue_ready with
       None ->
 	None
     | Some (id, r) ->
       if verbose 7 then Printf.eprintf "next_rule: testing rule %d\n%!" r.rule_id;
-      queue_ready := IntMap.remove id !queue_ready;
+      b.queue_ready <- IntMap.remove id b.queue_ready;
       b.build_stats_executed <- b.build_stats_executed + 1;
       if r.rule_missing_sources > 0 || r.rule_state = RULE_EXECUTED || check_temporaries b r then
 	next_rule b
@@ -621,7 +626,7 @@ let rec next_rule b =
       end
 
 (* let errors = ref [] *)
-let fatal_errors = ref []
+
 
 type execution_status =
     EXECUTION_SUCCESS
@@ -669,7 +674,7 @@ let rule_executed b r execution_status =
 	    f.file_exists <- true;
 	    f.file_mtime <- BuildEngineMtime.compute filename
 	  with e ->
-	    BuildEngineDisplay.add_error
+	    BuildEngineDisplay.add_error b
 	      [Printf.sprintf "Target %s not built" (file_filename f);]
       end;
       if f.file_exists then
@@ -681,14 +686,14 @@ let rule_executed b r execution_status =
 	  if (r2.rule_missing_sources < 0) then begin
 	    BuildEngineRules.print_rule r;
 	    BuildEngineRules.print_rule r2;
-	    exit 2
+     raise (ExitError 2)
 	  end;
 (*	  Printf.eprintf "Generated %s =>\n%!" (file_filename f); *)
 (*	  Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
 
 	  if r2.rule_state = RULE_WAITING && r2.rule_missing_sources = 0 then begin
-	    queue_waiting := IntMap.remove r2.rule_id !queue_waiting;
-	    queue_ready := IntMap.add r2.rule_id r2 !queue_ready
+	    b.queue_waiting <- IntMap.remove r2.rule_id b.queue_waiting;
+	    b.queue_ready <- IntMap.add r2.rule_id r2 b.queue_ready
 	  end
 	  end
 	) f.file_source_for
@@ -714,7 +719,7 @@ let cross_dirname b dirname =
       let cross_dirname = Filename.concat dirname b.build_dir_basename in
       if not (Sys.file_exists cross_dirname) then dirname else cross_dirname
 
-let unmanaged_dependencies = ref []
+
 
 (* TODO: file_target_of should be a list of rules. These rules should
    have a weight.  When several rules are available, take the active one
@@ -739,7 +744,7 @@ let rec add_dependency b r target_file filenames =
     let src_file =
       try Some (BuildEngineContext.find_file dir basename)
       with Not_found ->
-	unmanaged_dependencies := filename :: !unmanaged_dependencies;
+	b.unmanaged_dependencies <- filename :: b.unmanaged_dependencies;
 	None
     in
     match src_file with
@@ -768,7 +773,7 @@ let rec add_dependency b r target_file filenames =
 	      Printf.eprintf "\t\t\trule %d: missing %d -> %d\n" r.rule_id r.rule_missing_sources (r.rule_missing_sources + 1);
 	    r.rule_missing_sources <- r.rule_missing_sources + 1;
 	    if r.rule_missing_sources = 1 then
-	      queue_waiting := IntMap.add r.rule_id r !queue_waiting
+	      b.queue_waiting <- IntMap.add r.rule_id r b.queue_waiting
 	  end else begin
 	    if verbose 7 then Printf.eprintf "Adding useless dependency to %s\n%!"
 		(file_filename src_file);
@@ -788,7 +793,7 @@ let add_dependency b r target_file filenames =
     List.iter (fun filename ->
       Printf.eprintf "\t%s\n%!" filename
     ) filenames;
-    exit 2
+    raise (ExitError 2)
 
 
 (* TODO: replace BuildOcamldep.load_dependencies by a generic function inside LoadDeps *)
@@ -826,19 +831,19 @@ let load_dependency_file b loader file r_ok =
               failwith (Printf.sprintf "Rule %d failure with state %s" r.rule_id (BuildEngineRules.string_of_rule_state r))
           end;
 	  begin
-	    unmanaged_dependencies := [];
+	    b.unmanaged_dependencies <- [];
 	    List.iter (add_dependency b r target_file) deps;
 	    List.iter (fun filename ->
 	      BuildMisc.print_loc rule_filename rule_loc;
 	      Printf.eprintf "Warning: file \"%s\" of project \"%s\" depends on\n" (file_filename target_file)  rule_name;
 	      Printf.eprintf "  file \"%s\", that is not generated by any project\n%!" filename
-	    ) !unmanaged_dependencies;
-	    if !unmanaged_dependencies <> [] then begin
+	    ) b.unmanaged_dependencies;
+	    if b.unmanaged_dependencies <> [] then begin
 (*	      Unix.unlink (file_filename file);*)
-              BuildEngineDisplay.add_error
+              BuildEngineDisplay.add_error b
                 [Printf.sprintf "Dependency file %s contains unmanaged dependencies. You might want to remove it and rebuild." (file_filename file)]
 	    end;
-	    unmanaged_dependencies := []
+	    b.unmanaged_dependencies <- []
 	  end
 	end
       )
@@ -850,7 +855,7 @@ let load_dependency_file b loader file r_ok =
        TODO: add an option to not remove the file for debugging purpose !
     *)
     (*      Unix.unlink (file_filename file); TODO: do it, or not ? *)
-    BuildEngineDisplay.add_error [Printf.sprintf "Incorrect dependency file %s (Exception %s). You should clean and rebuild." (file_filename file) (Printexc.to_string e)]
+    BuildEngineDisplay.add_error b [Printf.sprintf "Incorrect dependency file %s (Exception %s). You should clean and rebuild." (file_filename file) (Printexc.to_string e)]
   end
 
 
@@ -884,7 +889,7 @@ let execute_command b proc =
        cmd.cmd_stdin_pipe
     (Some (temp_stdout b r)) (Some (temp_stderr b r))
   in
-  incr stats_command_executed;
+  b.stats_command_executed <- b.stats_command_executed + 1;
   if verbose 7 then Printf.eprintf "EXEC started\n%!";
   pid
 
@@ -923,10 +928,10 @@ let copy_file b src dst =
     File.RawIO.copy_file src dst;
     0
   with e ->
-    fatal_errors := [
+    b.fatal_errors <- [
       Printf.sprintf "Error while copying %s to %s:" src dst;
       Printf.sprintf "exception %s" (Printexc.to_string e);
-    ] :: !fatal_errors;
+    ] :: b.fatal_errors;
     2
 
 let command_executed b proc status =
@@ -940,7 +945,7 @@ let command_executed b proc status =
     in
     b.build_stats_running_rules <-
       List.filter (fun (id,_) -> id <> r.rule_id) b.build_stats_running_rules;
-    stats_total_time := !stats_total_time +. t;
+    b.stats_total_time <- b.stats_total_time +. t;
     BuildEngineDisplay.end_command b proc t status;
     let copy_stdout =
       match cmd.cmd_stdout_pipe with
@@ -968,7 +973,7 @@ let command_executed b proc status =
               end; *)
     Unix.unlink (temp_stdout b r);
     Unix.unlink (temp_stderr b r);
-    stats_files_generated := (IntMap.cardinal r.rule_targets) + !stats_files_generated;
+    b.stats_files_generated <- (IntMap.cardinal r.rule_targets) + b.stats_files_generated;
     if status <> 0 then status else copy_stdout + copy_stderr
 
 (*
@@ -994,10 +999,10 @@ let parallel_loop b ncores =
      is available. *)
   let rec iter nslots =
     if nslots > 0 then begin
-      if
-	!fatal_errors <> [] ||
-	(b.stop_on_error_arg &&
-         BuildEngineDisplay.has_error()) then wait_for_end nslots else
+      if !sigint_received ||
+	 b.fatal_errors <> [] ||
+	 (b.stop_on_error_arg &&
+          BuildEngineDisplay.has_error b) then wait_for_end nslots else
 	match next_rule b with
 	  None -> wait_for_end nslots
 	| Some r ->
@@ -1014,22 +1019,9 @@ let parallel_loop b ncores =
       wait nslots
 
   and wait_for_end nslots =
-    if !slots = IntMap.empty then begin
-      if not (BuildEngineDisplay.has_error()) then
-        let len = IntMap.cardinal !queue_waiting in
-        if len > 0 then begin
-	  Printf.eprintf "Error: %d rules waiting in queue !\n%!" len;
-          Printf.eprintf "  This usually means that you have a cycle in module\n";
-          Printf.eprintf "  dependencies.\n";
-          if verbose 3 then
-	    print_waiting_queue max_int
-          else begin
-            Printf.eprintf "  Use '-v 3' to display waiting rules. \nDisplaying only the first 3  rules in waiting queue:\n%!";
-            print_waiting_queue 3;
-          end;
-          exit 2
-        end
-    end else
+    if !slots = IntMap.empty then
+      ()
+    else
       wait nslots
 
   (* [wait freeslots] waits for one process to terminate, and call [iter] with the new number
@@ -1046,7 +1038,7 @@ let parallel_loop b ncores =
             IntMap.iter (fun pid _ -> list := pid :: !list) !slots;
             let pids = Array.of_list !list in
             BuildMisc.waitpids (Array.length pids) pids
-          else Unix.wait () in
+          else BuildMisc.uninterrupted_wait () in
         let status =
 	  match status with
 	  | Unix.WEXITED status -> Some status
@@ -1094,11 +1086,13 @@ let parallel_loop b ncores =
                 pid;
               nslots
 	  end
-      with e ->
+      with
+      | ExitError _ as e -> raise e
+      | e ->
         (*	if verbose 7 then *)
         Printf.eprintf "Error in waiting loop: exception %s\n%!" (Printexc.to_string e);
         (* nslots *)
-        exit 2
+        raise (ExitError 2)
     in
     iter nslots
 
@@ -1128,10 +1122,10 @@ let parallel_loop b ncores =
         begin match error with
             None -> execute_proc proc nslots
           | Some e ->
-            fatal_errors := [
+            b.fatal_errors <- [
               Printf.sprintf "Error while doing action %s:" name;
               Printf.sprintf "\tException %s" (Printexc.to_string e);
-            ] :: !fatal_errors;
+            ] :: b.fatal_errors;
 
             rule_executed b proc.proc_rule EXECUTION_FAILURE;
             nslots
@@ -1189,7 +1183,7 @@ let parallel_loop b ncores =
 	    Printf.eprintf
 	      "\tDestination directory of %s does not exist\n%!"
               fa2;
-	  exit 2;
+	  raise (ExitError 2)
 	end;
 	execute_proc proc nslots
 
@@ -1217,7 +1211,7 @@ let parallel_loop b ncores =
 	  if not (File.X.exists (File.dirname (ff2))) then
 	    Printf.eprintf "\tDestination directory %s does not exist\n%!"
               (fa2);
-	  exit 2;
+	  raise (ExitError 2)
 	end;
 	execute_proc proc nslots
 
@@ -1268,7 +1262,7 @@ let parallel_loop b ncores =
 	    if not (File.X.exists (File.dirname (ff2))) then
 	      Printf.eprintf "\tDestination directory %s does not exist\n%!"
 		(File.to_string (File.dirname (ff2)));
-	    exit 2;
+	    exit2 ();
 	  end;
 	execute_proc proc nslots
       | DynamicAction (msg, f) ->
@@ -1278,36 +1272,59 @@ let parallel_loop b ncores =
 	  with e ->
 	    Printf.eprintf "Error: exception %s with DynamicAction %s\n%!"
 	      (Printexc.to_string e) msg ;
-	    exit 2
+	    exit2 ()
 	in
 	proc.proc_commands <- actions @ proc.proc_commands;
 	execute_proc proc nslots
   in
-  iter ncores;
-  !max_nslots
+  iter ncores
 
 let save_cache b =
   let oc = open_out b.build_cache_filename in
   DigestMap.iter (fun d1 d2 ->
-    Printf.fprintf oc "%s %s\n" (Digest.to_hex d1) (Digest.to_hex d2)
+    Printf.fprintf oc "%s %s\n" (OcpDigest.to_hex d1) (OcpDigest.to_hex d2)
   ) b.build_cache_input;
   close_out oc;
   close_out b.build_cache_log;
   close_out b.build_log
 
-let parallel_loop b ncores =
-  try
-    let max_nslots = parallel_loop b ncores in
-    save_cache b;
-    BuildEngineDisplay.finish ();
-    max_nslots
-  with e ->
-    save_cache b;
-    BuildEngineDisplay.finish ();
-    raise e
+let sigint_handler b =
+  save_cache b;
+  exit 2
 
-(*let errors () = !errors *)
-let fatal_errors () = !fatal_errors
+let parallel_loop b ncores =
+  let raised_exn = try
+    parallel_loop b ncores; None
+  with e -> Some e
+  in
+  save_cache b;
+  if !sigint_received then begin
+    Printf.eprintf "Error: compilation aborted by user\n%!";
+    raise (ExitError 2)
+  end;
+  let waiting_len = IntMap.cardinal b.queue_waiting in
+  if not (BuildEngineDisplay.has_error b
+          || b.build_should_restart) && waiting_len > 0
+  then begin
+      Printf.eprintf "Error: %d rules waiting in queue !\n%!" waiting_len;
+      Printf.eprintf "  This usually means that you have a cycle in module\n";
+      Printf.eprintf "  dependencies.\n";
+      if verbose 3 then
+	print_waiting_queue b max_int
+      else begin
+        Printf.eprintf "  Use '-v 3' to display waiting rules. \nDisplaying only the first 3  rules in waiting queue:\n%!";
+        print_waiting_queue b 3;
+      end;
+      raise (ExitError 2)
+  end;
+  BuildEngineDisplay.finish ();
+  match raised_exn with
+    None -> ()
+  | Some e -> raise e
+
+
+        (*let errors () = !errors *)
+let fatal_errors b = b.fatal_errors
 
 let sanitize b delete_orphans is_ok =
   let has_orphan_directories = ref false in

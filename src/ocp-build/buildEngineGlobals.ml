@@ -17,13 +17,6 @@
 (* open BuildBase *)
 open BuildEngineTypes
 
-let dependency_loaders = Hashtbl.create 17
-let add_dependency_loader name loader =
-  Hashtbl.add dependency_loaders name loader
-let find_dependency_loader name = Hashtbl.find dependency_loaders name
-
-
-
 let new_dir_id b =
   b.build_next_dir_id <- b.build_next_dir_id + 1;
   b.build_next_dir_id

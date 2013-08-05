@@ -30,13 +30,13 @@ check whether we have reached that directory. If yes, we know where we are !
 
 let on_Windows = Sys.os_type = "Win32"
 
+(*
+let name_of_filename = Hashtbl.create 113
+
+
 type directory_name =
  | RootDirectory of string
  | SubDirectory of directory_name * string
-
-let name_of_filename = Hashtbl.create 113
-let inode_counter = ref 0
-let ino_of_name = Hashtbl.create 113
 
 let rec directory_name dirname =
   try
@@ -58,6 +58,7 @@ let rec directory_name dirname =
    in
    Hashtbl.add name_of_filename dirname name;
    name
+*)
 
 let get_file_uid filename =
   let st = Unix.lstat filename in
@@ -287,7 +288,12 @@ let find_directory b dirname = find_directory b (truename dirname)
 
 (* let build_dir = add_directory b build_dir_filename *)
 
-let add_any_file b dir basename file_kind =
+let add_any_file b dir filename file_kind =
+  let dirname = Filename.dirname filename in
+  let basename = Filename.basename filename in
+  let dir = if dirname = "." || dirname = "" then dir else
+      add_directory b (Filename.concat dir.dir_fullname dirname)
+  in
   try find_file dir basename with Not_found ->
     let file = {
       file_id = new_file_id b;
@@ -316,13 +322,7 @@ let add_temp_file b dir basename =
 let add_file b dir basename =
   add_any_file b dir basename FILE_REAL
 
-let add_filename b dir filename =
-  let dirname = Filename.dirname filename in
-  let basename = Filename.basename filename in
-  let dir = if dirname = "." || dirname = "" then dir else
-      add_directory b (Filename.concat dir.dir_fullname dirname)
-  in
-  add_file b dir basename
+let add_filename = add_file  (* TODO: remove *)
 
 
 let create current_dir_filename build_dir_filename =
@@ -365,6 +365,7 @@ let create current_dir_filename build_dir_filename =
     Printf.eprintf "Cache: %d digests loaded\n" !build_cache_content;
   let b =
     {
+      build_should_restart = false;
       build_directories;
       build_files;
       build_rules;
@@ -392,6 +393,18 @@ let create current_dir_filename build_dir_filename =
       build_stats_executed = 0;
       build_stats_running_rules = [];
       build_stats_lastpoint = 0;
+
+      queue_inactive = [];
+      queue_ready = IntMap.empty;
+      queue_waiting = IntMap.empty;
+      queue_not_waiting = IntMap.empty;
+      temp_files = IntMap.empty;
+      unmanaged_dependencies = [];
+      fatal_errors = [];
+      errors = [];
+      stats_command_executed = 0;
+       stats_files_generated = 0;
+      stats_total_time = 0.;
     }
 
   in

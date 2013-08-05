@@ -33,16 +33,14 @@ and condition =
   | AndConditions of condition * condition
   | OrConditions of condition * condition
 
-and expression = simple_expression list
-
-and simple_expression = value * set_option_list
+and expression =
+  | ExprApply of expression * set_option_list
+  | ExprString of string
+  | ExprVariable of string
+  | ExprPrimitive of string * set_option_list
+  | ExprList of expression list
 
 and set_option_list = set_option list
-
-and value =
-  | ValueString of string
-  | ValueVariable of string
-  | ValuePrimitive of string
 
 and set_option =
   | OptionVariableSet of string * expression
@@ -58,6 +56,7 @@ type statement =
   | StmtDefineConfig of string * set_option list
   | StmtDefinePackage of package_type * string * statement list
   | StmtIfThenElse of condition * statement list * statement list option
+  | StmtInclude of string * statement list * statement list option
 
 let modname_of_fullname fullname =
   let modname = Filename.chop_extension (Filename.basename fullname) in
@@ -91,21 +90,20 @@ let rec string_of_condition cond =
 
 and string_of_expression exp =
   match exp with
-  | [ ValueString "true", [] ] -> "true"
-  | [] -> "[]"
-  | _ -> Printf.sprintf "[ %s ]"
-           (String.concat "; " (List.map string_of_simple_expression exp))
-
-and string_of_simple_expression (v, options) =
-  Printf.sprintf "%s%s"
-    (match v with
-     | ValueString s -> Printf.sprintf "%S" s
-     | ValueVariable s -> Printf.sprintf "%s" s
-     | ValuePrimitive s -> Printf.sprintf "%%%s" s
-    )
-    (match options with
-     | [] -> ""
-     | _ -> Printf.sprintf "(%s)" (String.concat ";" (List.map string_of_set_option options)))
+  | ExprString s -> Printf.sprintf "%S" s
+  | ExprVariable s -> s
+  | ExprList [] -> "[]"
+  | ExprList [ ExprApply (ExprString "", [ OptionVariableSet ("type", ExprString "%bool") ])] -> "true"
+  | ExprList explist ->
+    Printf.sprintf "[ %s ]"
+      (String.concat "; " (List.map string_of_expression explist))
+  | ExprPrimitive (s, options) ->
+    Printf.sprintf "%%%s (%s)" s
+      (String.concat ";" (List.map string_of_set_option options))
+  | ExprApply (e, options) ->
+    Printf.sprintf "%s (%s)"
+      (string_of_expression e)
+      (String.concat ";" (List.map string_of_set_option options))
 
 and string_of_set_option option =
   match option with

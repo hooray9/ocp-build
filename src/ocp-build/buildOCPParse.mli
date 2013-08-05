@@ -11,5 +11,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-val read_ocamlconf :  string -> BuildOCPTree.statement list
+exception ParseError
+val read_ocamlconf :  string -> string -> BuildOCPTree.statement list
 

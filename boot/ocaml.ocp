@@ -18,17 +18,20 @@ begin
   begin library "unix"
     has_byte = true
     has_asm = true
+    files = [ "unix.ml" ]
   end
 
   begin library "str"
     requires = [ ]
     has_byte = true
     has_asm = true
+    files = [ "str.ml" ]
   end
 
   begin library "dynlink"
     has_byte = true
     has_asm = true
+    files = [ "dynlink.ml" ]
   end
 
   begin library "camlp4fulllib"
@@ -40,11 +43,13 @@ begin
   begin library "bigarray"
     has_byte = true
     has_asm  = true
+    files = [ "bigarray.ml" ]
   end
 
   begin library "nums"
     has_byte = true
     has_asm  = true
+    files = [ "num.ml" ]
   end
 
   if ocaml_major_version = "4" then {

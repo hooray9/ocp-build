@@ -26,7 +26,7 @@ open BuildOCPTypes
 open BuildOCPVariable
 open BuildOCamlConfig.TYPES
 
-let load_META_files pj cfg top_dirname =
+let load_META_files pj ocamllib top_dirname =
   let add_META meta_dirname basename meta_filename =
     (*
       Printf.eprintf "dirname=%S\n%!" dirname;
@@ -45,7 +45,7 @@ let load_META_files pj cfg top_dirname =
         let dirname = match meta.meta_directory with
           | Some dirname when dirname <> "" ->
             if dirname.[0] = '^' || dirname.[0] = '+' then
-              Filename.concat cfg.ocaml_ocamllib
+              Filename.concat ocamllib
                 (String.sub dirname 1 (String.length dirname-1))
             else
             if Filename.is_relative dirname then
@@ -62,14 +62,14 @@ let load_META_files pj cfg top_dirname =
             [] -> true
           | list ->
             List.for_all (fun filename ->
-                let proof_filename = Filename.concat dirname filename in
-                if not (Sys.file_exists proof_filename) then begin
-                  if verbose 4 then
-                    Printf.eprintf
-                      "Warning: proof of package %S does not exist\n%!"
-                      proof_filename;
-                  false
-                end else true) list
+              let proof_filename = Filename.concat dirname filename in
+              if not (Sys.file_exists proof_filename) then begin
+                if verbose 4 then
+                  Printf.eprintf
+                    "Warning: proof of package %S does not exist\n%!"
+                    proof_filename;
+                false
+              end else true) list
         in
         if exists then
           (*
@@ -87,7 +87,7 @@ let load_META_files pj cfg top_dirname =
 
           StringMap.iter (fun _ var ->
             match var.metavar_preds, var.metavar_value with
-              (* TODO: handle multiple files (objects) *)
+            (* TODO: handle multiple files (objects) *)
 
             | [ "byte", true ], [ archive ]
               when Filename.check_suffix archive ".cma"
@@ -126,7 +126,7 @@ let load_META_files pj cfg top_dirname =
             | [] ->
               requires := List.map (fun s ->
                   match s with
-                  "camlp4" -> "camlp4lib"
+                    "camlp4" -> "camlp4lib"
                   | s -> s
                 ) var.metavar_value
 
@@ -144,7 +144,8 @@ let load_META_files pj cfg top_dirname =
           let create_package fullname kind requires archive =
 
             let pk = BuildOCPInterp.new_package pj fullname dirname
-                meta_filename kind in
+                meta_filename [meta_filename, None (* matters only for non-installed packages *)
+                              ] kind in
             pk.package_source_kind <- "meta";
 
             pk.package_options <- set pk.package_options
@@ -159,41 +160,45 @@ let load_META_files pj cfg top_dirname =
           ) requires;
 *)
 
-          (* this package has already been generated *)
-          pk.package_options <- set_bool pk.package_options "generated" true ;
+            (* this package has already been generated *)
+            pk.package_options <- set_bool pk.package_options "generated" true ;
 
-          begin
-            match meta.meta_version with
-              None -> ()
-            | Some version -> pk.package_version <- version
-          end;
+            begin
+              match meta.meta_version with
+                None -> ()
+              | Some version -> pk.package_version <- version
+            end;
 
-          begin
-            match archive with
-              None ->
-              pk.package_options <- set_bool pk.package_options "meta"  true ;
-              if verbose 4 then
-                Printf.eprintf "Warning: package %S is meta\n%!" fullname
-            | Some archive ->
-              pk.package_options <- set_string pk.package_options "archive" archive;
-          end;
+            begin
+              match archive with
+                None ->
+                pk.package_options <- set_bool pk.package_options "meta"  true ;
+                if verbose 4 then
+                  Printf.eprintf "Warning: package %S is meta\n%!" fullname
+              | Some archive ->
+                pk.package_options <- set_string pk.package_options "archive" archive;
+            end;
+
+            BuildOCPInterp.check_package pk;
 
           in
 
 
-(* For syntaxes, we need to do some black magic, since we need to create two to three
-   different packages.
-   - 2 packages if (archive = None, syntax = Some _) || (archive = syntax = Some _)
-   - 3 packages if archive = Some x, syntax = Some y, x <> y
-   TODO: we should do a pass, before verify_packages, to fix problems introduced by this
-     heuristic. In particular, since one META package can generate several OCP packages,
-     we must discriminate the dependencies of other META packages to choose between the
-     OCP packages.
+          (* For syntaxes, we need to do some black magic, since we
+             need to create two to three different packages.  - 2
+             packages if (archive = None, syntax = Some _) || (archive
+             = syntax = Some _) - 3 packages if archive = Some x,
+             syntax = Some y, x <> y TODO: we should do a pass, before
+             verify_packages, to fix problems introduced by this
+             heuristic. In particular, since one META package can
+             generate several OCP packages, we must discriminate the
+             dependencies of other META packages to choose between the
+             OCP packages.
 
-  TODO: I am not completely happy with this behavior. We might want to have a more aggressive
-    behavior, based on using a combination of META and ocamlobjinfo, to fix information
-    from META.
-*)
+             TODO: I am not completely happy with this behavior. We
+              might want to have a more aggressive behavior, based on
+              using a combination of META and ocamlobjinfo, to fix
+              information from META.  *)
           begin match !has_syntax with
             | None ->
               create_package fullname BuildOCPTree.LibraryPackage
@@ -201,16 +206,21 @@ let load_META_files pj cfg top_dirname =
             | Some syntax_archive ->
               match archive with
               | None ->
-                create_package (fullname ^ ".ocp-syntax-library") BuildOCPTree.LibraryPackage
-                  (List.map (fun l -> (l,true)) !requires) (Some syntax_archive);
+                create_package (fullname ^ ".ocp-syntax-library")
+                  BuildOCPTree.LibraryPackage
+                  (List.map (fun l -> (l,true)) !requires)
+                  (Some syntax_archive);
                 create_package fullname BuildOCPTree.SyntaxPackage
                   [fullname ^ ".ocp-syntax-library", true] None;
               | Some archive ->
                 create_package fullname BuildOCPTree.LibraryPackage
                   (List.map (fun l -> (l,true)) !requires) (Some archive);
-                create_package (fullname ^ ".ocp-syntax-library") BuildOCPTree.LibraryPackage
-                  (List.map (fun l -> (l,true)) !requires) (Some syntax_archive);
-                create_package (fullname ^ ".ocp-syntax") BuildOCPTree.SyntaxPackage
+                create_package (fullname ^ ".ocp-syntax-library")
+                  BuildOCPTree.LibraryPackage
+                  (List.map (fun l -> (l,true)) !requires)
+                  (Some syntax_archive);
+                create_package (fullname ^ ".ocp-syntax")
+                  BuildOCPTree.SyntaxPackage
                   [fullname ^ ".ocp-syntax-library", true] None;
           end;
           List.iter (fun (name, meta) ->

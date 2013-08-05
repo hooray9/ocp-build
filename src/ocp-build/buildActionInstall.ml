@@ -35,7 +35,7 @@ open BuildTerm
 open BuildActions
 
 
-let do_install install_where install_what projects =
+let do_install bc install_where install_what projects =
 
   let already_installed =
     List.map (fun pj -> pj.lib_name)
@@ -73,7 +73,7 @@ let do_install install_where install_what projects =
           "bundle" [] in
       List.iter (fun name ->
         try
-          let pj2 = StringMap.find name !packages_by_name in
+          let pj2 = StringMap.find name bc.packages_by_name in
           pj2.lib_bundles <- pj :: pj2.lib_bundles
         with Not_found ->
           Printf.eprintf
@@ -128,7 +128,7 @@ let arg_list =
 
 let action () =
   let p = BuildActions.load_project () in
-  let (b, projects) = BuildActionBuild.do_build p in
+  let (bc, projects) = BuildActionBuild.do_build p in
 
   let install_what =
 
@@ -143,7 +143,7 @@ let action () =
 
 
 
-  do_install p.install_where install_what projects;
+  do_install bc (install_where p) install_what projects;
   ()
 
 

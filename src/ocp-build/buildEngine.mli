@@ -13,10 +13,6 @@
 
 exception MissingSourceWithNoBuildingRule of BuildEngineTypes.build_rule * string
 
-val stats_command_executed : int ref
-val stats_files_generated : int ref
-val stats_total_time : float ref
-
 (* [init targets] Initialize the build engine, by checking activating all the rules
  needed for the creation of the files [targets].
    raise MissingSourceWithNoBuildingRule (rule, filename) if a file is needed as
@@ -26,12 +22,12 @@ val init :
   BuildEngineTypes.build_context ->
   BuildEngineTypes.build_file list -> unit
 
-val fatal_errors : unit -> string list list
+val fatal_errors : BuildEngineTypes.build_context -> string list list
 (* val errors : unit -> string list list *)
 
 (* [parallel_loop ncores] Start the build process on [ncores] cores. *)
 val parallel_loop :
-  BuildEngineTypes.build_context -> int -> int
+  BuildEngineTypes.build_context -> int -> unit
 
 
 val sanitize :

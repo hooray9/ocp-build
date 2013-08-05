@@ -52,8 +52,8 @@ type build_rule = {
   rule_loc : loc; (* project_info *)
   mutable rule_sources :  build_file IntMap.t;
 
-(* rule_time_dependencies: dependencies that are not required, but if the rules that generate them
-are active, they should be executed before. *)
+  (* rule_time_dependencies: dependencies that are not required, but if the rules that generate them
+     are active, they should be executed before. *)
   mutable rule_time_dependencies :  build_file IntMap.t;
   mutable rule_temporaries : build_file list;
   mutable rule_targets :  build_file IntMap.t;
@@ -71,7 +71,7 @@ and  build_action =
   | Copy of command_argument * command_argument
   | Move of command_argument * command_argument
   | MoveIfExists of command_argument * command_argument
-    * command_argument option (* create a link ? *)
+      * command_argument option (* create a link ? *)
   | DynamicAction of string * (build_action list Lazy.t)
   | NeedTempDir
   | Function of string  (* name, for debug *)
@@ -94,10 +94,11 @@ and command_argument =
   | BF of build_file (* build_file type *)
   | BD of build_directory (* build_file type *)
 
+(* TODO: we should support the fact that directories could also be created by build rules ! *)
 and  build_file = {
   file_id : int;
   mutable file_kind : file_kind; (* mutable because we sometimes discover that
-    a file is virtual afterwards. *)
+                                    a file is virtual afterwards. *)
   file_dir :  build_directory;
   file_file : File.t;
   file_basename : string;
@@ -119,6 +120,8 @@ and  build_directory = {
 }
 
 and build_context = {
+  mutable build_should_restart : bool;
+
   mutable build_rules : (int, build_rule) Hashtbl.t;
   mutable build_files : (int, build_file) Hashtbl.t;
 
@@ -146,6 +149,20 @@ and build_context = {
   mutable build_cache_entries : (Digest.t * Digest.t) IntMap.t;
   mutable build_cache_filename : string;
   mutable build_cache_log : out_channel;
+
+  mutable queue_inactive : build_rule list;
+  mutable queue_ready : build_rule IntMap.t;
+  mutable queue_waiting : build_rule IntMap.t;
+  mutable queue_not_waiting : build_rule IntMap.t;
+  mutable temp_files : ( build_rule * build_rule list ref ) IntMap.t;
+  mutable unmanaged_dependencies : string list;
+  (* TODO: What's the difference between those ? *)
+  mutable fatal_errors : string list list;
+  mutable errors : string list list;
+
+  mutable stats_command_executed : int;
+  mutable stats_files_generated : int;
+  mutable stats_total_time : float;
 }
 
 type build_process = {
