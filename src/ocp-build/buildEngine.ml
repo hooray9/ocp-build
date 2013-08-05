@@ -1288,10 +1288,6 @@ let save_cache b =
   close_out b.build_cache_log;
   close_out b.build_log
 
-let sigint_handler b =
-  save_cache b;
-  exit 2
-
 let parallel_loop b ncores =
   let raised_exn = try
     parallel_loop b ncores; None

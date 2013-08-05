@@ -27,7 +27,8 @@ let arg_list = [
 
 ]
 
-let action () =
+let action () = assert false
+(*
   let targets = List.rev !targets_arg in
 
   let p = BuildActions.load_project () in
@@ -46,7 +47,7 @@ let action () =
       projects;
     BuildOCamlInstall.uninstall_finish uninstall_state;
   end
-
+*)
 
 let subcommand = {
   sub_name = "uninstall";

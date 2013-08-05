@@ -120,18 +120,18 @@ let add_pp_require lib s =
     | "" ->
       Printf.fprintf stderr "Error: package %s\n%!" lib.lib_name;
       Printf.fprintf stderr "Error: you must specify either kind 'asm' or 'byte' for package '%s'\n%!" pk_name;
-      exit 2
+      clean_exit 2
     | _ ->
       Printf.fprintf stderr "Error: package %s\n%!" lib.lib_name;
       Printf.fprintf stderr "Error: pp_requires option contains unknown kind [%s] for package '%s'\n%!" kind pk_name;
-      exit 2
+      clean_exit 2
   in
   let pk = try
     StringMap.find pk_name bc.packages_by_name
   with Not_found ->
     Printf.fprintf stderr "Error: package %s\n%!" lib.lib_name;
     Printf.fprintf stderr "Error: unknown package '%s'\n%!" pk_name;
-    exit 2
+    clean_exit 2
   in
   let declared = ref false in
   List.iter (fun dep ->
@@ -196,7 +196,7 @@ let get_pp lib basename options =
               lib.lib_name basename;
             Printf.eprintf
               "   Syntax %S could not be found among existing packages\n%!" s;
-            exit 2
+            clean_exit 2
         in
         let found = ref false in
         List.iter (fun dep ->
@@ -245,13 +245,13 @@ let get_pp lib basename options =
               lib.lib_name basename;
             Printf.eprintf
               "   One of the syntax must specify the preprocessor to use.\n%!";
-            exit 2
+            clean_exit 2
           | _ :: _ :: _ ->
             Printf.eprintf "Error with package %S, file %S:\n"
               lib.lib_name basename;
             Printf.eprintf
           "   Only one preprocessor should be specified within syntaxes.\n%!";
-            exit 2
+            clean_exit 2
 
           | [ pp ] ->
             (pp, pksy.lib_requires)
@@ -264,7 +264,7 @@ let get_pp lib basename options =
             Printf.eprintf "Error with package %S, filw %S:\n"
               lib.lib_name basename;
             Printf.eprintf "   Only one preprocessor can be specified.\n%!";
-            exit 2
+            clean_exit 2
 
           | pp, ProgramPackage, pksy, _
           | pksy, _, pp, ProgramPackage ->
@@ -274,13 +274,13 @@ let get_pp lib basename options =
             Printf.eprintf "Error with package %S, filw %S:\n"
               lib.lib_name basename;
             Printf.eprintf "   Only one syntax can be specified.\n%!";
-            exit 2
+            clean_exit 2
         end
       | _:: _ :: _ ->
         Printf.eprintf "Error with package %S, filw %S:\n"
           lib.lib_name basename;
         Printf.eprintf "   Only one syntax can be specified.\n%!";
-        exit 2
+        clean_exit 2
 
     in
     let pp_args = ref [] in

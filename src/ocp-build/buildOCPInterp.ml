@@ -31,6 +31,7 @@ type config = {
 type state = {
   mutable packages : package IntMap.t;
   mutable npackages : int;
+  mutable config_files : Digest.t StringMap.t;
 }
 
 
@@ -49,7 +50,7 @@ let meta_options = [
 
 
 let initial_state () =
-{ packages = IntMap.empty; npackages = 0 }
+{ packages = IntMap.empty; npackages = 0; config_files = StringMap.empty; }
 
 let copy_state s =
   { s with packages = s.packages }
@@ -183,21 +184,19 @@ let define_package pj name config kind =
   )
 
 
-let config_filenames = Hashtbl.create 113
-
-let read_config_file filename =
+let read_config_file (pj:state) filename =
   try
     let content = File.string_of_file filename in
     let digest = Digest.string content in
     begin
       try
-        let digest2 = Hashtbl.find config_filenames filename in
+        let digest2 = StringMap.find filename pj.config_files in
         if digest <> digest2 then begin
           Printf.eprintf "File %S modified during built. Exiting.\n%!" filename;
           exit 2
         end
       with Not_found ->
-        Hashtbl.add config_filenames filename digest
+        pj.config_files <- StringMap.add filename digest pj.config_files
     end;
     Some (content, digest)
   with e ->
@@ -271,7 +270,7 @@ and translate_toplevel_statement pj config stmt =
       else filename
     in
     let (ast, digest) =
-      match read_config_file filename with
+      match read_config_file pj filename with
       None -> None, None
       | Some (content, digest) ->
         Some (BuildOCPParse.read_ocamlconf filename content), Some digest
@@ -431,7 +430,7 @@ and translate_expression config envs exp =
 
 let read_ocamlconf pj config filename =
   let ast, digest =
-    match read_config_file filename with
+    match read_config_file pj filename with
       None -> None, None
     | Some (content, digest) ->
       (try

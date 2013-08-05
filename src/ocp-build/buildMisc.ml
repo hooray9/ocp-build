@@ -18,6 +18,9 @@
 
 (* open SafeCaml *)
 
+exception ExitStatus of int
+let clean_exit n = raise (ExitStatus n)
+
 let at_sigint_actions = ref []
 
 let at_sigint name f = at_sigint_actions := !at_sigint_actions @ [name, f]
@@ -281,7 +284,7 @@ let rec wait_command pid =
     iter pid
   with e ->
     Printf.eprintf "Exception %s in waitpid\n%!" (Printexc.to_string e);
-    exit 2
+    clean_exit 2
 
 let rec uninterrupted_wait () =
   let rec iter () =

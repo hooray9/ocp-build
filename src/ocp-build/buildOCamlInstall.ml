@@ -407,7 +407,7 @@ let find_installdir where what lib_name =
       with e ->
         Printf.eprintf "Error: install DESTDIR %S can be created\n%!"
           destdir;
-        exit 2
+        BuildMisc.clean_exit 2
   );
 
 

@@ -33,7 +33,6 @@ other files. For now, it is better to declare all options here.
 
 (* open BuildBase *)
 open SimpleConfig
-
 (* 3 configuration files:
  - one for the user preferences: $OCP_HOME/ocp-build.prefs
  - one for OCaml configuration: $OCPBUILD_CONF/ocp-build.conf
@@ -941,7 +940,7 @@ let find_project_root () =
     Printf.eprintf "Error: could not find project root (%s/ directory)\n"
       project_build_dirname;
     Printf.eprintf "  Did you run 'ocp-build init' ?\n%!";
-    exit 2
+    BuildMisc.clean_exit 2
 
 module StringSet = Set.Make(String)
 

@@ -11,7 +11,7 @@
 (*                                                                            *)
 (******************************************************************************)
 
-
+open BuildMisc
 type unused
 
 
@@ -79,12 +79,12 @@ type obj_desc =
   let register_inspector magic name inspector =
     if String.length magic <> magic_length then begin
       Printf.eprintf "Bad length for magic \"%s\"\n%!" magic;
-      exit 2
+      clean_exit 2
     end;
     if Hashtbl.mem inspectors magic then begin
       Printf.eprintf "An inspector already exists for magic \"%s\"\n%!"
 	magic;
-      exit 2
+      clean_exit 2
     end;
     Hashtbl.add inspectors magic {
       insp_reader = inspector;
@@ -232,7 +232,7 @@ type obj_desc =
       with Not_found ->
 	Printf.eprintf "No inspector for magic \"%s\"\n%!"
 	  (String.escaped magic);
-	exit 2
+	clean_exit 2
     in
     let obj_desc = inspector.insp_reader filename ic in
     close_in ic;

@@ -37,7 +37,7 @@ let action () =
     if not (Sys.is_directory root_dir) then begin
       Printf.eprintf "Error: cannot create %s/ directory:\n" root_dir;
       Printf.eprintf "  %s exists, but is not a directory\n" root_dir;
-      exit 2
+      BuildMisc.clean_exit 2
     end;
     (* TODO: we should probably do some check to verify that we have
     write permission everywhere in _obuild. *)

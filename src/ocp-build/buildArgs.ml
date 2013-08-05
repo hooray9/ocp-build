@@ -49,9 +49,6 @@ type subcommand = {
 }
 
 
-exception ExitStatus of int
-let exit n = raise (ExitStatus n)
-
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
 let initial_verbosity =
@@ -63,7 +60,7 @@ let version = BuildVersion.version
 
 let print_version () =
   Printf.fprintf stderr "%s\n%!" version;
-  exit 0
+  BuildMisc.clean_exit 0
 
 let t0 = Unix.gettimeofday ()
 
@@ -164,7 +161,7 @@ let short_arg_list = [
 
   "-version", Arg.Unit (fun () ->
     Printf.printf "%s\n%!" BuildVersion.version;
-    exit 0
+    BuildMisc.clean_exit 0
   ),
   " Print version information";
 
@@ -176,7 +173,7 @@ let short_arg_list = [
       Printf.printf "\tauthor: %s\n" author) BuildVersion.authors;
     Printf.printf "\tlicense: %s\n" BuildVersion.license;
     Printf.printf "%!";
-    exit 0
+    BuildMisc.clean_exit 0
   ),
   " Print version information";
 
@@ -303,7 +300,7 @@ let arg_list = short_arg_list @ [
 
   "-library-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name LibraryPackage
-      (File.of_string "."); exit 0;
+      (File.of_string "."); BuildMisc.clean_exit 0;
   ), "OCP_FILE Auto-generate a .ocp file for a library";
 
     "-oasis", Arg.Unit oasis_action,
@@ -311,7 +308,7 @@ let arg_list = short_arg_list @ [
 
   "-program-ocp", Arg.String (fun name ->
     BuildAutogen.create_package name ProgramPackage
-      (File.of_string "."); exit 0;
+      (File.of_string "."); BuildMisc.clean_exit 0;
   ),
   "OCP_FILE Auto-generate a .ocp file for a program";
 

@@ -76,7 +76,7 @@ begin library "ocp-build-ocaml"
    "buildObjectInspector.ml";    (* Functions to explore object files *)
  ]
 
-(*  requires = [ "ocaml-stdlib" ] *)
+  requires = [ "ocp-build-misc" ]
 
 end
 

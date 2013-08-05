@@ -16,6 +16,7 @@
 (* open BuildBase *)
 (* open Stdlib2 *)
 open BuildTypes
+open BuildMisc
 open BuildOCPTree
 open BuildOCPTypes
 open BuildOCPVariable
@@ -156,7 +157,7 @@ let new_library bc pk package_dirname src_dir dst_dir mut_dir =
             dep.dep_project.package_id
             dep.dep_project.package_name
             pk.package_name;
-          exit 2
+          clean_exit 2
           in
         { dep with dep_project = pd }
       ) pk.package_requires;

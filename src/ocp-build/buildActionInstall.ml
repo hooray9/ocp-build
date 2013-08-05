@@ -59,7 +59,7 @@ let do_install bc install_where install_what projects =
     end else begin
       Printf.eprintf "Error: Packages %s are already installed."
         (String.concat ", " (List.map bold already_installed));
-      exit 2
+      BuildMisc.clean_exit 2
     end;
 
   let projects_to_install = ref StringMap.empty in
@@ -79,7 +79,7 @@ let do_install bc install_where install_what projects =
           Printf.eprintf
             "Error: package %S bundled in package %S, not found\n%!"
             pj.lib_name name;
-          exit 2
+          BuildMisc.clean_exit 2
       ) bundle
     end
   in
@@ -107,7 +107,7 @@ let do_install bc install_where install_what projects =
       Printf.eprintf
         "Install partially failed: %d/%d packages not installed"
         !install_errors (!install_errors + !install_ok);
-    exit 2
+    BuildMisc.clean_exit 2
   end
 
 

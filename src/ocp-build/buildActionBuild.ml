@@ -41,6 +41,8 @@ open BuildArgs
 open BuildTerm
 open BuildActions
 
+let max_stage = ref 20
+
 type target =
   | TargetPackage of package_info
 
@@ -108,7 +110,7 @@ let do_load_project_files cin project_dir state =
       if !!root_files = [] then begin
         Printf.eprintf "Error: no known .ocp files\n";
         Printf.eprintf "\tHave you run ocp-build with -scan to find them ?\n%!";
-        exit 2
+        BuildMisc.clean_exit 2
       end;
 
       time_step "Loading project .ocp files...";
@@ -120,7 +122,7 @@ let do_load_project_files cin project_dir state =
       nerrors
       end
   in
-  if nerrors > 0 then exit 2
+  if nerrors > 0 then BuildMisc.clean_exit 2
 
 
 let do_print_project_info pj =
@@ -398,7 +400,7 @@ let load_initial_project p state targets =
   end;
 
 
-  if !conf_arg || !distrib_arg || !autogen_arg then exit 0;
+  if !conf_arg || !distrib_arg || !autogen_arg then BuildMisc.clean_exit 0;
 
   let use_digests = p.cin.cin_digest in
 
@@ -415,18 +417,18 @@ let load_initial_project p state targets =
 
   if !query_global then begin
     Printf.eprintf "Error: reached query-global end point.\n%!";
-    exit 0
+    BuildMisc.clean_exit 0
   end;
 
   BuildOptions.maybe_save ();
 
-  if !configure_arg then exit 0;
+  if !configure_arg then BuildMisc.clean_exit 0;
 
   if !clean_arg then begin
     Printf.eprintf "Removing build target directory\n%!";
 
     BuildActions.delete_file_or_directory !build_dir_basename_arg;
-    exit 0;
+    BuildMisc.clean_exit 0;
   end;
 
   if verbose 1 && term.esc_ansi then
@@ -459,14 +461,17 @@ let load_initial_project p state targets =
         with Not_found ->
           Printf.eprintf
             "Error: Could not find target project %s\n%!" name;
-          exit 2
+          BuildMisc.clean_exit 2
       ) list;
       !projects
   in
   (bc, projects)
 
-let rec do_compile current_stage p ncores  state targets b projects =
+let rec do_compile stage p ncores  env_state arg_targets =
 
+  let (bc, projects) = load_initial_project p
+      (BuildOCPInterp.copy_state env_state) arg_targets in
+  let b = bc.build_context in
   let cin = p.cin in
 
   (* build the list of targets *)
@@ -493,7 +498,7 @@ let rec do_compile current_stage p ncores  state targets b projects =
   if !targets = [] && not !tests_arg then begin
     Printf.eprintf "Error: project contains no targets\n%!";
     Printf.eprintf "\tAre your .ocp files empty ?\n%!";
-    exit 2
+    BuildMisc.clean_exit 2
   end;
 
   (*
@@ -517,7 +522,7 @@ let rec do_compile current_stage p ncores  state targets b projects =
           rule_name;
         Printf.eprintf "\t\"%s\" does not exist\n" filename;
         BuildEngineRules.print_rule r;
-        exit 2
+        BuildMisc.clean_exit 2
     end;
     time_step "   Build Engine Initialized";
     time_step "Checking remaining artefacts...";
@@ -533,7 +538,7 @@ let rec do_compile current_stage p ncores  state targets b projects =
       Printf.eprintf "   You can add the -sanitize argument to automatically remove\n";
       Printf.eprintf "   orphan files\n";
       Printf.eprintf "\n";
-      exit 2;
+      BuildMisc.clean_exit 2;
     end else
     if orphans < 0 then
       Printf.eprintf
@@ -541,11 +546,11 @@ let rec do_compile current_stage p ncores  state targets b projects =
     time_step "   Done sanitizing";
 
     time_step "Building packages...";
-    let _max_nslots = BuildEngine.parallel_loop b ncores in
+    BuildEngine.parallel_loop b ncores;
     time_step "   Done building packages";
 
     let errors = BuildEngine.fatal_errors b @
-        BuildEngineDisplay.errors b in
+                 BuildEngineDisplay.errors b in
     let t1 = Unix.gettimeofday () in
 
     let nerrors = List.length errors in
@@ -574,12 +579,18 @@ let rec do_compile current_stage p ncores  state targets b projects =
         ) lines
       ) errors;
     end;
-    if errors <> [] then exit 2
+    if errors <> [] then BuildMisc.clean_exit 2
   end;
   Printf.eprintf "%!";
-  (b, projects)
-
-
+  if b.build_should_restart then
+    if stage = !max_stage then begin
+      Printf.eprintf "Error: build restarted too many times (%d times). Aborting\n%!" stage;
+      BuildMisc.clean_exit 2
+    end else begin
+      Printf.eprintf "Some configuration files were changed. Restarting build\n%!";
+      do_compile (stage+1) p ncores  env_state arg_targets
+    end else
+    (bc, projects)
 
 let do_read_env p =
 
@@ -630,50 +641,6 @@ let do_read_env p =
 
   state
 
-let do_prepare_build p targets =
-
-  let state = do_read_env p in
-
-  time_step "Arguments parsed.";
-
-  if !query_global then move_to_project := false;
-
-
-  if !list_installed_arg then begin
-    print_installed (install_where p);
-    exit 0
-  end;
-
-
-  if !uninstall_arg && targets <> [] then begin
-  let uninstall_state = BuildOCamlInstall.uninstall_init (install_where p) in
-
-    List.iter (BuildOCamlInstall.uninstall_by_name uninstall_state) targets;
-    BuildOCamlInstall.uninstall_finish uninstall_state;
-    exit 0
-  end;
-
-  begin match !query_install_dir with
-      None -> ()
-    | Some package ->
-      let open BuildOCamlInstall in
-      List.iter (fun un ->
-        if un.un_name = package then begin
-          Printf.printf "%s\n%!" un.un_directory;
-          exit 0
-        end
-      ) (BuildOCamlInstall.list_installed (install_where p));
-      Printf.eprintf "Package %S is not installed\n%!" package;
-      exit 2
-  end;
-
-  chdir_to_project p;
-
-  let env_state = state in
-  let (b, projects) = load_initial_project p (BuildOCPInterp.copy_state env_state) targets in
-
-  (env_state, b, projects)
-
 let get_ncores cin =
   let ncores = cin.cin_njobs in
   if ncores < 1 then
@@ -685,12 +652,47 @@ let get_ncores cin =
 let do_build p =
   let targets = List.rev !targets_arg in
   time_step "Arguments parsed.";
-  let (env_state, bc, projects) = do_prepare_build p targets in
-  let (b, projects) =
-    do_compile 0 p (get_ncores p.cin) env_state targets
-    bc.build_context projects;
-  in
-  (bc, projects)
+
+  let state = do_read_env p in
+
+  time_step "Arguments parsed.";
+
+  if !query_global then move_to_project := false;
+
+
+  if !list_installed_arg then begin
+    print_installed (install_where p);
+    BuildMisc.clean_exit 0
+  end;
+
+
+  if !uninstall_arg && targets <> [] then begin
+  let uninstall_state = BuildOCamlInstall.uninstall_init (install_where p) in
+
+    List.iter (BuildOCamlInstall.uninstall_by_name uninstall_state) targets;
+    BuildOCamlInstall.uninstall_finish uninstall_state;
+    BuildMisc.clean_exit 0
+  end;
+
+  begin match !query_install_dir with
+      None -> ()
+    | Some package ->
+      let open BuildOCamlInstall in
+      List.iter (fun un ->
+        if un.un_name = package then begin
+          Printf.printf "%s\n%!" un.un_directory;
+          BuildMisc.clean_exit 0
+        end
+      ) (BuildOCamlInstall.list_installed (install_where p));
+      Printf.eprintf "Package %S is not installed\n%!" package;
+      BuildMisc.clean_exit 2
+  end;
+
+  chdir_to_project p;
+
+  let env_state = state in
+
+  do_compile 0 p (get_ncores p.cin) env_state targets
 
 
 let action () =
@@ -699,7 +701,7 @@ let action () =
     let oc = open_out "ocp-build.root" in
     close_out oc
   end;
-  if !root_arg then exit 0;
+  if !root_arg then BuildMisc.clean_exit 0;
 *)
   let p = BuildActions.load_project () in
   let (_b, _projects) = do_build p in
@@ -711,6 +713,8 @@ let arg_list = [
     arch_arg := Arch ("_other_archs/" ^ s)),
   "ARCH Set arch sub-directory of _obuild";
 
+  "-max-stage", Arg.Int (fun n -> max_stage := n),
+  "NUM Maximal number of times compilation can be restarted";
   "-print-loaded-ocp-files", Arg.Set
     BuildOCP.print_loaded_ocp_files,
   " Print loaded ocp files";

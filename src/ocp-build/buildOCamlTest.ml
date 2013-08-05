@@ -123,7 +123,7 @@ let test_package b stats lib only_benchmarks =
             | ProgramPackage, Some pro1 ->
               Printf.eprintf "Error: test %S depends on two programs %S and %S\n%!"
                 lib.lib_name pro1.lib_name pro.lib_name;
-              exit 2
+              BuildMisc.clean_exit 2
             | ProgramPackage, None ->
               program := Some pro
             | _ -> () (* TODO: raise an error ? *)
@@ -137,7 +137,7 @@ let test_package b stats lib only_benchmarks =
                 Printf.eprintf "Error: test %S has no source files.\n%!"
                   lib.lib_name;
                 Printf.eprintf "  It should depend on the program it is testing.";
-                exit 2
+                BuildMisc.clean_exit 2
               end;
               [ "cmd", String.concat "/" cmd ]
             | Some pro -> find_binaries b cwd pro
@@ -234,7 +234,7 @@ let test_package b stats lib only_benchmarks =
         with _ ->
           Printf.eprintf "Error: test %s.%s: bad number for expected status %S\n%!"
             lib.lib_name test expected_status;
-          exit 2
+          BuildMisc.clean_exit 2
         in
         let benchmark =
           try
@@ -426,5 +426,5 @@ let finish tests njobs =
   end;
   if tests.tests_nfailures > 0 then begin
     Printf.eprintf "You can read failed test outputs in _obuild/_tests/PACKAGE/\n%!";
-    exit 1
+    BuildMisc.clean_exit 1
   end

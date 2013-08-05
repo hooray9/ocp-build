@@ -64,11 +64,11 @@ let do_reply_to_queries pj =
     Array.iter (fun pk ->
       if pk.package_name = p then begin
         Printf.printf "%s\n" pk.package_dirname;
-        exit 0
+        BuildMisc.clean_exit 0
       end
     ) pj.project_sorted;
     Printf.eprintf "Error: no package %S\n%!" p;
-    exit 2
+    BuildMisc.clean_exit 2
   ) !query_libdir;
 
   List.iter (fun p ->
@@ -77,7 +77,7 @@ let do_reply_to_queries pj =
         if pk.package_name = p then raise Exit
       ) pj.project_sorted;
       Printf.eprintf "Error: no package %S\n%!" p;
-      exit 2
+      BuildMisc.clean_exit 2
     with Exit ->
       Printf.printf "Package %S is present\n%!" p
   ) !query_package

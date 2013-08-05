@@ -131,7 +131,7 @@ let _ =
     Arg.usage short_arg_list arg_usage; exit 0
   | PrintLongArgList ->
     Arg.usage arg_list arg_usage; exit 0
-  | ExitStatus n ->
+  | BuildMisc.ExitStatus n ->
     finally ();
     Pervasives.exit n
   | e ->

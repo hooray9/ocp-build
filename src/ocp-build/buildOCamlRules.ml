@@ -79,7 +79,7 @@ let copy_dir lib src_file =
     Printf.eprintf "  of source file %S of package %S \n%!"
       (File.to_string src_file.file_file)
       lib.lib_name;
-    exit 2
+    clean_exit 2
 
 let verbose = DebugVerbosity.verbose ["B"] "BuildOCamlRules"
 
@@ -878,7 +878,7 @@ let do_copy_objects_from b lib src_lib kernel_name extension obj_files =
       with NoSuchFileInDir _ ->
         Printf.eprintf "Error: %s:%s is supposed to be copied from %s:%s that does not exist\n%!"
           lib.lib_name obj_basename src_lib.lib_name obj_basename;
-        exit 2
+        clean_exit 2
 
 
 let get_copy_objects_from lib envs =
@@ -890,7 +890,7 @@ let get_copy_objects_from lib envs =
       Some (StringMap.find name bc.packages_by_name)
     with Not_found ->
       Printf.eprintf "Error: in package %S, copy_objects_from %S, no such package\n%!" lib.lib_name name;
-      exit 2
+      clean_exit 2
 
 let copy_ml_objects_from b lib ptmp envs src_lib kernel_name =
   (* TODO: check that pack_for = [] *)
@@ -924,7 +924,7 @@ let add_mli_source b lib ptmp mli_file options =
       if IntMap.mem mli_file.file_id ptmp.src_files then begin
         Printf.eprintf "Error: interface %s should be specified before its implementation in project %s\n%!"
           (file_filename mli_file) lib.lib_name;
-        exit 2
+        clean_exit 2
       end;
 
       let dst_dir = lib.lib_dst_dir in
@@ -1078,7 +1078,7 @@ let rec find_source_with_extension b lib src_dir kernel_name exts =
       lib.lib_name kernel_name;
     Printf.eprintf "   matching source in source directory\n";
     Printf.eprintf "   %S\n%!" src_dir.dir_fullname;
-    exit 2
+    clean_exit 2
   | ext :: rem_exts ->
     let basename1 = kernel_name ^ "." ^ ext in
     let test1 = File.add_basename src_dir.dir_file basename1 in
@@ -1236,7 +1236,7 @@ let copy_mli_if_needed b mut_dir mll_file kernel_name =
 
   with e ->
     Printf.eprintf "copy_mli_if_needed error %s\n%!" (Printexc.to_string e);
-    exit 2
+    clean_exit 2
 
 (* Shall we infer the presence of the mli file ? We should probably ask the user
    to tell the build system that the mli does not exist. *)
@@ -1708,7 +1708,7 @@ let rec process_source b lib ptmp src_dir (basename, options) =
         (Filename.concat src_dir.dir_fullname basename) lib.lib_name;
       Printf.eprintf "  (You may need to  manually disable compilation of this package\n";
       Printf.eprintf "  with 'enabled = false')\n%!";
-      exit 2
+      clean_exit 2
 
     in
     match last_extension with
@@ -1723,7 +1723,7 @@ let rec process_source b lib ptmp src_dir (basename, options) =
             lib.lib_name kernel_name;
           StringMap.iter (fun s _ -> Printf.eprintf "%s " s) bc.packages_by_name;
           Printf.eprintf "\n%!";
-          exit 2
+          clean_exit 2
       in
       ptmp.cmo_files := (List.rev obj_lib.lib_cmo_objects) @ !(ptmp.cmo_files);
       ptmp.cmx_files := (List.rev obj_lib.lib_asm_cmx_objects) @ !(ptmp.cmx_files);
@@ -1737,7 +1737,7 @@ let rec process_source b lib ptmp src_dir (basename, options) =
         with Not_found ->
           Printf.eprintf "Package %s: Could not find %s.objects\n%!"
             lib.lib_name kernel_name;
-          exit 2
+          clean_exit 2
       in
       let src_dir = obj_lib.lib_src_dir in
       List.iter (process_source b lib ptmp src_dir) obj_lib.lib_sources
@@ -1780,7 +1780,7 @@ let rec process_source b lib ptmp src_dir (basename, options) =
             (String.escaped basename) ext;
 	  Printf.eprintf "\tfrom project %s in dir %s\n%!"
             lib.lib_name src_dir.dir_fullname;
-	  exit 2;
+	  clean_exit 2;
         end
 
 let process_source b lib ptmp src_dir (basename, options) =
@@ -1795,7 +1795,7 @@ let process_source b lib ptmp src_dir (basename, options) =
         with Not_found ->
           Printf.eprintf "Package %s: Could not find package %s\n%!"
             lib.lib_name package;
-          exit 2
+          clean_exit 2
       in
       let src_dir = obj_lib.lib_src_dir in
       src_dir
@@ -1822,7 +1822,7 @@ let process_sources b lib =
         Printf.eprintf "Syntax %S: 'files' should be empty !\n" lib.lib_name;
         Printf.eprintf "   If your syntax contains sources, you should build a library\n";
         Printf.eprintf "   and define the syntax to require this library.\n%!";
-        exit 2
+        clean_exit 2
       end
     | RulesPackage -> assert false
     | TestPackage
@@ -1946,7 +1946,7 @@ let local_subst (file, env) s =
   s
 
 let add_rules bc lib =
-  let b = bc.build_context in
+  let _b = bc.build_context in
   let dirname = lib.lib_dirname in
   let files = get_strings_with_default [lib.lib_options] "source_files" [] in
   List.iter (fun file ->
@@ -1988,7 +1988,7 @@ let add_rules bc lib =
         with Var_not_found _ ->
           Printf.eprintf "Error in package %S at %S:\n%!" lib.lib_name (string_of_loc lib.lib_loc);
           Printf.eprintf "\tRule for %S does not define 'commands'\n%!" file;
-          exit 2
+          clean_exit 2
       in
       let sources = get_strings_with_default envs "sources" [] in
       let sources = List.map local_subst sources in
@@ -2144,7 +2144,7 @@ let add_rules bc lib =
             (string_of_loc lib.lib_loc);
           Printf.eprintf "  Commands to execute should be between { ... }, while\n";
           Printf.eprintf "  primitive commands start by %% (for example %%loaddeps)\n%!";
-          exit 2
+          clean_exit 2
       ) commands;
 
       add_more_rule_sources lib r [] envs;
@@ -2320,7 +2320,7 @@ let add_package bc build_tests pk =
   with Failure s ->
     Printf.eprintf "While preparing package %S:\n%!" pk.package_name;
     Printf.eprintf "Error: %s\n%!" s;
-    exit 2
+    clean_exit 2
 
 let create bc ptmp build_tests =
   let b = bc.build_context in
@@ -2348,7 +2348,7 @@ let create bc ptmp build_tests =
     with Failure s ->
       Printf.eprintf "While preparing package %S:\n%!" lib.lib_name;
       Printf.eprintf "Error: %s\n%!" s;
-      exit 2
+      clean_exit 2
   ) libs
 
 (*

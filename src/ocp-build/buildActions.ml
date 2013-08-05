@@ -143,12 +143,12 @@ let install_where i =
       | Some dir, _ -> dir
       | None, None ->
         Printf.eprintf "Error: you must specify the bindir to install/uninstall files\n%!";
-        exit 2
+        BuildMisc.clean_exit 2
   in
   let install_ocamllib = match cout.cout_ocamllib with
     None ->
       Printf.eprintf "Error: you must specify the ocaml libdir to install/uninstall files\n%!";
-      exit 2
+      BuildMisc.clean_exit 2
     | Some dir -> dir
   in
   {
