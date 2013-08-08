@@ -39,6 +39,23 @@ open BuildOCamlTypes
 open BuildOCamlVariables
 open BuildOCamlMisc
 
+let string_of_libloc lib =
+  Printf.sprintf "File %S, line 0, characters 0-1:\nPackage %S:"
+    lib.lib_filename lib.lib_name
+
+(*
+module Filename = struct
+  include Filename
+
+  let chop_extension f =
+    try
+      (chop_extension f : string)
+    with e ->
+      Printf.eprintf "In Filename.chop_extension(%S)\n%!" f;
+      raise e
+end
+*)
+
 (* TODO: [mut_dir] does not work for source files beginning with ".."
    and for source files in other packages (package = "toto")
 *)
@@ -495,7 +512,9 @@ let sort_ocaml_files cmo_files =
       if r.rule_state <> RULE_INACTIVE then
 	IntMap.iter (fun _ file2 ->
 	  try
-	    let modname = Filename.chop_extension file2.file_basename in
+	    let modname =
+       try Filename.chop_extension file2.file_basename
+       with _ -> raise Not_found in
 	    modname.[0] <- Char.uppercase modname.[0];
 	    let to_sort2 = StringMap.find modname !map in
 	    if to_sort2 != to_sort then
@@ -524,10 +543,10 @@ let sort_ocaml_files cmo_files =
 
 
 
-let add_files_to_link_to_command cmd options cmx_files =
+let add_files_to_link_to_command case cmd options cmx_files =
   if sort_files_option.get options  then begin
     DynamicAction (
-      "sort for asm library",
+      (Printf.sprintf "sort for %s" case),
       lazy (
 	let cmx_files = sort_ocaml_files cmx_files in
 	List.iter (fun cmx_file ->
@@ -555,7 +574,7 @@ let add_cmos2cma_rule b lib ptmp cclib cmo_files cma_file =
     if cclib <> "" then
       add_command_strings cmd ["-custom"; "-cclib"; cclib ];
 
-    let cmd = add_files_to_link_to_command cmd options cmo_files in
+    let cmd = add_files_to_link_to_command "byte lib" cmd options cmo_files in
     let r = new_rule lib cma_file [cmd] in
     add_more_rule_sources lib r [ ocamlc_deps ] options;
     add_rule_sources r cmo_files;
@@ -605,7 +624,7 @@ let add_cmxs2cmxa_rule b lib ptmp cclib cmi_files cmx_files cmxo_files stubs_fil
       if cclib <> "" then
         add_command_strings cmd ["-cclib"; cclib];
 
-      let cmd = add_files_to_link_to_command cmd envs cmx_files in
+      let cmd = add_files_to_link_to_command "asm lib" cmd envs cmx_files in
       add_rule_command r cmd;
       add_rule_target r a_file;
       add_rule_temporaries r [ temp_cmxa; temp_a ];
@@ -699,7 +718,7 @@ are some cmo_objects. *)
     ) lib.lib_requires;
     if !custom then add_command_string cmd "-custom";
 
-    let cmd = add_files_to_link_to_command cmd options cmo_files in
+    let cmd = add_files_to_link_to_command "byte prog" cmd options cmo_files in
     let r = new_rule lib byte_file [cmd] in
     add_more_rule_sources lib r [ ocamlc_deps ] options;
 
@@ -760,7 +779,7 @@ let add_cmxs2asm_rule b lib ptmp linkflags cclib cmx_files cmxo_files o_files op
         | RulesPackage -> ()
     ) lib.lib_requires;
 
-    let cmd = add_files_to_link_to_command cmd options cmx_files in
+    let cmd = add_files_to_link_to_command "asm prog" cmd options cmx_files in
     let r = new_rule lib opt_file [cmd] in
     add_more_rule_sources lib r [ ocamlopt_deps ] options;
 
@@ -1504,7 +1523,7 @@ let add_ml_source b lib ptmp ml_file options =
               (*      Printf.eprintf "Pack in %s [%s]\n" src_dir modname; *)
               let src_dir = add_directory b src_dir in
               let cmo_files = get_packed_objects lib r src_dir pack_of "cmo" in
-              let cmd = add_files_to_link_to_command cmd envs cmo_files in
+              let cmd = add_files_to_link_to_command "byte pack" cmd envs cmo_files in
               add_rule_command r cmd
             end;
 
@@ -1573,7 +1592,7 @@ let add_ml_source b lib ptmp ml_file options =
 
         let src_dir = add_directory b (Filename.concat dst_dir.dir_fullname modname) in
         let cmx_files = get_packed_objects lib r src_dir pack_of "cmx" in
-        let cmd = add_files_to_link_to_command cmd envs cmx_files in
+        let cmd = add_files_to_link_to_command "asm pack" cmd envs cmx_files in
         add_rule_command r cmd
       end;
 
@@ -1852,11 +1871,31 @@ let add_library b lib =
   let cclib =  cclib_option.get envs in
   let cclib = String.concat " " cclib in
   let (cclib, stubs_files) =
-    if !(ptmp.o_files) <> [] then begin
+    let a_file =
       let ext_lib = BuildOCamlConfig.ocaml_config_ext_lib.get envs  in
-      let a_file = add_dst_file b dst_dir (
-          Printf.sprintf "lib%s%s" lib.lib_stubarchive ext_lib) in
-      add_os2a_rule b lib lib !(ptmp.o_files) a_file;
+      let libbasename =
+        Printf.sprintf "lib%s%s" lib.lib_stubarchive ext_lib in
+      if !(ptmp.o_files) <> [] then
+        let a_file = add_dst_file b dst_dir libbasename in
+        add_os2a_rule b lib lib !(ptmp.o_files) a_file;
+        Some a_file
+      else
+        try
+          let a_file = get_string envs "libstubs" in
+          let a_file = subst global_subst a_file in
+          if Filename.basename a_file <> libbasename then begin
+            Printf.eprintf "%s\nError: %s=%S basename differs from %S^%s^%S=\"%s\"\n%!"
+              (string_of_libloc lib)
+              "libstubs" a_file "lib" "stubarchive" ext_lib libbasename;
+            BuildMisc.clean_exit 2
+          end;
+          let a_file = add_package_file lib a_file in
+          Some a_file
+        with Var_not_found _ -> None
+    in
+    match a_file with
+    | None -> cclib, []
+    | Some a_file ->
       if  byte_option.get envs then
 	lib.lib_byte_targets <- (a_file, C_A) :: lib.lib_byte_targets;
       if  asm_option.get envs then
@@ -1868,13 +1907,12 @@ let add_library b lib =
       lib.lib_asm_cmx_objects <- lib.lib_asm_cmx_objects;
       lib.lib_asm_cmxo_objects <- lib.lib_asm_cmxo_objects;
       Printf.sprintf "%s -l%s" cclib lib.lib_stubarchive, [a_file]
-    end
-    else cclib, []
+
   in
 
   if  byte_option.get envs &&
   !(ptmp.cmo_files) <> [] then begin
-    let cma_file = add_dst_file b dst_dir (lib.lib_name ^ ".cma") in
+    let cma_file = add_dst_file b dst_dir (lib.lib_archive ^ ".cma") in
     lib.lib_bytelink_deps <- cma_file :: lib.lib_bytelink_deps;
     add_cmos2cma_rule b lib ptmp cclib !(ptmp.cmo_files) cma_file;
     lib.lib_byte_targets <- (cma_file, CMA) ::
@@ -1956,13 +1994,15 @@ let add_rules bc lib =
     try get_local [lib.lib_options] "build_rules" with Var_not_found _ -> [] in
   if build_rules <> [] then
     List.iter (fun (file, env) ->
-      (*
+(*
       Printf.eprintf "Adding rule to build %s/%s\n%!" (File.to_string dirname) file;
 *)
 
       let envs = [ env; lib.lib_options ] in
 
       let uniq_rule = get_string_option_with_default envs "uniq_rule" None in
+
+      let file = subst global_subst file in
       let target_file = add_package_file lib file in
 
       let to_build = get_bool_with_default envs "build_target" false in
@@ -2015,8 +2055,17 @@ let add_rules bc lib =
           in
           let cmd = List.map local_subst cmd in
           let cmd = new_command cmd [] in
-          cmd.cmd_move_to_dir <- Some (File.to_string dirname);
-
+          begin
+            let dirname_s = try
+              let s = get_string envs "chdir" in
+              let s = local_subst s in
+              if Filename.is_relative s then
+                Filename.concat dirname_s s
+              else s
+            with Var_not_found _ -> dirname_s
+            in
+            cmd.cmd_move_to_dir <- Some dirname_s
+          end;
           let get_pipe name =
             try
               let stdout = get_string envs name in

@@ -28,7 +28,8 @@ val final_state : state -> package array
 val empty_config :config
 val generated_config :config
 
-val add_primitive : string ->
+val add_primitive : string ->    string list ->
+
   (BuildOCPVariable.env list -> (* all surrounding env, including the second argument ! *)
    BuildOCPVariable.env ->
    BuildOCPVariable.plist) -> unit
@@ -80,3 +81,8 @@ val new_package_dep :
 val read_ocamlconf :  state -> config -> string -> config
 
 val check_package : package -> unit
+
+type prim
+
+val primitives_help : unit -> (prim * string list) StringMap.t
+

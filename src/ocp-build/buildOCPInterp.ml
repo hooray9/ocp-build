@@ -20,6 +20,9 @@ open BuildOCPTypes
 
 let continue_on_ocp_error = ref false
 
+type prim = BuildOCPVariable.env list ->
+             BuildOCPVariable.env -> BuildOCPVariable.plist
+
 type config = {
   config_env : BuildOCPVariable.env;
   config_configs : set_option list StringMap.t;
@@ -205,7 +208,7 @@ let read_config_file (pj:state) filename =
 
 
 let primitives = ref StringMap.empty
-let add_primitive s f =
+let add_primitive s help f =
   let f envs env =
     try
       f (env :: envs) env
@@ -213,9 +216,9 @@ let add_primitive s f =
       Printf.eprintf "Warning: exception raised while running primitive %S\n%!" s;
       raise e
   in
-  primitives := StringMap.add s f !primitives
+  primitives := StringMap.add s (f, help) !primitives
 
-let add_function s f =
+let add_function s help f =
   let f _ env =
     try
       f [ env ] env
@@ -223,7 +226,7 @@ let add_function s f =
       Printf.eprintf "Warning: exception raised while running primitive %S\n%!" s;
       raise e
   in
-  primitives := StringMap.add s f !primitives
+  primitives := StringMap.add s (f, help) !primitives
 
 let rec translate_toplevel_statements pj config list =
   match list with
@@ -406,7 +409,7 @@ and translate_expression config envs exp =
   | ExprString s -> [ s, empty_env ]
 
   | ExprPrimitive (s, args) ->
-    let f = try StringMap.find s !primitives with
+    let (f, _) = try StringMap.find s !primitives with
         Not_found ->
         failwith (Printf.sprintf "Could not find primitive %S\n%!" s)
     in
@@ -518,14 +521,23 @@ let _ =
     in
     subst_files envs to_file
   in
-  add_primitive "subst_ext" subst_file;
-  add_primitive "subst_file" subst_file;
+  let subst_help =     [
+      "Perform a substitution on a list of files";
+      "ENV can contain:";
+      "- files: the list of files";
+      "- to_file: the destination, with substitutions";
+      "- to_ext: an extension, if only the extension should be changed";
+      "- from_ext: perform only on files ending with these extensions";
+      "- keep_others: true if non-substituted files should be kept";
+    ]  in
+  add_primitive "subst_ext" subst_help subst_file;
+  add_primitive "subst_file" subst_help subst_file;
 
-  add_primitive "basefiles" (fun envs env ->
+  add_primitive "basefiles" [] (fun envs env ->
     subst_files envs "%{basefile}%"
   );
 
-  add_primitive "path"
+  add_primitive "path" []
     (fun envs env ->
       let path = get_strings envs "path" in
       let s =
@@ -539,14 +551,25 @@ let _ =
       [ s, env ]
     );
 
-  add_primitive "string"
+  add_primitive "string" [
+    "Returns the concatenation of a list of strings";
+    "ENV must contain:";
+    "- strings : the list of strings";
+    "ENV can contain:";
+    "- sep : a separator, to be added between strings";
+  ]
     (fun envs env ->
       let path = get_strings envs "strings" in
       let sep = get_string_with_default envs "sep" "" in
       [ String.concat sep path, env ]
     );
 
-  add_primitive "mem"
+  add_primitive "mem" [
+    "Check if a string is included in a list of strings";
+    "ENV must contain:";
+    "- string : the string";
+    "- strings : the list of strings";
+  ]
     (fun envs env ->
       let string = get_string envs "string" in
       let strings = get_strings envs "strings" in
@@ -577,20 +600,22 @@ let _ =
     ) env
 
   in
-  add_function "disp"
+  add_function "disp" [
+    "Display its environment ENV"
+  ]
     (fun envs env ->
       Printf.printf "disp:\n%!";
       print_env "" env;
       []
     );
 
-  add_function "exit"
+  add_function "exit" []
     (fun envs env ->
       let code = get_local_string_with_default envs "code" "0" in
       exit (int_of_string code)
     );
 
-  add_function "pack" (fun envs env ->
+  add_function "pack" [] (fun envs env ->
     let to_module = get_local envs "to_module" in
     let files = get_local envs "files" in
 
@@ -618,7 +643,13 @@ let _ =
 
   );
 
-  add_function "dstdir" (fun envs env ->
+  add_function "dstdir" [
+    "Replaced by %{package_FULL_DST_DIR}%";
+    "ENV must contain:";
+    "- p : the package";
+    "ENV can contain:";
+    "- file : a filename that will be appended";
+  ] (fun envs env ->
     let p = get_local_string envs "p" in
     let s = Printf.sprintf "%%{%s_FULL_DST_DIR}%%" p in
     let s = try
@@ -629,7 +660,13 @@ let _ =
     [s, empty_env]
   );
 
-  add_function "srcdir" (fun envs env ->
+  add_function "srcdir" [
+    "Replaced by %{package_FULL_SRC_DIR}%";
+    "ENV must contain:";
+    "- p : the package";
+    "ENV can contain:";
+    "- file : a filename that will be appended";
+] (fun envs env ->
     let p = get_local_string envs "p" in
     let s = Printf.sprintf "%%{%s_FULL_SRC_DIR}%%" p in
     let s =try
@@ -640,20 +677,43 @@ let _ =
     [s, empty_env]
   );
 
-  add_function "byte_exe" (fun envs env ->
+  add_function "byte_exe" [] (fun envs env ->
     let p = get_local_string envs "p" in
     let s = Printf.sprintf "%%{%s_FULL_DST_DIR}%%/%s.byte" p p in
     [s, empty_env]
   );
 
-  add_function "split" (fun envs env ->
+  add_function "asm_exe" [] (fun envs env ->
+    let p = get_local_string envs "p" in
+    let s = Printf.sprintf "%%{%s_FULL_DST_DIR}%%/%s.asm" p p in
+    [s, empty_env]
+  );
+
+  add_function "split" [
+    "Cut a string into a list of strings, at a given char,";
+    "  empty strings are kept.";
+    "ENV must contain:";
+    "- s : the string to be cut";
+    "ENV can contain:";
+    "- sep : a string, whose first char will be the separator";
+    "    (default to space)";
+  ]
+    (fun envs env ->
     let s = get_string envs "s" in
     let sep = get_string_with_default envs "sep" " " in
     let sep = if sep = "" then ' ' else sep.[0] in
     List.map (fun s -> (s, empty_env)) (OcpString.split s sep)
   );
 
-  add_function "split_simplify" (fun envs env ->
+  add_function "split_simplify" [
+    "Cut a string into a list of strings, at a given char,";
+    "  empty strings are removed.";
+    "ENV must contain:";
+    "- s : the string to be cut";
+    "ENV can contain:";
+    "- sep : a string, whose first char will be the separator";
+    "    (default to space)";
+  ] (fun envs env ->
     let s = get_string envs "s" in
     let sep = get_string_with_default envs "sep" " " in
     let sep = if sep = "" then ' ' else sep.[0] in
@@ -661,8 +721,11 @@ let _ =
   );
 
   let uniq_counter = ref 0 in
-  add_function "uniq" (fun _ _ ->
+  add_function "uniq" [
+    "Returns a uniq string, to be used as a uniq identifier";
+  ] (fun _ _ ->
     incr uniq_counter; [ Printf.sprintf ".id_%d" !uniq_counter, empty_env]);
   ()
 
 
+let primitives_help () = !primitives

@@ -70,6 +70,7 @@ let subcommands =  [
 
     BuildActionPrefs.subcommand;
     BuildActionQuery.subcommand;
+    BuildActionHelp.subcommand;
 
   ]
 

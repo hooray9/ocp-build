@@ -27,7 +27,6 @@ let verbose =
   DebugVerbosity.add_submodules "B" [ "BE" ];
   DebugVerbosity.verbose [ "BE" ] "BuildEngine"
 
-exception ExitError of int
 let sigint_received = ref false
 let _ =
   BuildMisc.at_sigint "BuildEngine" (fun _ ->
@@ -35,7 +34,7 @@ let _ =
     sigint_received := true)
 
 
-let exit2 () = raise (ExitError 2)
+let exit2 () = BuildMisc.clean_exit 2
 
 (*
 (* open BuildGlobals *)
@@ -155,7 +154,7 @@ let rule_need_execution =
          (* TODO: this should be some error *)
 		Printf.eprintf "Error: exception %s with DynamicAction %s\n%!"
 		  (Printexc.to_string e) msg ;
-		raise (ExitError 2)
+		BuildMisc.clean_exit 2
 	    in
 	    actions @ commands
           | Function (name, printer, actor) ->
@@ -547,7 +546,7 @@ let lock_temporary b r file =
   if IntMap.mem file.file_id b.temp_files then begin
     Printf.eprintf "Error in lock_temporary: file %S is already locked\n%!"
       (File.to_string file.file_file);
-    raise (ExitError 2)
+    BuildMisc.clean_exit 2
   end;
 (*    Printf.eprintf "LOCKING FILE %d %S\n%!" file.file_id
       (File.to_string file.file_file);
@@ -558,7 +557,7 @@ let check_temporaries b r =
 (*  Printf.eprintf "check_temporaries %d\n%!" r.rule_id; *)
   if (r.rule_missing_sources <> 0) then begin
     Printf.eprintf "check_temporaries: missing_sources = %d\n" r.rule_missing_sources;
-    raise (ExitError 2)
+    BuildMisc.clean_exit 2
   end;
   let check_temporary = check_temporary b r in
   List.iter check_temporary r.rule_temporaries;
@@ -686,7 +685,7 @@ let rule_executed b r execution_status =
 	  if (r2.rule_missing_sources < 0) then begin
 	    BuildEngineRules.print_rule r;
 	    BuildEngineRules.print_rule r2;
-     raise (ExitError 2)
+     BuildMisc.clean_exit 2
 	  end;
 (*	  Printf.eprintf "Generated %s =>\n%!" (file_filename f); *)
 (*	  Printf.eprintf "Setting rule %d missing sources to %d\n%!" r.rule_id r.rule_missing_sources; *)
@@ -793,7 +792,7 @@ let add_dependency b r target_file filenames =
     List.iter (fun filename ->
       Printf.eprintf "\t%s\n%!" filename
     ) filenames;
-    raise (ExitError 2)
+    BuildMisc.clean_exit 2
 
 
 (* TODO: replace BuildOcamldep.load_dependencies by a generic function inside LoadDeps *)
@@ -1087,12 +1086,12 @@ let parallel_loop b ncores =
               nslots
 	  end
       with
-      | ExitError _ as e -> raise e
+      | BuildMisc.ExitStatus _ as e -> raise e
       | e ->
         (*	if verbose 7 then *)
         Printf.eprintf "Error in waiting loop: exception %s\n%!" (Printexc.to_string e);
         (* nslots *)
-        raise (ExitError 2)
+        BuildMisc.clean_exit 2
     in
     iter nslots
 
@@ -1183,7 +1182,7 @@ let parallel_loop b ncores =
 	    Printf.eprintf
 	      "\tDestination directory of %s does not exist\n%!"
               fa2;
-	  raise (ExitError 2)
+	  BuildMisc.clean_exit 2
 	end;
 	execute_proc proc nslots
 
@@ -1211,7 +1210,7 @@ let parallel_loop b ncores =
 	  if not (File.X.exists (File.dirname (ff2))) then
 	    Printf.eprintf "\tDestination directory %s does not exist\n%!"
               (fa2);
-	  raise (ExitError 2)
+	  BuildMisc.clean_exit 2
 	end;
 	execute_proc proc nslots
 
@@ -1296,7 +1295,7 @@ let parallel_loop b ncores =
   save_cache b;
   if !sigint_received then begin
     Printf.eprintf "Error: compilation aborted by user\n%!";
-    raise (ExitError 2)
+    BuildMisc.clean_exit 2
   end;
   let waiting_len = IntMap.cardinal b.queue_waiting in
   if not (BuildEngineDisplay.has_error b
@@ -1311,7 +1310,7 @@ let parallel_loop b ncores =
         Printf.eprintf "  Use '-v 3' to display waiting rules. \nDisplaying only the first 3  rules in waiting queue:\n%!";
         print_waiting_queue b 3;
       end;
-      raise (ExitError 2)
+      BuildMisc.clean_exit 2
   end;
   BuildEngineDisplay.finish ();
   match raised_exn with
