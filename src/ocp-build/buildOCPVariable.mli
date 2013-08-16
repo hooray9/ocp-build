@@ -66,6 +66,7 @@ type 'a source_option = {
   set : 'a -> unit;
 }
 
+val new_option : string -> plist -> plist source_option
 val new_bool_option : string -> bool -> bool source_option
 val new_strings_option : string -> string list -> string list source_option
 val new_string_option : string -> string -> string source_option
@@ -74,3 +75,4 @@ val true_value : plist
 val false_value : plist
 
 val iter : (string -> plist -> unit) -> env -> unit
+

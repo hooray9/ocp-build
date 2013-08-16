@@ -648,14 +648,29 @@ let get_ncores cin =
   else
     ncores
 
-
+let print_env_arg = ref false
 let do_build p =
   let targets = List.rev !targets_arg in
   time_step "Arguments parsed.";
 
-  let state = do_read_env p in
+  let env_state = do_read_env p in
+  let env_pj = BuildOCP.verify_packages env_state in
+  if !print_env_arg then begin
+    BuildOCP.eprint_project "Environment packages" env_pj;
+    exit 0;
+  end;
+  time_step "Environment read and checked.";
+  (* TODO: we could check that all the packages are indeed installed ! *)
 
-  time_step "Arguments parsed.";
+  BuildOCamlVariables.packages_option.BuildOCPVariable.set (Array.to_list (Array.map (fun pk ->
+        let dirname = absolute_filename pk.package_dirname in
+        List.iter (fun suffix ->
+          BuildSubst.add_to_global_subst (pk.package_name ^ suffix) dirname)
+          [ "_SRC_DIR"; "_DST_DIR"; "_FULL_SRC_DIR"; "_FULL_DST_DIR" ];
+
+        pk.package_name, pk.package_options
+      ) env_pj.project_sorted));
+
 
   if !query_global then move_to_project := false;
 
@@ -667,7 +682,7 @@ let do_build p =
 
 
   if !uninstall_arg && targets <> [] then begin
-  let uninstall_state = BuildOCamlInstall.uninstall_init (install_where p) in
+    let uninstall_state = BuildOCamlInstall.uninstall_init (install_where p) in
 
     List.iter (BuildOCamlInstall.uninstall_by_name uninstall_state) targets;
     BuildOCamlInstall.uninstall_finish uninstall_state;
@@ -689,8 +704,6 @@ let do_build p =
   end;
 
   chdir_to_project p;
-
-  let env_state = state in
 
   do_compile 0 p (get_ncores p.cin) env_state targets
 
@@ -718,6 +731,9 @@ let arg_list = [
   "-print-loaded-ocp-files", Arg.Set
     BuildOCP.print_loaded_ocp_files,
   " Print loaded ocp files";
+ "-print-loaded-env", Arg.Set
+    print_env_arg,
+ " Print the loaded environment and exit.";
  "-print-package-deps", Arg.Set
     BuildOCP.print_package_deps,
  " Print package dependencies";

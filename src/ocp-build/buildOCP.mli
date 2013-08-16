@@ -53,3 +53,5 @@ val generated_config : unit -> BuildOCPInterp.config
 
 val print_conflicts : project -> bool -> unit
 
+val eprint_project : string -> project -> unit
+

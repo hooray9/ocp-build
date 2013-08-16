@@ -45,7 +45,7 @@ and set_option_list = set_option list
 and set_option =
   | OptionVariableSet of string * expression
   | OptionVariableAppend of string * expression
-  | OptionConfigUse of string
+  | OptionConfigUse of expression
   | OptionIfThenElse of condition * set_option * set_option option
   | OptionBlock of set_option list
 (*  | OptionConfigAppend of string *)
@@ -53,10 +53,10 @@ and set_option =
 type statement =
     StmtOption of set_option
   | StmtBlock of statement list
-  | StmtDefineConfig of string * set_option list
-  | StmtDefinePackage of package_type * string * statement list
+  | StmtDefineConfig of expression * set_option list
+  | StmtDefinePackage of package_type * expression * statement list
   | StmtIfThenElse of condition * statement list * statement list option
-  | StmtInclude of string * statement list * statement list option
+  | StmtInclude of expression * statement list * statement list option
 
 let modname_of_fullname fullname =
   let modname = Filename.chop_extension (Filename.basename fullname) in
@@ -111,7 +111,7 @@ and string_of_set_option option =
     Printf.sprintf "%s = %s" v (string_of_expression exp)
   | OptionVariableAppend (v, exp) ->
     Printf.sprintf "%s += %s" v (string_of_expression exp)
-  | OptionConfigUse c -> Printf.sprintf "use \"%s\"" c
+  | OptionConfigUse c -> Printf.sprintf "use \"%s\"" (string_of_expression c)
   | OptionIfThenElse (cond, ifthen, ifelse) ->
     Printf.sprintf "if %s then %s%s"
       (string_of_condition cond)

@@ -143,15 +143,20 @@ let load_META_files pj ocamllib top_dirname =
 
           let create_package fullname kind requires archive =
 
+            let options = empty_env in
+
+            let options = set options
+                "requires" (List.map (fun (s, link) ->
+                  let link =
+                    if Filename.check_suffix s ".syntax" then false else link in
+                  s, (set_bool empty_env "tolink" link)
+                ) requires) in
+            let options = set_bool options "generated" true in
+
             let pk = BuildOCPInterp.new_package pj fullname dirname
                 meta_filename [meta_filename, None (* matters only for non-installed packages *)
-                              ] kind in
+                              ] kind options in
             pk.package_source_kind <- "meta";
-
-            pk.package_options <- set pk.package_options
-                "requires" (List.map (fun (s, link) ->
-                  s, (set_bool empty_env "tolink" link)
-                ) requires);
 (*
           List.iter (fun (s, link) ->
             let ( dep :  'a package_dependency) =
@@ -161,7 +166,6 @@ let load_META_files pj ocamllib top_dirname =
 *)
 
             (* this package has already been generated *)
-            pk.package_options <- set_bool pk.package_options "generated" true ;
 
             begin
               match meta.meta_version with

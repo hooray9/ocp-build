@@ -20,8 +20,7 @@ open BuildOCPTypes
 
 let continue_on_ocp_error = ref false
 
-type prim = BuildOCPVariable.env list ->
-             BuildOCPVariable.env -> BuildOCPVariable.plist
+type prim = env list -> env -> plist
 
 type config = {
   config_env : BuildOCPVariable.env;
@@ -64,7 +63,7 @@ let final_state state =
       IntMap.find i state.packages
     )
 
-let new_package pj name dirname filename filenames kind =
+let new_package pj name dirname filename filenames kind options =
   let package_id = pj.npackages in
   pj.npackages <- pj.npackages + 1;
   let pk = {
@@ -85,7 +84,7 @@ let new_package pj name dirname filename filenames kind =
     package_validated = false;
     package_dirname = dirname;
     package_deps_map = StringMap.empty;
-    package_options = empty_env;
+    package_options = options;
   } in
   pj.packages <- IntMap.add pk.package_id pk pj.packages;
   pk
@@ -144,9 +143,14 @@ let add_project_dep pk s options =
     pk.package_name s dep.dep_link; *)
 ()
 
+(* We want to check the existence of the dirname of a package as soon
+ as possible, so that we can disable it and enable another one.
+ Actually, this should only be done for .ocpi files, i.e. installed files,
+ for which we should use another loading phase.
+*)
+
 let check_package pk =
-  begin
-    let options = pk.package_options in
+  let options = pk.package_options in
 
     if get_bool_with_default [options] "enabled" true &&
        not ( BuildMisc.exists_as_directory pk.package_dirname ) then begin
@@ -157,9 +161,17 @@ let check_package pk =
       Printf.eprintf "  Package %S in %S disabled.\n%!"
         pk.package_name pk.package_filename;
       pk.package_options <- set_bool options "enabled" false;
-    end;
-  end;
-  ()
+    end else begin
+
+      pk.package_version <- get_string_with_default [pk.package_options]
+          "version"  "0.1-alpha";
+      List.iter (fun (s, options) ->
+        add_project_dep pk s options
+      ) (try get [pk.package_options] "requires" with Var_not_found _ ->
+        (*    Printf.eprintf "No 'requires' for package %S\n%!" name; *)
+        []
+      )
+    end
 
 let define_package pj name config kind =
   let dirname =
@@ -170,21 +182,8 @@ let define_package pj name config kind =
       config.config_dirname
   in
   let dirname = if dirname = "" then "." else dirname in
-  let pk = new_package pj name
-      dirname config.config_filename config.config_filenames kind
-  in
-  let project_options = config.config_env in
-  pk.package_options <- project_options;
-  pk.package_version <- get_string_with_default [project_options] "version"
-      "0.1-alpha";
-
-  check_package pk;
-  List.iter (fun (s, options) ->
-    add_project_dep pk s options
-  ) (try get [project_options] "requires" with Var_not_found _ ->
-    (*    Printf.eprintf "No 'requires' for package %S\n%!" name; *)
-    []
-  )
+  new_package pj name
+      dirname config.config_filename config.config_filenames kind config.config_env
 
 
 let read_config_file (pj:state) filename =
@@ -208,7 +207,7 @@ let read_config_file (pj:state) filename =
 
 
 let primitives = ref StringMap.empty
-let add_primitive s help f =
+let add_primitive s help ( f : env list -> env -> plist) =
   let f envs env =
     try
       f (env :: envs) env
@@ -238,13 +237,16 @@ let rec translate_toplevel_statements pj config list =
 and translate_toplevel_statement pj config stmt =
   match stmt with
   | StmtDefineConfig (config_name, options) ->
+    let config_name = translate_string_expression config [config.config_env] config_name in
     define_config config config_name options
   (*  (fun old_options -> translate_options old_options options); *)
   | StmtDefinePackage (package_type, library_name, simple_statements) ->
+    let library_name = translate_string_expression config [config.config_env] library_name in
     begin
       try
         let config = translate_statements pj config simple_statements in
-        define_package pj library_name config package_type
+        let (_ : package) = define_package pj library_name config package_type in
+        ()
       with e ->
         Printf.eprintf "Error while interpreting package %S:\n%!" library_name;
         raise e
@@ -263,11 +265,13 @@ and translate_toplevel_statement pj config stmt =
           translate_toplevel_statements pj config ifelse
     end
   | StmtInclude (filename, ifthen, ifelse) ->
+    let filename = translate_string_expression config [config.config_env] filename in
     if Filename.check_suffix filename ".ocp" then begin
       Printf.eprintf "Warning, file %S, 'include %S', file argument should not\n"
         config.config_filename filename;
       Printf.eprintf "  have a .ocp extension, as it will be loaded independantly\n%!";
     end;
+    let filename = BuildSubst.subst_global filename in
     let filename = if Filename.is_relative filename then
         Filename.concat config.config_dirname filename
       else filename
@@ -361,6 +365,7 @@ and translate_options config envs env list =
 and translate_option config envs env op =
   match op with
   | OptionConfigUse config_name ->
+    let config_name = translate_string_expression config (env :: envs) config_name in
     translate_options config envs env (find_config config config_name)
 
   | OptionVariableSet (name, exp) ->
@@ -401,6 +406,11 @@ and translate_option config envs env op =
           translate_option config envs env ifelse
     end
   | OptionBlock list -> translate_options config envs env list
+
+and translate_string_expression config envs exp =
+  match translate_expression config envs exp with
+  [] | _ :: _ :: _ -> failwith "Single string expected"
+  | [s , _] ->    s
 
 and translate_expression config envs exp =
 (*  Printf.eprintf "translate_expression\n%!"; *)
@@ -462,6 +472,39 @@ let read_ocamlconf pj config filename =
 
 
 open StringSubst
+
+
+let rec eprint_plist indent list =
+  match list with
+    [] -> Printf.eprintf "%s[]\n" indent
+  | list ->
+    Printf.eprintf "%s[\n" indent;
+    List.iter (fun (s, env) ->
+      Printf.eprintf "%s  %S\n" indent s;
+      if env <> empty_env then begin
+        Printf.eprintf "%s  (\n" indent;
+        eprint_env (indent ^ "  ") env;
+        Printf.eprintf "%s  )\n" indent;
+      end
+    ) list;
+    Printf.eprintf "%s]\n" indent;
+    ()
+
+and eprint_env indent env =
+  iter (fun var v ->
+    if v = true_value then
+      Printf.eprintf "%s%s = true\n" indent var
+    else
+      match v with
+      | [] ->
+        Printf.eprintf "%s%s = []\n" indent var;
+      | [s, env] when env = empty_env ->
+        Printf.eprintf "%s%s = %S\n" indent var s;
+      | _ ->
+        Printf.eprintf "%s%s =\n" indent var;
+        eprint_plist (indent ^ "  ") v
+  ) env
+
 
 let subst_basename filename =
   let basename = Filename.basename filename in
@@ -577,35 +620,13 @@ let _ =
       plist_of_bool bool
     );
 
-  let rec print_plist indent list =
-    match list with
-      [] -> Printf.printf "%s[]\n" indent
-    | list ->
-      Printf.printf "%s[\n" indent;
-      List.iter (fun (s, env) ->
-        Printf.printf "%s  %S\n" indent s;
-        if env <> empty_env then begin
-          Printf.printf "%s  (\n" indent;
-          print_env (indent ^ "  ") env;
-          Printf.printf "%s  )\n" indent;
-        end
-      ) list;
-      Printf.printf "%s]\n" indent;
-      ()
 
-  and print_env indent env =
-    iter (fun var v ->
-      Printf.printf "%s%s =\n" indent var;
-      print_plist (indent ^ "  ") v
-    ) env
-
-  in
   add_function "disp" [
     "Display its environment ENV"
   ]
     (fun envs env ->
       Printf.printf "disp:\n%!";
-      print_env "" env;
+      eprint_env "" env;
       []
     );
 

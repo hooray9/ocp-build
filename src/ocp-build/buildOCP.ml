@@ -724,6 +724,9 @@ and tag = {
 let verify_packages packages =
   let packages = BuildOCPInterp.final_state packages in
 
+  Array.iter BuildOCPInterp.check_package packages;
+
+
   let disabled_packages = ref [] in
   let tpk_packages = ref [] in
   let conflicts = ref [] in
@@ -1419,3 +1422,20 @@ let find_root root_dir basenames =
       File.concat (File.X.getcwd ()) root_dir
   in
   find root_dir basenames
+
+let rec eprint_project msg pj =
+  Printf.eprintf "%s = {\n" msg;
+  Printf.eprintf "  sorted = [\n";
+  print_package_array "    " pj.project_sorted;
+  Printf.eprintf "  ]\n";
+  Printf.eprintf "}\n";
+
+and print_package_array indent array =
+  let indent2 = indent ^ "  " in
+  Array.iter (fun pk ->
+    Printf.eprintf "%s{\n" indent;
+    Printf.eprintf "%spackage_name = %S\n" indent2 pk.package_name;
+    Printf.eprintf "%spackage_dirname = %S\n" indent2 pk.package_dirname;
+    BuildOCPInterp.eprint_env indent2 pk.package_options;
+    Printf.eprintf "%s}\n" indent;
+  ) array

@@ -49,7 +49,7 @@ let get envs name =
 (*      Printf.eprintf "get_global %S failed\n%!" name; *)
       raise (Var_not_found name)
 
-let true_value =  [ ".", { env = StringMap.empty } ]
+let true_value = ["", set empty_env "type" ["%bool", empty_env]]
 let false_value = []
 
 let plist_of_bool b =
@@ -121,6 +121,13 @@ let get_local_path_with_default = get_with_default_fun get_local_path
 let is_already_installed options =
   get_bool_with_default options "generated" false
   || get_bool_with_default options "installed" false
+
+let new_option name v =
+  set_global name v;
+  {
+    get = (fun env -> get env name);
+    set = (fun v -> set_global name v);
+  }
 
 let new_bool_option name v =
   set_global name (plist_of_bool v);

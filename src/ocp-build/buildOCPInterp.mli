@@ -71,7 +71,9 @@ val new_package :
   string (* dirname *) ->
   string (* filename *) ->
   (string * Digest.t option) list (* filenames *) ->
-  BuildOCPTree.package_type -> BuildOCPTypes.package
+  BuildOCPTree.package_type ->
+  BuildOCPVariable.env ->
+  BuildOCPTypes.package
 
 val new_package_dep :
   BuildOCPTypes.package -> string ->
@@ -85,4 +87,7 @@ val check_package : package -> unit
 type prim
 
 val primitives_help : unit -> (prim * string list) StringMap.t
+val eprint_env : string -> BuildOCPVariable.env -> unit
+val eprint_plist : string -> BuildOCPVariable.plist -> unit
+
 

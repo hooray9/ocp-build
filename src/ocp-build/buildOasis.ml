@@ -449,7 +449,7 @@ let load_project pj filename =
 
       let pk = BuildOCPInterp.new_package pj name opk.opk_dirname
           opk.opk_filename [opk.opk_filename, None (* matters only for non-installed packages *)
-                           ] opk.opk_type in
+                           ] opk.opk_type po in
       pk.package_source_kind <- "oasis";
       List.iter (fun s ->
         let ( dep :  'a package_dependency) =
@@ -478,7 +478,6 @@ let load_project pj filename =
       let po = StringMap.add "archive" (OptionList [ opk.opk_archive]) po in
 *)
 
-      pk.package_options <- po
   ) opj.opj_packages;
   0
 

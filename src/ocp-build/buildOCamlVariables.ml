@@ -95,3 +95,4 @@ let install_option = new_bool_option "install" true
 let generated_option = new_bool_option "generated" false
 let installed_option = new_bool_option "installed" false
 
+let packages_option = new_option "packages" []

@@ -89,10 +89,11 @@ package_type:
 ;
 
 toplevel_statement:
-| BEGIN CONFIG STRING list_of_set_options END { StmtDefineConfig ($3, $4) }
-| BEGIN package_type STRING statements END { StmtDefinePackage ($2, $3, $4) }
+| BEGIN CONFIG string_expression list_of_set_options END { StmtDefineConfig ($3, $4) }
+| BEGIN package_type string_expression statements END { StmtDefinePackage ($2, $3, $4) }
 | BEGIN toplevel_statements END { StmtBlock $2 }
-| IF INCLUDE STRING THEN one_toplevel_statement maybe_else_one_toplevel_statement { StmtInclude($3,$5,$6) }
+| IF INCLUDE string_expression THEN
+     one_toplevel_statement maybe_else_one_toplevel_statement { StmtInclude($3,$5,$6) }
 | IF condition THEN one_toplevel_statement maybe_else_one_toplevel_statement { StmtIfThenElse($2,$4,$5) }
 | simple_statement { $1 }
 
@@ -165,9 +166,7 @@ list_of_expressions:
 ;
 
 expression:
-| PERCENT ident set_option_list { ExprPrimitive ($2, $3) }
-| IDENT { ExprVariable $1 }
-| STRING { ExprString   $1 }
+  string_expression { $1 }
 | INT      { ExprString (string_of_int  $1) }
 | FALSE     { ExprList [] }
 | TRUE     { ExprList [ ExprApply (ExprString "", [ OptionVariableSet ("type", ExprString "%bool") ])] }
@@ -195,6 +194,12 @@ expression:
 }
 ;
 
+string_expression:
+| PERCENT ident set_option_list { ExprPrimitive ($2, $3) }
+| STRING { ExprString   $1 }
+| IDENT { ExprVariable $1 }
+;
+
 set_option_list:
 | LPAREN list_of_set_options RPAREN { $2 }
 ;
@@ -211,7 +216,7 @@ list_of_set_options:
 ;
 
 set_option:
-| USE STRING { OptionConfigUse $2 }
+| USE string_expression { OptionConfigUse $2 }
 | ident EQUAL expression { OptionVariableSet ($1,$3) }
 | ident PLUSEQUAL expression { OptionVariableAppend ($1,$3) }
 | IF condition THEN one_set_option maybe_else_one_set_option { OptionIfThenElse($2, $4, $5) }
