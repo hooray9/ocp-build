@@ -14,6 +14,10 @@
 (* open BuildBase *)
 (* open Stdlib2 *)
 
+exception IgnoreDirectory
+
+val ignore_file_or_directory : unit -> 'a
+
 val scan_directory_for_suffix :
  (* directory *) string -> (* extension *) string ->
   (string -> unit) -> unit

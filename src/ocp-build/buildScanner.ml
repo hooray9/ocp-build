@@ -20,6 +20,11 @@
 exception LocalNotFound
 let not_found = LocalNotFound
 
+exception IgnoreDirectory
+
+let ignore_directory = IgnoreDirectory
+let ignore_file_or_directory () = raise ignore_directory
+
 let scan_directory f directory =
   let queue = Stack.create () in
   Stack.push directory queue;
@@ -30,10 +35,13 @@ let scan_directory f directory =
       Array.sort compare files;
       Array.iter (fun basename ->
 	let filename = Filename.concat dirname basename in
-	Stack.push filename queue;
-        try
-          f dirname basename filename
-        with _ -> ()
+        if (try
+          f dirname basename filename;
+          true
+        with
+        | IgnoreDirectory -> false
+        | _ -> true) then
+	  Stack.push filename queue;
       ) files;
     with _ -> ()
   done;

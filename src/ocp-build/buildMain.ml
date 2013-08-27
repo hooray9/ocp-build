@@ -67,11 +67,11 @@ let subcommands =  [
     BuildActionInstall.subcommand;
     BuildActionUninstall.subcommand;
     BuildActionClean.subcommand;
+    BuildActionBuild.old_subcommand;
 
     BuildActionPrefs.subcommand;
     BuildActionQuery.subcommand;
     BuildActionHelp.subcommand;
-
   ]
 
 let default_subcommand = {

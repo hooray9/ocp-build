@@ -30,6 +30,7 @@ let nocmxdeps_option = BuildOCPVariable.new_strings_option "noimpldeps" []
 
 (* these should be fully-qualified files *)
 let ocamlc_deps = BuildOCPVariable.new_strings_option "ocamlc_deps" []
+let ocamldoc_deps = BuildOCPVariable.new_strings_option "ocamldoc_deps" []
 let ocamlopt_deps = BuildOCPVariable.new_strings_option "ocamlopt_deps" []
 let ocamldep_deps = BuildOCPVariable.new_strings_option "ocamldep_deps" []
 let ocamllex_deps = BuildOCPVariable.new_strings_option "ocamllex_deps" []
@@ -42,6 +43,7 @@ let ocamlmklib_deps = BuildOCPVariable.new_strings_option "ocamlmklib_deps" []
 let mklib_option = new_strings_option "mklib" ([] : string list)
 let bytelink_option = new_strings_option "bytelink" ([] : string list)
 let bytecomp_option = new_strings_option "bytecomp" ([] : string list)
+let doc_option = new_strings_option "doc" ([] : string list)
 let asmcomp_option = new_strings_option "asmcomp" ([] : string list)
 let asmlink_option = new_strings_option "asmlink" ([] : string list)
 let dep_option = new_strings_option "dep" ([] : string list)

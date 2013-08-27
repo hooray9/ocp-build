@@ -48,6 +48,10 @@ type target =
 
 let load_installed_ocp = ref true
 
+let make_build_targets = ref false
+let make_doc_targets = ref false
+let make_test_targets = ref false
+
 let _ = DebugVerbosity.add_submodules "B" [ "BuildMain" ]
 
 let print_installed install_where =
@@ -481,11 +485,21 @@ let rec do_compile stage p ncores  env_state arg_targets =
     if not lib.lib_installed &&
        (!tests_arg || lib.lib_type <> TestPackage) &&
        not (StringMap.mem lib.lib_name !map) then begin
-      if cin.cin_bytecode then
-        targets := List.map fst lib.lib_byte_targets @ !targets;
-      if cin.cin_native then
-        targets := List.map fst lib.lib_asm_targets @ !targets;
-      targets := lib.lib_build_targets @ !targets;
+
+      if !make_build_targets then begin
+        if cin.cin_bytecode then
+          targets := List.map fst lib.lib_byte_targets @ !targets;
+        if cin.cin_native then
+          targets := List.map fst lib.lib_asm_targets @ !targets;
+        targets := !(lib.lib_build_targets) @ !targets;
+      end;
+
+      if !make_doc_targets then
+        targets := !(lib.lib_doc_targets) @ !targets;
+
+      if !make_test_targets then
+        targets := !(lib.lib_test_targets) @ !targets;
+
       map := StringMap.add lib.lib_name lib !map;
       List.iter (fun dep ->
         if dep.dep_link || dep.dep_syntax then
@@ -716,6 +730,13 @@ let action () =
   end;
   if !root_arg then BuildMisc.clean_exit 0;
 *)
+
+(* Nothing specified, make build targets: *)
+  if not !make_doc_targets && not !make_test_targets then make_build_targets := true;
+(* Test targets require build targets ? *)
+  if !make_test_targets then make_build_targets := true;
+  if !make_doc_targets then make_build_targets := true;
+
   let p = BuildActions.load_project () in
   let (_b, _projects) = do_build p in
   ()
@@ -745,6 +766,10 @@ let arg_list = [
   "-print-build-context", Arg.Set print_build_context,
   " Print full build context";
 
+  "-doc", Arg.Set make_doc_targets, " Make doc targets";
+  "-test", Arg.Set make_test_targets, " Make tests targets";
+  "-build", Arg.Set make_build_targets, " Make build targets";
+
   "-continue-on-ocp-error", Arg.Set BuildOCPInterp.continue_on_ocp_error, " Continue after finding a syntax error in an ocp file";
 
 ] @ arg_list1
@@ -768,10 +793,21 @@ let arg_list = add_synomyms arg_list
 let arg_usage = [ "Build" ]
 
 let subcommand = {
-  sub_name = "build";
+  sub_name = "make";
   sub_help = "Build the project";
   sub_arg_list = arg_list;
   sub_arg_anon = Some arg_anon;
   sub_arg_usage = arg_usage;
   sub_action = action;
 }
+
+let old_subcommand =
+  {
+  sub_name = "build";
+  sub_help = "(deprecated, use 'ocp-build make' subcommand)";
+  sub_arg_list = arg_list;
+  sub_arg_anon = Some arg_anon;
+  sub_arg_usage = arg_usage;
+  sub_action = action;
+}
+

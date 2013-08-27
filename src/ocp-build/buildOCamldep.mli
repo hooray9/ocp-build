@@ -20,7 +20,8 @@ val load_dependencies : string -> (string * string list list) list
  a target and a list of filenames, its dependencies. *)
 val load_modules_dependencies : BuildTypes.package_info -> BuildOCPVariable.env ->
   BuildOCamlTypes.force_kind ->
-  BuildEngineTypes.build_directory -> string list -> string -> (string * string list list) list
+  BuildEngineTypes.build_directory -> string list -> (* needs_odoc *) bool ->
+  string -> (string * string list list) list
 
 
 val modname_of_file : BuildOCPVariable.env list ->

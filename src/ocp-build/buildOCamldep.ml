@@ -223,7 +223,7 @@ let filter_deps options option modules =
   List.filter (fun modname ->
     not (StringSet.mem modname nodeps)) modules
 
-let load_modules_dependencies lib options force dst_dir pack_for filename =
+let load_modules_dependencies lib options force dst_dir pack_for needs_odoc filename =
   let envs = [options; lib.lib_options] in
   let has_asm = asm_option.get envs in
   let has_byte = byte_option.get envs in
@@ -257,12 +257,12 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
 
   let deps = lib.lib_requires in
   let deps = List.concat (List.map (fun dep ->
-      let lib = dep.dep_project in
-      if dep.dep_link ||
-         (get_bool_with_default [dep.dep_options] "externals_only" false) then
-      [(lib.lib_dst_dir, lib.lib_modules)]
-      else []
-    ) (List.rev deps)) in
+        let lib = dep.dep_project in
+        if dep.dep_link ||
+           (get_bool_with_default [dep.dep_options] "externals_only" false) then
+          [(lib.lib_dst_dir, lib.lib_modules)]
+        else []
+      ) (List.rev deps)) in
   let rec add_internal_deps pack_for deps =
     match pack_for with
     | [] ->
@@ -288,6 +288,37 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
     ) deps;
 
   end;
+
+  let depends_only_on_cmi exts =
+    let dependencies = ref [] in
+    let rec find_module deps depname =
+      (*      Printf.eprintf "find_module CMI %s\n" depname; *)
+      match deps with
+	[] ->
+	if verbose 5 then
+	  Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
+	()
+      | (dst_dir, lib_modules) :: deps ->
+	try
+	  let (kind, basename) = StringMap.find depname !lib_modules in
+	  let dst_dir = dst_dir.dir_fullname in
+	  let full_basename = Filename.concat dst_dir basename in
+	  match kind with
+	  | ML ->
+	    dependencies := [ full_basename ^ ".cmo"; full_basename ^ ".cmx" ] :: !dependencies
+	  | MLI ->
+	    dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
+	  | MLandMLI ->
+	    dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
+
+	with Not_found ->
+	  find_module deps depname
+    in
+    List.iter (find_module deps) modules;
+    List.map (fun ext ->
+      let target = Filename.concat dst_dir.dir_fullname (basename ^ ext) in
+      target, !dependencies) exts
+  in
 
   let dependencies =
     if is_ml then
@@ -372,37 +403,16 @@ let load_modules_dependencies lib options force dst_dir pack_for filename =
         else
           []
       in
-      byte_dependencies @ asm_dependencies
-
-    else
-      let cmi_target = Filename.concat dst_dir.dir_fullname (basename ^ ".cmi") in
-      let dependencies = ref [] in
-      let rec find_module deps depname =
-        (*      Printf.eprintf "find_module CMI %s\n" depname; *)
-        match deps with
-	  [] ->
-	  if verbose 5 then
-	    Printf.eprintf "Warning: could not solve dependency %s for %s\n" depname filename;
-	  ()
-	| (dst_dir, lib_modules) :: deps ->
-	  try
-	    let (kind, basename) = StringMap.find depname !lib_modules in
-	    let dst_dir = dst_dir.dir_fullname in
-	    let full_basename = Filename.concat dst_dir basename in
-	    match kind with
-	    | ML ->
-	      dependencies := [ full_basename ^ ".cmo"; full_basename ^ ".cmx" ] :: !dependencies
-	    | MLI ->
-	      dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
-	    | MLandMLI ->
-	      dependencies := [ full_basename ^ ".cmi" ] :: !dependencies
-
-	  with Not_found ->
-	    find_module deps depname
+      let dependencies =
+        byte_dependencies @ asm_dependencies
       in
-      List.iter (find_module deps) modules;
-      [cmi_target, !dependencies]
+      if needs_odoc then
+        (depends_only_on_cmi [ ".odoc"]) @ dependencies
+      else dependencies
+    else
+      depends_only_on_cmi (if needs_odoc then [".odoc"; ".cmi"] else [".cmi"])
   in
+
   if verbose 5 then
     Printf.eprintf "load_modules_dependencies %s DONE\n" filename;
   if verbose 3 then

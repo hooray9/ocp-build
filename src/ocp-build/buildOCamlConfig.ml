@@ -42,6 +42,7 @@ module TYPES = struct
   type config_output = {
     mutable cout_ocaml : ocaml_config option;
     mutable cout_ocamlc : string list option;
+    mutable cout_ocamldoc : string list option;
     mutable cout_ocamlcc : string list option;
     mutable cout_ocamlopt : string list option;
     mutable cout_ocamldep : string list option;
@@ -100,7 +101,7 @@ let get_config cmd =
     ocaml_ocamlbin = Filename.dirname cmd;
   }
 
-let check_is_compiler ocamlc_prefixes args ocamlc =
+let check_is_compiler prefix_sep ocamlc_prefixes args ocamlc =
   let status, lines =
     try get_stdout_lines [ ocamlc ] args
     with e ->
@@ -112,7 +113,7 @@ let check_is_compiler ocamlc_prefixes args ocamlc =
       match lines with
           first_line :: _ ->
             let prefix =
-              let pos = String.index first_line ',' in
+              let pos = String.index first_line prefix_sep in
               String.sub first_line 0 pos
             in
             List.mem prefix ocamlc_prefixes
@@ -122,6 +123,8 @@ let check_is_compiler ocamlc_prefixes args ocamlc =
 
 let ocamlc_prefixes = [
   "The Objective Caml compiler"; "The OCaml compiler"]
+let ocamldoc_prefixes = [
+  "OCamldoc"]
 let ocamlopt_prefixes = [
   "The Objective Caml native-code compiler";
   "The OCaml native-code compiler"
@@ -136,18 +139,20 @@ let ocamlyacc_prefixes = [
 let ocamlmklib_prefixes =
   [ "ocamlmklib" ]
 
-let check_is_ocamlc = check_is_compiler ocamlc_prefixes  [ "-v" ]
-let check_is_ocamlopt = check_is_compiler ocamlopt_prefixes  [ "-v" ]
-let check_is_ocamllex = check_is_compiler ocamllex_prefixes  [ "-version" ]
-let check_is_ocamldep = check_is_compiler ocamldep_prefixes [ "-version" ]
-let check_is_ocamlyacc = check_is_compiler ocamlyacc_prefixes [ "-version" ]
-let check_is_ocamlmklib = check_is_compiler ocamlmklib_prefixes [ "-version" ]
+let check_is_ocamlc = check_is_compiler ',' ocamlc_prefixes  [ "-v" ]
+let check_is_ocamldoc = check_is_compiler ' 'ocamldoc_prefixes  [ "-version" ]
+let check_is_ocamlopt = check_is_compiler ',' ocamlopt_prefixes  [ "-v" ]
+let check_is_ocamllex = check_is_compiler ',' ocamllex_prefixes  [ "-version" ]
+let check_is_ocamldep = check_is_compiler ',' ocamldep_prefixes [ "-version" ]
+let check_is_ocamlyacc = check_is_compiler ',' ocamlyacc_prefixes [ "-version" ]
+let check_is_ocamlmklib = check_is_compiler ',' ocamlmklib_prefixes [ "-version" ]
 
 
 let check_config cin =
 
   let cout = {
     cout_ocamlc = None;
+    cout_ocamldoc = None;
     cout_ocamlcc = None;
     cout_ocamlopt = None;
     cout_ocamllex = None;
@@ -268,6 +273,17 @@ let check_config cin =
       cout.cout_ocamldep <- Some [ocamldep]
   end;
 
+  let ocamldoc = find_first_in_path path check_is_ocamldoc
+      [ "ocamldoc" ] in
+  begin match ocamldoc with
+      None ->
+      Printf.eprintf "Warning: Could not find OCaml ocamldoc tool.\n";
+      cout.cout_ocamldoc <- Some [ "no-ocamldoc-detected" ]
+    | Some ocamldoc ->
+      cout.cout_ocamldoc <- Some [ocamldoc];
+  end;
+
+
   let ocamllex = find_first_in_path path
       check_is_ocamllex cin.cin_ocamllex_variants in
   begin match ocamllex with
@@ -325,6 +341,7 @@ let check_config cin =
 
 let ocamldep_cmd = new_strings_option "ocamldep" [ "ocamldep.opt" ]
 let ocamlc_cmd = new_strings_option "ocamlc" [ "ocamlc.opt" ]
+let ocamldoc_cmd = new_strings_option "ocamldoc" [ "ocamldoc" ]
 let ocamlcc_cmd = new_strings_option "ocamlcc" [ "ocamlc.opt" ]
 let ocamlopt_cmd = new_strings_option "ocamlopt" [ "ocamlopt.opt" ]
 let ocamllex_cmd = new_strings_option "ocamllex" [ "ocamllex.opt" ]
@@ -350,6 +367,8 @@ let ocaml_config_found = new_bool_option "ocaml_config_found" false
 let set_global_config cout =
   (match cout.cout_ocamlc with None -> () | Some cmd ->
     ocamlc_cmd.set cmd);
+  (match cout.cout_ocamldoc with None -> () | Some cmd ->
+    ocamldoc_cmd.set cmd);
   (match cout.cout_ocamlopt with None -> () | Some cmd ->
     ocamlopt_cmd.set cmd);
   (match cout.cout_ocamlcc with None -> () | Some cmd ->

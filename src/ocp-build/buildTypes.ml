@@ -73,7 +73,9 @@ and package_info = {
     (build_directory *
     ((module_origin * string) StringMap.t ref)) StringsMap.t;
   mutable lib_byte_targets : (build_file * target_kind) list;
-  mutable lib_build_targets : build_file list;
+  lib_build_targets : build_file list ref;
+  lib_doc_targets : build_file list ref;
+  lib_test_targets : build_file list ref;
   mutable lib_cmo_objects : build_file list;
   mutable lib_bytecomp_deps : build_file list;
   mutable lib_bytelink_deps : build_file list;

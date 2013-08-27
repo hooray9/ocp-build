@@ -16,6 +16,7 @@ open BuildOCPVariable
 
 (* These values are modified by reading the configuration *)
 val ocamlc_cmd : string list source_option
+val ocamldoc_cmd : string list source_option
 val ocamlcc_cmd : string list source_option
 val ocamllex_cmd : string list source_option
 val ocamlyacc_cmd : string list source_option
@@ -65,6 +66,7 @@ module TYPES : sig
   type config_output = {
     mutable cout_ocaml : ocaml_config option;
     mutable cout_ocamlc : string list option;
+    mutable cout_ocamldoc : string list option;
     mutable cout_ocamlcc : string list option;
     mutable cout_ocamlopt : string list option;
     mutable cout_ocamldep : string list option;

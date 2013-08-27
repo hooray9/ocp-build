@@ -169,6 +169,8 @@ let new_library bc pk package_dirname src_dir dst_dir mut_dir =
       lib_dst_dir = dst_dir;
       lib_mut_dir = mut_dir;
       lib_byte_targets = [];
+      lib_doc_targets = ref [];
+      lib_test_targets = ref [];
       lib_cmo_objects = [];
       lib_bytecomp_deps = [];
       lib_bytelink_deps = [];
@@ -185,7 +187,7 @@ let new_library bc pk package_dirname src_dir dst_dir mut_dir =
       lib_sources = get_local_with_default [pk.package_options] "files" [];
       lib_tests = get_local_with_default [pk.package_options] "tests" [];
 
-      lib_build_targets = [];
+      lib_build_targets = ref [];
       lib_ready;
       lib_loc;
       lib_installed;

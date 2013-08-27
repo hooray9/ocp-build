@@ -1288,12 +1288,22 @@ also duplicated packages. *)
 
 let scan_root root_dir =
   let files = ref [] in
-  BuildScanner.scan_directory_for_suffix
-    (File.to_string root_dir) ".ocp" (fun filename ->
-    match (Filename.basename filename).[0] with
-    'a'..'z' | 'A'..'Z' | '0'..'9' ->
-      files := File.of_string filename :: !files
-    | _ -> ());
+  BuildScanner.scan_directory
+     (fun _ _ filename ->
+    if Sys.is_directory filename then begin
+      if Sys.file_exists (Filename.concat filename ".ocpstop") then
+        BuildScanner.ignore_file_or_directory ()
+    end else begin
+      begin
+        if Filename.check_suffix filename ".ocp" then
+          match (Filename.basename filename).[0] with
+            'a'..'z' | 'A'..'Z' | '0'..'9' ->
+            files := File.of_string filename :: !files
+          | _ -> ()
+      end;
+      BuildScanner.ignore_file_or_directory ()
+    end;
+  ) (File.to_string root_dir);
   List.rev !files
 (* files are reverted, so that the first in breadth are used first
 (this is expected from [load_project] *)
