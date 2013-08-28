@@ -1,25 +1,7 @@
-## To clone
+# ocp-build
 
-    git clone git@github.com:OCamlPro/ocp-build.git
-    cd ocp-build
+ocp-build is a build tool for OCaml.
 
-## To build
-
-Configure:
-
-    ./configure -prefix /usr/local
-
-Build:
-
-    make
-
-Install:
-
-    make install
-
-Build and read the documentation:
-
-    make doc
-    cd docs/user-manual
-    evince user-manual.pdf
-
+ocp-build is part of TypeRex, developed and maintained by OCamlPro.
+Documentation to install and use this tool is available on
+[http://www.typerex.org/ocp-build.html](http://www.typerex.org/ocp-build.html)
